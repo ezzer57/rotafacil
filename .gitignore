@@ -1,0 +1,35 @@
+# dependências
+node_modules/
+
+# Expo / Metro
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+.metro-health-check*
+
+# build nativo gerado
+/mobile/ios
+/mobile/android
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# variáveis de ambiente (NUNCA versionar chaves de API)
+.env
+.env.*
+!.env.example
+
+# logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# sistema operacional
+.DS_Store
+Thumbs.db
+
+# typescript
+*.tsbuildinfo
