@@ -18,6 +18,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import MapaRoteiro, { type ParadaMapa } from '@/components/mapa';
 import { Botao, Cartao, Esqueleto, EstadoVazio, Selo, Texto } from '@/components/ui';
 import {
   formatarDistancia,
@@ -163,8 +164,18 @@ export default function TelaRoteiro() {
         </Texto>
       </Cartao>
 
-      {/* ------------------------------------------------ mapa (reservado) */}
-      <MapaRoteiro />
+      {/* ----------------------------------------------------------- mapa */}
+      <MapaRoteiro
+        origem={roteiro.preferencias.origem}
+        paradas={roteiro.itens.map<ParadaMapa>((item) => ({
+          id: item.ponto.id,
+          nome: item.ponto.nome,
+          ordem: item.ordem,
+          lat: item.ponto.coordenada.lat,
+          lng: item.ponto.coordenada.lng,
+          modalAteAqui: item.trechoAteAqui?.modal ?? null,
+        }))}
+      />
 
       {/* ----------------------------------------------------- percurso */}
       <View style={{ gap: espaco.md }}>
@@ -464,26 +475,6 @@ function LinhaCalculo({
   );
 }
 
-/**
- * Espaço reservado para o mapa. A troca por uma biblioteca de mapas
- * acontece somente aqui, sem impacto no restante da tela.
- */
-function MapaRoteiro() {
-  const cores = useCores();
-  const estilos = useEstilos(cores);
-  return (
-    <View style={estilos.mapa}>
-      <Ionicons name="map" size={22} color={cores.primaria} />
-      <Texto variante="pequeno" peso="semi" cor={cores.primaria}>
-        Mapa do percurso
-      </Texto>
-      <Texto variante="micro" cor={cores.textoSuave}>
-        Próxima etapa da implementação
-      </Texto>
-    </View>
-  );
-}
-
 function useEstilos(cores: Paleta) {
   return useMemo(
     () =>
@@ -521,17 +512,6 @@ function useEstilos(cores: Paleta) {
           height: 1,
           backgroundColor: cores.borda,
           marginVertical: espaco.xs,
-        },
-        mapa: {
-          height: 160,
-          borderRadius: raio.lg,
-          borderWidth: 1,
-          borderStyle: 'dashed',
-          borderColor: cores.primaria,
-          backgroundColor: cores.primariaSuave,
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 4,
         },
       }),
     [cores],

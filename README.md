@@ -18,7 +18,7 @@ Centro Universitário Católica de Quixadá
 | Backend (Node.js + Express) | A fazer |
 | Banco de dados (PostgreSQL + PostGIS) | A fazer |
 | APIs do Google (Places e Routes) | A fazer |
-| Mapa | A fazer |
+| Mapa do percurso | Funcionando (Leaflet + OpenStreetMap, sem chave de API) |
 
 As tarifas de táxi usadas na estimativa são **provisórias** e precisam ser
 substituídas pelos valores dos decretos municipais de Quixadá e Fortaleza.
@@ -41,6 +41,7 @@ mobile/
 └─ src/
    ├─ app/        telas (expo-router)
    ├─ components/ biblioteca de componentes visuais
+   │  └─ mapa/    mapa do percurso (WebView no celular, iframe no navegador)
    ├─ domain/     tipos, validação e formatação (contrato com a API)
    ├─ data/
    │  ├─ mock/    dados e algoritmo simulados (sai quando o backend entrar)
