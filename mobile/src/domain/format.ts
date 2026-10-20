@@ -31,6 +31,8 @@ export function formatarDuracao(minutos: number): string {
 
 export function formatarDistancia(km: number): string {
   if (km < 1) return `${Math.round(km * 1000)} m`;
+  // Acima de 100 km a casa decimal não acrescenta nada.
+  if (km >= 100) return `${Math.round(km).toLocaleString('pt-BR')} km`;
   return `${km.toFixed(1).replace('.', ',')} km`;
 }
 

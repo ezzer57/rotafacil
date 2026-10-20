@@ -14,7 +14,8 @@ Centro Universitário Católica de Quixadá
 |---|---|
 | Camada visual (telas) | Funcionando |
 | Algoritmo de roteirização e custo | Funcionando, rodando localmente no aplicativo |
-| Dados | Simulados (`mobile/src/data/mock`) |
+| Localização (GPS) | Funcionando (`expo-location`, apenas em primeiro plano) |
+| Dados | Pontos turísticos simulados (`mobile/src/data/mock`) |
 | Backend (Node.js + Express) | A fazer |
 | Banco de dados (PostgreSQL + PostGIS) | A fazer |
 | APIs do Google (Places e Routes) | A fazer |
@@ -48,7 +49,7 @@ mobile/
    │  ├─ http/    cliente da API real (pronto, desligado)
    │  ├─ services.ts  interfaces dos serviços
    │  └─ provider.tsx ÚNICO ponto de troca entre mock e backend
-   ├─ hooks/      acesso a dados pelas telas
+   ├─ hooks/      acesso a dados e à localização do aparelho
    └─ theme/      tokens e temas claro/escuro
 ```
 
