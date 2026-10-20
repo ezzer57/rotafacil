@@ -33,3 +33,6 @@ Thumbs.db
 
 # typescript
 *.tsbuildinfo
+
+# arquivo de trabalho (texto extraido do PDF do TCC)
+tcc.txt

@@ -11,6 +11,7 @@
  */
 
 import { formatarDuracao, formatarReais } from '@/domain/format';
+import { distanciaViaria } from '@/domain/geo';
 import type {
   Bandeira,
   Coordenada,
@@ -27,27 +28,10 @@ import type {
 } from '@/domain/types';
 import { CIDADES, TARIFAS, pontosPorCidade, type TarifaTaxi } from './dados';
 
-/** Distância em linha reta, em km (fórmula de haversine). */
-export function haversine(a: Coordenada, b: Coordenada): number {
-  const R = 6371;
-  const rad = (g: number) => (g * Math.PI) / 180;
-  const dLat = rad(b.lat - a.lat);
-  const dLng = rad(b.lng - a.lng);
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(h));
-}
-
-/** Fator de circuidade: corrige a linha reta para a distância pelas vias. */
-const FATOR_CIRCUIDADE = 1.3;
 /** Acima desta distância o deslocamento deixa de ser a pé. */
 const DISTANCIA_MAX_A_PE_KM = 1;
 const VELOCIDADE_A_PE_KMH = 4.5;
 const VELOCIDADE_CARRO_KMH = 28;
-
-export const distanciaViaria = (a: Coordenada, b: Coordenada) =>
-  haversine(a, b) * FATOR_CIRCUIDADE;
 
 /** Bandeira 2 das 22h às 6h e aos domingos. */
 export function bandeiraDe(data: Date): Bandeira {
