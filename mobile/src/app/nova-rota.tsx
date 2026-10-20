@@ -1,20 +1,24 @@
 /**
  * Nova rota (UI-05) - o núcleo do trabalho.
  *
- * Coleta as entradas do algoritmo: cidade, categorias de interesse,
- * orçamento, tempo disponível e horário de início. Esta tela não existia no
- * Figma original e é o que diferencia o RotaFácil de um guia turístico comum.
+ * Coleta as entradas do algoritmo: posição de partida, cidade, categorias de
+ * interesse, orçamento, tempo disponível e horário de início.
  *
- * O horário de início não é detalhe: é ele que faz o algoritmo aplicar a
- * bandeira 2 à noite e descartar pontos que já estarão fechados.
+ * A posição vem do GPS do aparelho. Quando a localização não está disponível
+ * - permissão negada, aparelho sem sinal ou usuário fora das cidades
+ * atendidas -, o roteiro parte do centro da cidade escolhida, e a tela diz
+ * isso com todas as letras em vez de fingir que sabe onde a pessoa está.
  */
 
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 
 import { Botao, Cartao, Campo, Chip, Texto } from '@/components/ui';
+import { cidadeMaisProxima } from '@/domain/geo';
 import {
+  formatarDistancia,
   formatarDuracao,
   formatarReais,
   iconeCategoria,
@@ -22,6 +26,7 @@ import {
 } from '@/domain/format';
 import type { CategoriaPOI } from '@/domain/types';
 import { useCidades, useGerarRoteiro } from '@/hooks/use-rotafacil';
+import { useLocalizacao } from '@/hooks/use-localizacao';
 import { useCores } from '@/theme/provider';
 import { espaco } from '@/theme/tokens';
 
@@ -51,17 +56,47 @@ export default function TelaNovaRota() {
   const { data: cidades } = useCidades();
   const gerar = useGerarRoteiro();
   const cores = useCores();
+  const localizacao = useLocalizacao();
 
   const [cidadeId, setCidadeId] = useState(cidadeParam ?? 'quixada');
+  const [escolhaManual, setEscolhaManual] = useState(Boolean(cidadeParam));
   const [categorias, setCategorias] = useState<CategoriaPOI[]>(['natureza', 'gastronomia']);
   const [orcamento, setOrcamento] = useState('80');
   const [tempoMin, setTempoMin] = useState(240);
   const [horaInicio, setHoraInicio] = useState<number | null>(null);
 
+  /** Em qual cidade atendida o GPS indica que o usuário está. */
+  const detectada = useMemo(
+    () =>
+      localizacao.coordenada && cidades
+        ? cidadeMaisProxima(localizacao.coordenada, cidades)
+        : null,
+    [localizacao.coordenada, cidades],
+  );
+
+  // Seleciona a cidade sozinho, a menos que o usuário já tenha escolhido.
+  useEffect(() => {
+    if (escolhaManual) return;
+    if (detectada?.dentroDaCobertura) setCidadeId(detectada.cidade.id);
+  }, [detectada, escolhaManual]);
+
   const cidade = useMemo(
     () => cidades?.find((c) => c.id === cidadeId) ?? cidades?.[0],
     [cidades, cidadeId],
   );
+
+  /**
+   * Só usa a coordenada real quando ela cai dentro de uma cidade atendida.
+   * Partir de uma posição a centenas de quilômetros dos pontos cadastrados
+   * geraria um roteiro sem sentido.
+   */
+  const usandoGps =
+    localizacao.estado === 'obtida' &&
+    localizacao.coordenada != null &&
+    detectada?.dentroDaCobertura === true &&
+    detectada.cidade.id === cidadeId;
+
+  const origem = usandoGps ? localizacao.coordenada! : cidade?.centro;
 
   const valorOrcamento = Number(orcamento.replace(',', '.')) || 0;
 
@@ -83,10 +118,10 @@ export default function TelaNovaRota() {
   })();
 
   async function aoGerar() {
-    if (!cidade) return;
+    if (!cidade || !origem) return;
     const roteiro = await gerar.mutateAsync({
       cidadeId: cidade.id,
-      origem: cidade.centro, // será substituído pelo GPS quando a localização entrar
+      origem,
       categorias,
       orcamento: valorOrcamento,
       tempoDisponivelMin: tempoMin,
@@ -99,6 +134,14 @@ export default function TelaNovaRota() {
     <View style={{ flex: 1, backgroundColor: cores.fundo }}>
       <ScrollView
         contentContainerStyle={{ padding: espaco.lg, gap: espaco.xl, paddingBottom: 140 }}>
+        {/* --------------------------------------------------- localização */}
+        <CartaoLocalizacao
+          localizacao={localizacao}
+          nomeCidade={cidade?.nome}
+          detectada={detectada}
+          usandoGps={usandoGps}
+        />
+
         {/* --------------------------------------------------------- cidade */}
         <View style={{ gap: espaco.md }}>
           <Texto variante="titulo" peso="forte">
@@ -110,13 +153,13 @@ export default function TelaNovaRota() {
                 key={c.id}
                 rotulo={`${c.bandeira} ${c.nome}`}
                 ativo={c.id === cidadeId}
-                onPress={() => setCidadeId(c.id)}
+                onPress={() => {
+                  setCidadeId(c.id);
+                  setEscolhaManual(true);
+                }}
               />
             ))}
           </View>
-          <Texto variante="micro" cor={cores.textoSuave}>
-            Na versão final a posição vem do GPS do aparelho.
-          </Texto>
         </View>
 
         {/* ----------------------------------------------------- categorias */}
@@ -224,6 +267,9 @@ export default function TelaNovaRota() {
               minute: '2-digit',
             })}
           </Texto>
+          <Texto variante="micro" cor={cores.textoSuave} style={{ marginTop: 2 }}>
+            Partindo {usandoGps ? 'da sua posição atual' : `do centro de ${cidade?.nome ?? '-'}`}
+          </Texto>
         </Cartao>
       </ScrollView>
 
@@ -237,5 +283,113 @@ export default function TelaNovaRota() {
         />
       </View>
     </View>
+  );
+}
+
+/* --------------------------------------------------------------- auxiliar */
+
+/**
+ * Mostra de onde o roteiro vai partir. Ser explícito aqui atende ao
+ * princípio da transparência da LGPD: o usuário vê quando a localização
+ * está sendo usada e quando não está.
+ */
+function CartaoLocalizacao({
+  localizacao,
+  nomeCidade,
+  detectada,
+  usandoGps,
+}: {
+  localizacao: ReturnType<typeof useLocalizacao>;
+  nomeCidade?: string;
+  detectada: ReturnType<typeof cidadeMaisProxima>;
+  usandoGps: boolean;
+}) {
+  const cores = useCores();
+
+  const conteudo = (() => {
+    if (localizacao.estado === 'solicitando' || localizacao.estado === 'inicial') {
+      return {
+        icone: 'locate-outline' as const,
+        cor: cores.textoSuave,
+        fundo: cores.fundoAlt,
+        titulo: 'Obtendo sua localização...',
+        detalhe: 'Autorize o acesso para o roteiro começar de onde você está.',
+        acao: null,
+      };
+    }
+
+    if (usandoGps) {
+      return {
+        icone: 'navigate-circle' as const,
+        cor: cores.sucesso,
+        fundo: cores.sucessoSuave,
+        titulo: localizacao.descricao
+          ? `Você está em ${localizacao.descricao}`
+          : 'Usando sua posição atual',
+        detalhe: localizacao.precisaoM
+          ? `Precisão de cerca de ${Math.round(localizacao.precisaoM)} m. O roteiro parte daqui.`
+          : 'O roteiro parte da sua posição atual.',
+        acao: null,
+      };
+    }
+
+    if (localizacao.estado === 'obtida' && detectada && !detectada.dentroDaCobertura) {
+      return {
+        icone: 'alert-circle-outline' as const,
+        cor: cores.alerta,
+        fundo: cores.alertaSuave,
+        titulo: 'Você está fora das cidades atendidas',
+        detalhe: `A cidade mais próxima é ${detectada.cidade.nome}, a ${formatarDistancia(detectada.distanciaKm)} daqui. O roteiro vai partir do centro dela.`,
+        acao: null,
+      };
+    }
+
+    if (localizacao.estado === 'obtida') {
+      return {
+        icone: 'navigate-outline' as const,
+        cor: cores.textoSuave,
+        fundo: cores.fundoAlt,
+        titulo: `Partindo do centro de ${nomeCidade ?? 'cidade'}`,
+        detalhe: 'Você escolheu uma cidade diferente da sua posição atual.',
+        acao: null,
+      };
+    }
+
+    return {
+      icone: 'location-outline' as const,
+      cor: cores.alerta,
+      fundo: cores.alertaSuave,
+      titulo:
+        localizacao.estado === 'negada'
+          ? 'Sem acesso à sua localização'
+          : 'Não foi possível obter sua localização',
+      detalhe: `O roteiro vai partir do centro de ${nomeCidade ?? 'cidade'}.`,
+      acao: 'Tentar novamente',
+    };
+  })();
+
+  return (
+    <Cartao style={{ backgroundColor: conteudo.fundo, borderColor: conteudo.fundo }}>
+      <View style={{ flexDirection: 'row', gap: espaco.md }}>
+        <Ionicons name={conteudo.icone} size={20} color={conteudo.cor} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Texto variante="pequeno" peso="semi" cor={conteudo.cor}>
+            {conteudo.titulo}
+          </Texto>
+          <Texto variante="micro" cor={cores.textoSuave}>
+            {conteudo.detalhe}
+          </Texto>
+          {conteudo.acao ? (
+            <Botao
+              titulo={conteudo.acao}
+              variante="texto"
+              largura="auto"
+              onPress={() => void localizacao.solicitar()}
+              style={{ height: 32, paddingHorizontal: 0, marginTop: espaco.xs }}
+            />
+          ) : null}
+        </View>
+      </View>
+    </Cartao>
   );
 }
