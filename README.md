@@ -14,11 +14,12 @@ Centro Universitário Católica de Quixadá
 |---|---|
 | Camada visual (telas) | Funcionando |
 | Algoritmo de roteirização e custo | Funcionando, rodando localmente no aplicativo |
-| Dados | Simulados (`mobile/src/data/mock`) |
+| Localização (GPS) | Funcionando (`expo-location`, apenas em primeiro plano) |
+| Dados | Simulados por padrão; com `EXPO_PUBLIC_API_URL` definida, o app usa a API |
 | Backend (Node.js + Express) | Funcionando (`api/`) |
 | Banco de dados (PostgreSQL) | Modelado, com migração e carga inicial |
 | APIs do Google (Places e Routes) | A fazer |
-| Mapa | A fazer |
+| Mapa do percurso | Funcionando (Leaflet + OpenStreetMap, sem chave de API) |
 
 As tarifas de táxi usadas na estimativa são **provisórias** e precisam ser
 substituídas pelos valores dos decretos municipais de Quixadá e Fortaleza.
@@ -66,13 +67,14 @@ mobile/
 └─ src/
    ├─ app/        telas (expo-router)
    ├─ components/ biblioteca de componentes visuais
+   │  └─ mapa/    mapa do percurso (WebView no celular, iframe no navegador)
    ├─ domain/     tipos, validação e formatação (contrato com a API)
    ├─ data/
    │  ├─ mock/    dados e algoritmo simulados (sai quando o backend entrar)
    │  ├─ http/    cliente da API real (pronto, desligado)
    │  ├─ services.ts  interfaces dos serviços
    │  └─ provider.tsx ÚNICO ponto de troca entre mock e backend
-   ├─ hooks/      acesso a dados pelas telas
+   ├─ hooks/      acesso a dados e à localização do aparelho
    └─ theme/      tokens e temas claro/escuro
 ```
 

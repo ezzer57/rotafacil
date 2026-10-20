@@ -215,4 +215,3 @@ ALTER TABLE "visita" ADD CONSTRAINT "visita_roteiroId_fkey" FOREIGN KEY ("roteir
 
 -- AddForeignKey
 ALTER TABLE "visita" ADD CONSTRAINT "visita_pontoId_fkey" FOREIGN KEY ("pontoId") REFERENCES "ponto_interesse"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
