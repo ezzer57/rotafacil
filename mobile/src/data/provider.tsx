@@ -1,33 +1,60 @@
 /**
- * Injecao de dependencia dos servicos.
+ * Injeção de dependência dos serviços.
  *
- * ESTE E O UNICO ARQUIVO QUE MUDA NA VIRADA PARA O BACKEND.
- * Basta trocar a fabrica abaixo e todo o aplicativo passa a consumir a API.
+ * A escolha entre dados simulados e API real é feita por uma variável de
+ * ambiente, e não por edição de código:
+ *
+ *   EXPO_PUBLIC_API_URL definida  -> conversa com a API
+ *   EXPO_PUBLIC_API_URL ausente   -> dados simulados
+ *
+ * Com isso a demonstração continua funcionando sem servidor, e ligar na API
+ * é só preencher o .env. Nenhuma tela muda nos dois casos.
  */
 
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
+import { createServicosHttp, ErroApi } from '@/data/http';
 import { createServicosMock } from '@/data/mock';
-// import { createServicosHttp } from '@/data/http';
+import { hidratarSessao } from '@/data/sessao';
 import type { ServicosApp } from '@/data/services';
 
 const ServicosContext = createContext<ServicosApp | null>(null);
 
+export const API_URL = process.env.EXPO_PUBLIC_API_URL?.trim() || null;
+export const usandoApiReal = API_URL !== null;
+
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: 1, staleTime: 30_000, refetchOnWindowFocus: false },
+    queries: {
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+      // Repetir uma falha de credencial ou de validação não ajuda: só erro
+      // de rede e de servidor merecem nova tentativa.
+      retry: (tentativas, erro) => {
+        if (erro instanceof ErroApi && erro.status >= 400 && erro.status < 500) return false;
+        return tentativas < 2;
+      },
+    },
   },
 });
 
 export function ProvedorDeServicos({ children }: { children: ReactNode }) {
-  const servicos = useMemo(() => {
-    // --- Backend desligado (fase atual): dados simulados -------------------
-    return createServicosMock();
+  const [sessaoCarregada, setSessaoCarregada] = useState(!usandoApiReal);
 
-    // --- Backend ligado: descomentar a linha abaixo e remover a de cima ----
-    // return createServicosHttp(process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3333');
+  const servicos = useMemo<ServicosApp>(
+    () => (API_URL ? createServicosHttp(API_URL) : createServicosMock()),
+    [],
+  );
+
+  // Recupera o token gravado antes de qualquer requisição, senão a primeira
+  // consulta sairia sem autenticação e jogaria o usuário para o login.
+  useEffect(() => {
+    if (!usandoApiReal) return;
+    void hidratarSessao().finally(() => setSessaoCarregada(true));
   }, []);
+
+  if (!sessaoCarregada) return null;
 
   return (
     <QueryClientProvider client={queryClient}>

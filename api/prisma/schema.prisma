@@ -127,8 +127,9 @@ model PontoInteresse {
   sincronizadoEm DateTime    @default(now())
 
   cidade  Cidade        @relation(fields: [cidadeId], references: [id], onDelete: Cascade)
-  itens   RoteiroItem[]
-  visitas Visita[]
+  itens       RoteiroItem[]
+  visitas     Visita[]
+  descartados RoteiroDescartado[]
 
   @@index([cidadeId, categoria])
   @@map("ponto_interesse")
@@ -209,7 +210,8 @@ model RoteiroDescartado {
   motivo    MotivoDescarte
   detalhe   String         @db.VarChar(200)
 
-  roteiro Roteiro @relation(fields: [roteiroId], references: [id], onDelete: Cascade)
+  roteiro Roteiro        @relation(fields: [roteiroId], references: [id], onDelete: Cascade)
+  ponto   PontoInteresse @relation(fields: [pontoId], references: [id])
 
   @@index([roteiroId])
   @@map("roteiro_descartado")
