@@ -15,7 +15,7 @@ Centro Universitário Católica de Quixadá
 | Camada visual (telas) | Funcionando |
 | Algoritmo de roteirização e custo | Funcionando, rodando localmente no aplicativo |
 | Localização (GPS) | Funcionando (`expo-location`, apenas em primeiro plano) |
-| Dados | Pontos turísticos simulados (`mobile/src/data/mock`) |
+| Dados | Simulados por padrão; com `EXPO_PUBLIC_API_URL` definida, o app usa a API |
 | Backend (Node.js + Express) | Funcionando (`api/`) |
 | Banco de dados (PostgreSQL) | Modelado, com migração e carga inicial |
 | APIs do Google (Places e Routes) | A fazer |
@@ -33,7 +33,25 @@ npm run web      # abre em http://localhost:8081
 npx expo start   # QR code para o aplicativo Expo Go no celular
 ```
 
-Credencial de demonstração: qualquer e-mail válido com a senha `123456`.
+Credencial de demonstração (modo simulado): qualquer e-mail válido com a senha `123456`.
+
+### Rodando com a API de verdade
+
+```bash
+cd api && npm install && cp .env.example .env
+npm run db:up && npx prisma migrate deploy && npm run db:seed
+npm run dev                                   # http://localhost:3333
+```
+
+Depois, no aplicativo, crie `mobile/.env` com o endereço do servidor:
+
+```
+EXPO_PUBLIC_API_URL=http://localhost:3333
+```
+
+Sem essa variável o aplicativo continua com dados simulados, o que mantém a
+demonstração funcionando sem servidor. No celular pelo Expo Go, use o IP do
+computador na rede local em vez de `localhost`.
 
 ## Estrutura
 

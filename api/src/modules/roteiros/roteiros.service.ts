@@ -29,7 +29,7 @@ const MAX_CANDIDATOS = 40;
 const incluirTudo = {
   cidade: true,
   itens: { include: { ponto: true } },
-  descartados: true,
+  descartados: { include: { ponto: true } },
   visitas: true,
 } satisfies Prisma.RoteiroInclude;
 

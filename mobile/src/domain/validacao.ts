@@ -9,7 +9,8 @@
 
 import { z } from 'zod';
 
-export const SENHA_MINIMA = 6;
+/** Precisa acompanhar o valor exigido pela API (api/src/contratos). */
+export const SENHA_MINIMA = 8;
 
 export const schemaLogin = z.object({
   email: z

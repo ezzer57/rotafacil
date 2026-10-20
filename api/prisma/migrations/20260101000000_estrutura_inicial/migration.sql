@@ -208,6 +208,9 @@ ALTER TABLE "roteiro_item" ADD CONSTRAINT "roteiro_item_pontoId_fkey" FOREIGN KE
 ALTER TABLE "roteiro_descartado" ADD CONSTRAINT "roteiro_descartado_roteiroId_fkey" FOREIGN KEY ("roteiroId") REFERENCES "roteiro"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "roteiro_descartado" ADD CONSTRAINT "roteiro_descartado_pontoId_fkey" FOREIGN KEY ("pontoId") REFERENCES "ponto_interesse"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "visita" ADD CONSTRAINT "visita_roteiroId_fkey" FOREIGN KEY ("roteiroId") REFERENCES "roteiro"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey

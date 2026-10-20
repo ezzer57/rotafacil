@@ -19,7 +19,7 @@ type RoteiroCompleto = Prisma.RoteiroGetPayload<{
   include: {
     cidade: true;
     itens: { include: { ponto: true } };
-    descartados: true;
+    descartados: { include: { ponto: true } };
     visitas: true;
   };
 }>;
@@ -135,7 +135,7 @@ export function serializarRoteiro(roteiro: RoteiroCompleto) {
     },
 
     descartados: roteiro.descartados.map((d) => ({
-      pontoId: d.pontoId,
+      ponto: serializarPonto(d.ponto),
       motivo: d.motivo,
       detalhe: d.detalhe,
     })),

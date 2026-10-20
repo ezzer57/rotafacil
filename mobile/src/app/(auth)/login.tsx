@@ -13,6 +13,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Botao, Cartao, Campo, Texto } from '@/components/ui';
+import { usandoApiReal } from '@/data/provider';
 import { errosPorCampo, schemaLogin } from '@/domain/validacao';
 import { useEntrar } from '@/hooks/use-rotafacil';
 import { useCores } from '@/theme/provider';
@@ -179,10 +180,12 @@ export default function TelaLogin() {
             </Texto>
           </View>
 
-          {/* Lembrete de demonstração - sai quando a API entrar. */}
-          <Texto variante="micro" cor={cores.textoSuave} style={{ textAlign: 'center' }}>
-            Demonstração: qualquer e-mail válido com a senha 123456
-          </Texto>
+          {/* A credencial de demonstração só existe nos dados simulados. */}
+          {usandoApiReal ? null : (
+            <Texto variante="micro" cor={cores.textoSuave} style={{ textAlign: 'center' }}>
+              Demonstração: qualquer e-mail válido com a senha 123456
+            </Texto>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
