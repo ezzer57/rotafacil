@@ -1,0 +1,70 @@
+name: Integração contínua
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  api:
+    name: API (tipos, testes e migração)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: rotafacil
+          POSTGRES_PASSWORD: rotafacil
+          POSTGRES_DB: rotafacil
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U rotafacil"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://rotafacil:rotafacil@localhost:5432/rotafacil?schema=public
+      JWT_SECRET: segredo-de-integracao-continua-com-mais-de-32-caracteres
+      NODE_ENV: test
+
+    defaults:
+      run:
+        working-directory: api
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Verificação de tipos
+        run: npm run typecheck
+      - name: Testes automatizados
+        run: npm test
+      - name: Aplicar migrações no banco limpo
+        run: npx prisma migrate deploy
+      - name: Carga inicial
+        run: npm run db:seed
+
+  mobile:
+    name: Aplicativo (tipos)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - name: Verificação de tipos
+        run: npx tsc --noEmit

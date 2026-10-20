@@ -15,8 +15,8 @@ Centro Universitário Católica de Quixadá
 | Camada visual (telas) | Funcionando |
 | Algoritmo de roteirização e custo | Funcionando, rodando localmente no aplicativo |
 | Dados | Simulados (`mobile/src/data/mock`) |
-| Backend (Node.js + Express) | A fazer |
-| Banco de dados (PostgreSQL + PostGIS) | A fazer |
+| Backend (Node.js + Express) | Funcionando (`api/`) |
+| Banco de dados (PostgreSQL) | Modelado, com migração e carga inicial |
 | APIs do Google (Places e Routes) | A fazer |
 | Mapa | A fazer |
 
@@ -37,6 +37,13 @@ Credencial de demonstração: qualquer e-mail válido com a senha `123456`.
 ## Estrutura
 
 ```
+api/
+└─ src/
+   ├─ core/        motor puro: geo, tarifa e roteirização (com testes)
+   ├─ modules/     auth, cidades, pontos, roteiros e saúde
+   ├─ middlewares/ autenticação, validação e erros
+   └─ config/      configuração validada no boot
+
 mobile/
 └─ src/
    ├─ app/        telas (expo-router)

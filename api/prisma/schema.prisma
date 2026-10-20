@@ -1,0 +1,230 @@
+// Modelo de dados do RotaFácil.
+//
+// Decisões que valem registro no trabalho:
+//  - valores monetários em Decimal(10,2), nunca em ponto flutuante, para a
+//    soma de custos não acumular erro de arredondamento;
+//  - horários de funcionamento guardados em minutos desde a meia-noite,
+//    o que torna a comparação de janelas trivial e independente de fuso;
+//  - exclusão em cascata a partir do usuário, para atender ao direito de
+//    eliminação dos dados previsto no art. 18 da LGPD;
+//  - a tarifa guarda a norma de origem e a vigência, para que a estimativa
+//    possa ser auditada e reproduzida.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CategoriaPOI {
+  cultura
+  natureza
+  gastronomia
+  compras
+  vidaNoturna
+  religioso
+}
+
+enum Modal {
+  pe
+  app
+}
+
+enum MotivoDescarte {
+  orcamento
+  tempo
+  horario
+}
+
+model Usuario {
+  id        String   @id @default(uuid()) @db.Uuid
+  nome      String   @db.VarChar(120)
+  email     String   @unique @db.VarChar(180)
+  senhaHash String
+  criadoEm  DateTime @default(now())
+  alteradoEm DateTime @updatedAt
+
+  consentimentos Consentimento[]
+  roteiros       Roteiro[]
+
+  @@map("usuario")
+}
+
+/// Registro de consentimento exigido pela LGPD (art. 8º).
+model Consentimento {
+  id        String   @id @default(uuid()) @db.Uuid
+  usuarioId String   @db.Uuid
+  tipo      String   @db.VarChar(60) // ex.: "localizacao", "termos"
+  versao    String   @db.VarChar(20)
+  aceitoEm  DateTime @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, tipo, versao])
+  @@map("consentimento")
+}
+
+model Cidade {
+  id    String  @id @db.VarChar(60) // slug, ex.: "quixada"
+  nome  String  @db.VarChar(120)
+  uf    String  @db.Char(2)
+  pais  String  @db.VarChar(60)
+  bandeira String @db.VarChar(8)
+  lat   Float
+  lng   Float
+  ativa Boolean @default(true)
+
+  tarifas TarifaTaxi[]
+  pontos  PontoInteresse[]
+  roteiros Roteiro[]
+
+  @@map("cidade")
+}
+
+/// Tarifa oficial do táxi, base da estimativa de custo (seção 3.7 do TCC).
+model TarifaTaxi {
+  id            String    @id @default(uuid()) @db.Uuid
+  cidadeId      String    @db.VarChar(60)
+  bandeirada    Decimal   @db.Decimal(10, 2)
+  kmBandeira1   Decimal   @db.Decimal(10, 2)
+  kmBandeira2   Decimal   @db.Decimal(10, 2)
+  horaParada    Decimal   @db.Decimal(10, 2)
+  /// Fator de calibração para transporte por aplicativo (equação 10).
+  alfa          Decimal   @db.Decimal(5, 3)
+  alfaP10       Decimal   @db.Decimal(5, 3)
+  alfaP90       Decimal   @db.Decimal(5, 3)
+  /// Norma municipal que fixa a tarifa, para citação e auditoria.
+  norma         String    @db.VarChar(240)
+  vigenciaInicio DateTime
+  vigenciaFim   DateTime?
+
+  cidade Cidade @relation(fields: [cidadeId], references: [id], onDelete: Cascade)
+
+  @@index([cidadeId, vigenciaInicio])
+  @@map("tarifa_taxi")
+}
+
+model PontoInteresse {
+  id            String       @id @db.VarChar(120) // place_id do provedor
+  cidadeId      String       @db.VarChar(60)
+  nome          String       @db.VarChar(200)
+  categoria     CategoriaPOI
+  endereco      String       @db.VarChar(240)
+  lat           Float
+  lng           Float
+  nota          Float?
+  avaliacoes    Int          @default(0)
+  faixaPreco    Int?
+  fotoUrl       String?      @db.VarChar(500)
+  tempoVisitaMin Int
+  /// Janela de funcionamento em minutos desde a meia-noite (null = sempre aberto).
+  abreMin       Int?
+  fechaMin      Int?
+  /// Quando os dados vieram do provedor, para controle de validade do cache.
+  sincronizadoEm DateTime    @default(now())
+
+  cidade  Cidade        @relation(fields: [cidadeId], references: [id], onDelete: Cascade)
+  itens   RoteiroItem[]
+  visitas Visita[]
+
+  @@index([cidadeId, categoria])
+  @@map("ponto_interesse")
+}
+
+model Roteiro {
+  id                String   @id @default(uuid()) @db.Uuid
+  usuarioId         String   @db.Uuid
+  cidadeId          String   @db.VarChar(60)
+  criadoEm          DateTime @default(now())
+  inicioPrevisto    DateTime
+  orcamento         Decimal  @db.Decimal(10, 2)
+  tempoDisponivelMin Int
+  /// Ponto de partida informado pelo aparelho.
+  origemLat         Float
+  origemLng         Float
+  categorias        CategoriaPOI[]
+  /// Pontos que o usuário removeu e que o recálculo deve continuar ignorando.
+  pontosExcluidos   String[]       @default([])
+
+  custoTransporteMin Decimal @db.Decimal(10, 2)
+  custoTransporteEst Decimal @db.Decimal(10, 2)
+  custoTransporteMax Decimal @db.Decimal(10, 2)
+  custoLocais        Decimal @db.Decimal(10, 2)
+  duracaoMin         Int
+  distanciaKm        Float
+  trechosAPe         Int     @default(0)
+  economiaCaminhando Decimal @default(0) @db.Decimal(10, 2)
+
+  /// Métricas do processamento, usadas como resultado de pesquisa.
+  diagnostico Json
+
+  usuario     Usuario            @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  cidade      Cidade             @relation(fields: [cidadeId], references: [id])
+  itens       RoteiroItem[]
+  descartados RoteiroDescartado[]
+  visitas     Visita[]
+
+  @@index([usuarioId, criadoEm])
+  @@map("roteiro")
+}
+
+model RoteiroItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  roteiroId String   @db.Uuid
+  pontoId   String   @db.VarChar(120)
+  ordem     Int
+  chegadaPrevista DateTime
+  saidaPrevista   DateTime
+  custoNoLocal    Decimal @db.Decimal(10, 2)
+  visitado        Boolean @default(false)
+
+  // Deslocamento da parada anterior até esta (ausente na primeira).
+  modal        Modal?
+  distanciaKm  Float?
+  duracaoMin   Int?
+  bandeira     Int?
+  custoMin     Decimal? @db.Decimal(10, 2)
+  custoEst     Decimal? @db.Decimal(10, 2)
+  custoMax     Decimal? @db.Decimal(10, 2)
+  /// Memória de cálculo da tarifa, exibida no "como calculamos".
+  calculo      Json?
+
+  roteiro Roteiro        @relation(fields: [roteiroId], references: [id], onDelete: Cascade)
+  ponto   PontoInteresse @relation(fields: [pontoId], references: [id])
+
+  @@unique([roteiroId, ordem])
+  @@index([roteiroId])
+  @@map("roteiro_item")
+}
+
+/// Pontos avaliados e deixados de fora, com o motivo. Registrar isso torna a
+/// decisão do algoritmo auditável.
+model RoteiroDescartado {
+  id        String         @id @default(uuid()) @db.Uuid
+  roteiroId String         @db.Uuid
+  pontoId   String         @db.VarChar(120)
+  motivo    MotivoDescarte
+  detalhe   String         @db.VarChar(200)
+
+  roteiro Roteiro @relation(fields: [roteiroId], references: [id], onDelete: Cascade)
+
+  @@index([roteiroId])
+  @@map("roteiro_descartado")
+}
+
+model Visita {
+  id              String   @id @default(uuid()) @db.Uuid
+  roteiroId       String   @db.Uuid
+  pontoId         String   @db.VarChar(120)
+  chegadaEm       DateTime @default(now())
+  custoRegistrado Decimal? @db.Decimal(10, 2)
+
+  roteiro Roteiro        @relation(fields: [roteiroId], references: [id], onDelete: Cascade)
+  ponto   PontoInteresse @relation(fields: [pontoId], references: [id])
+
+  @@unique([roteiroId, pontoId])
+  @@map("visita")
+}

@@ -1,0 +1,354 @@
+{
+  "info": {
+    "name": "RotaFácil API",
+    "description": "Teste de contrato da API do RotaFácil. Roda com a Postman CLI:\n\n    npm run contrato\n\nPercorre o fluxo completo: cadastro, login, listagem de cidades, geração de roteiro, ajuste de orçamento, registro de visita e exclusão. Cada requisição confere o formato da resposta, e não apenas o código HTTP.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3333" },
+    { "key": "token", "value": "" },
+    { "key": "email", "value": "" },
+    { "key": "roteiroId", "value": "" },
+    { "key": "pontoId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Saúde: processo no ar",
+      "request": { "method": "GET", "url": "{{baseUrl}}/health/live" },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 200', () => pm.response.to.have.status(200));",
+              "pm.test('status ok', () => pm.expect(pm.response.json().status).to.eql('ok'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Saúde: banco conectado",
+      "request": { "method": "GET", "url": "{{baseUrl}}/health/ready" },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 200', () => pm.response.to.have.status(200));",
+              "pm.test('banco conectado', () => pm.expect(pm.response.json().banco).to.eql('conectado'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cadastro de usuário",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('email', `teste-${Date.now()}@exemplo.com`);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 201', () => pm.response.to.have.status(201));",
+              "const corpo = pm.response.json();",
+              "pm.test('devolve token', () => pm.expect(corpo.token).to.be.a('string'));",
+              "pm.test('nao devolve a senha', () => pm.expect(JSON.stringify(corpo)).to.not.include('senha'));",
+              "pm.collectionVariables.set('token', corpo.token);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/v1/users",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nome\": \"Usuario de Teste\",\n  \"email\": \"{{email}}\",\n  \"senha\": \"senha-de-teste-123\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Login com senha errada",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 401', () => pm.response.to.have.status(401));",
+              "const erro = pm.response.json().erro;",
+              "pm.test('mensagem generica, sem revelar se o e-mail existe', () => pm.expect(erro.mensagem).to.eql('E-mail ou senha incorretos'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/v1/sessions",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"senha\": \"senha-errada-mesmo\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 200', () => pm.response.to.have.status(200));",
+              "const corpo = pm.response.json();",
+              "pm.collectionVariables.set('token', corpo.token);",
+              "pm.test('devolve o usuario', () => pm.expect(corpo.usuario.email).to.eql(pm.collectionVariables.get('email')));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/v1/sessions",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"senha\": \"senha-de-teste-123\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Rota protegida sem token",
+      "request": { "method": "GET", "url": "{{baseUrl}}/v1/itineraries" },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 401', () => pm.response.to.have.status(401));",
+              "pm.test('codigo estavel', () => pm.expect(pm.response.json().erro.codigo).to.eql('NAO_AUTENTICADO'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cidades atendidas",
+      "request": { "method": "GET", "url": "{{baseUrl}}/v1/cities" },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 200', () => pm.response.to.have.status(200));",
+              "const cidades = pm.response.json();",
+              "pm.test('traz ao menos uma cidade', () => pm.expect(cidades.length).to.be.above(0));",
+              "pm.test('informa se a tarifa esta calibrada', () => pm.expect(cidades[0]).to.have.property('tarifaCalibrada'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerar roteiro",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 201', () => pm.response.to.have.status(201));",
+              "const roteiro = pm.response.json();",
+              "pm.collectionVariables.set('roteiroId', roteiro.id);",
+              "if (roteiro.itens.length > 0) pm.collectionVariables.set('pontoId', roteiro.itens[0].ponto.id);",
+              "pm.test('respeita o orcamento informado', () => pm.expect(roteiro.totais.custoTotal.estimado).to.be.at.most(roteiro.orcamento));",
+              "pm.test('respeita o tempo disponivel', () => pm.expect(roteiro.totais.duracaoMin).to.be.at.most(roteiro.tempoDisponivelMin));",
+              "pm.test('traz as metricas de processamento', () => pm.expect(roteiro.diagnostico).to.have.property('duracaoMs'));",
+              "pm.test('explica os pontos descartados', () => { roteiro.descartados.forEach(d => pm.expect(d.motivo).to.be.oneOf(['orcamento','tempo','horario'])); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{baseUrl}}/v1/itineraries",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cidadeId\": \"quixada\",\n  \"origem\": { \"lat\": -4.9712, \"lng\": -39.0156 },\n  \"categorias\": [\"natureza\", \"gastronomia\"],\n  \"orcamento\": 80,\n  \"tempoDisponivelMin\": 240,\n  \"inicioPrevisto\": \"2026-10-21T09:00:00.000Z\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Gerar roteiro com orçamento inválido",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 422', () => pm.response.to.have.status(422));",
+              "pm.test('aponta o campo com problema', () => pm.expect(pm.response.json().erro.detalhes[0].campo).to.eql('orcamento'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{baseUrl}}/v1/itineraries",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cidadeId\": \"quixada\",\n  \"origem\": { \"lat\": -4.9712, \"lng\": -39.0156 },\n  \"orcamento\": -50,\n  \"tempoDisponivelMin\": 240,\n  \"inicioPrevisto\": \"2026-10-21T09:00:00.000Z\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Consultar roteiro",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 200', () => pm.response.to.have.status(200));",
+              "const roteiro = pm.response.json();",
+              "pm.test('inclui a memoria de calculo dos trechos pagos', () => {",
+              "  const pago = roteiro.itens.find(i => i.trechoAteAqui && i.trechoAteAqui.modal === 'app');",
+              "  if (pago) pm.expect(pago.trechoAteAqui.calculo).to.have.property('subtotalTaxi');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": "{{baseUrl}}/v1/itineraries/{{roteiroId}}"
+      }
+    },
+    {
+      "name": "Ajustar orçamento",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 200', () => pm.response.to.have.status(200));",
+              "const roteiro = pm.response.json();",
+              "pm.test('passa a usar o novo orcamento', () => pm.expect(roteiro.orcamento).to.eql(30));",
+              "pm.test('continua dentro do limite', () => pm.expect(roteiro.totais.custoTotal.estimado).to.be.at.most(30));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{baseUrl}}/v1/itineraries/{{roteiroId}}",
+        "body": { "mode": "raw", "raw": "{\n  \"operacao\": \"orcamento\",\n  \"orcamento\": 30\n}" }
+      }
+    },
+    {
+      "name": "Listar histórico",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 200', () => pm.response.to.have.status(200));",
+              "const pagina = pm.response.json();",
+              "pm.test('vem paginado', () => pm.expect(pagina).to.have.property('total'));",
+              "pm.test('lista o roteiro criado', () => pm.expect(pagina.itens.length).to.be.above(0));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": "{{baseUrl}}/v1/itineraries?limite=10&pagina=1"
+      }
+    },
+    {
+      "name": "Excluir roteiro",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('responde 204', () => pm.response.to.have.status(204));"]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": "{{baseUrl}}/v1/itineraries/{{roteiroId}}"
+      }
+    },
+    {
+      "name": "Excluir conta (LGPD art. 18)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('responde 204', () => pm.response.to.have.status(204));"]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": "{{baseUrl}}/v1/me"
+      }
+    },
+    {
+      "name": "Token de conta excluída não funciona mais",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('nao encontra o usuario', () => pm.expect(pm.response.code).to.be.oneOf([401, 404]));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": "{{baseUrl}}/v1/me"
+      }
+    }
+  ]
+}
