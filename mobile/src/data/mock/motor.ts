@@ -267,6 +267,7 @@ export function gerarRoteiro(pref: PreferenciasRoteiro): Roteiro {
       trechoAteAqui: trecho,
       custoNoLocal: custoNoLocal(ponto),
       visitado: false,
+      visita: null,
     };
   });
 
@@ -313,6 +314,8 @@ export function gerarRoteiro(pref: PreferenciasRoteiro): Roteiro {
           ),
     economiaCaminhando,
     trechosAPe: trechosAPe.length,
+    pontosVisitados: 0,
+    custoRegistrado: null,
   };
 
   return {

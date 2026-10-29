@@ -1,4 +1,4 @@
-/** Histórico de roteiros (UI-08, versão inicial). */
+/** Histórico de roteiros (UI-08): cada viagem com as paradas visitadas e o que foi pago. */
 
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -44,8 +44,18 @@ export default function TelaHistorico() {
                   <Texto variante="pequeno" cor={cores.textoSuave}>
                     {item.totalPontos} paradas · {formatarDataCurta(item.criadoEm)}
                   </Texto>
+                  {item.pontosVisitados > 0 ? (
+                    <Texto variante="micro" peso="semi" cor={cores.sucesso}>
+                      {item.pontosVisitados === 1
+                        ? '1 parada visitada'
+                        : `${item.pontosVisitados} paradas visitadas`}
+                      {item.custoRegistrado != null
+                        ? ` · ${formatarReais(item.custoRegistrado)} pagos em corridas`
+                        : ''}
+                    </Texto>
+                  ) : null}
                   <Texto variante="pequeno" peso="semi" cor={cores.primaria}>
-                    {formatarReais(item.custoEstimado)}
+                    {formatarReais(item.custoEstimado)} previstos
                   </Texto>
                 </View>
               </View>

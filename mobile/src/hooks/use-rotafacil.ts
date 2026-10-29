@@ -116,10 +116,22 @@ export function useAjustarRoteiro(roteiroId: ID | undefined) {
     onSuccess: (roteiro) => qc.setQueryData(chaves.roteiro(roteiro.id), roteiro),
   });
 
+  // O check-in muda a parada e o historico, entao os dois sao relidos.
+  const atualizarAposVisita = () => {
+    void qc.invalidateQueries({ queryKey: chaves.roteiro(roteiroId!) });
+    void qc.invalidateQueries({ queryKey: chaves.roteiros });
+  };
+
   const registrarVisita = useMutation({
-    mutationFn: (pontoId: ID) => roteiros.registrarVisita(roteiroId!, pontoId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: chaves.roteiro(roteiroId!) }),
+    mutationFn: ({ pontoId, custoRegistrado }: { pontoId: ID; custoRegistrado?: number }) =>
+      roteiros.registrarVisita(roteiroId!, pontoId, custoRegistrado),
+    onSuccess: atualizarAposVisita,
   });
 
-  return { remover, substituir, ajustarOrcamento, registrarVisita };
+  const desfazerVisita = useMutation({
+    mutationFn: (pontoId: ID) => roteiros.desfazerVisita(roteiroId!, pontoId),
+    onSuccess: atualizarAposVisita,
+  });
+
+  return { remover, substituir, ajustarOrcamento, registrarVisita, desfazerVisita };
 }

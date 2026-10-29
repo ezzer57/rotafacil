@@ -265,7 +265,7 @@ export async function listar(usuarioId: string, limite: number, pagina: number) 
   const [registros, total] = await Promise.all([
     prisma.roteiro.findMany({
       where: { usuarioId },
-      include: { cidade: true, itens: { include: { ponto: true } } },
+      include: { cidade: true, itens: { include: { ponto: true } }, visitas: true },
       orderBy: { criadoEm: 'desc' },
       take: limite,
       skip: (pagina - 1) * limite,
@@ -352,6 +352,17 @@ export async function registrarVisita(
     chegadaEm: visita.chegadaEm.toISOString(),
     custoRegistrado: visita.custoRegistrado == null ? null : Number(visita.custoRegistrado),
   };
+}
+
+/** Desfaz um check-in feito por engano: apaga a visita e desmarca a parada. */
+export async function desfazerVisita(usuarioId: string, roteiroId: string, pontoId: string) {
+  const roteiro = await carregarDoUsuario(roteiroId, usuarioId);
+  if (!roteiro.visitas.some((v) => v.pontoId === pontoId)) throw naoEncontrado('Check-in');
+
+  await prisma.$transaction([
+    prisma.visita.delete({ where: { roteiroId_pontoId: { roteiroId, pontoId } } }),
+    prisma.roteiroItem.updateMany({ where: { roteiroId, pontoId }, data: { visitado: false } }),
+  ]);
 }
 
 export async function excluir(usuarioId: string, roteiroId: string) {

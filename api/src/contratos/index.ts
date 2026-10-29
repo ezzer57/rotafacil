@@ -79,12 +79,17 @@ export const ajustarRoteiroSchema = z.discriminatedUnion('operacao', [
 
 export const visitaSchema = z.object({
   pontoId: z.string().trim().min(1).max(120),
+  /** Quanto o usuário pagou na corrida até este ponto, quando informa. */
   custoRegistrado: z.number().nonnegative().max(100_000).optional(),
 });
 
 /* ------------------------------------------------------------- utilitários */
 
 export const idParamSchema = z.object({ id: z.string().uuid('Identificador inválido') });
+
+export const visitaParamSchema = idParamSchema.extend({
+  pontoId: z.string().trim().min(1).max(120),
+});
 
 export const paginacaoSchema = z.object({
   limite: z.coerce.number().int().min(1).max(100).default(20),

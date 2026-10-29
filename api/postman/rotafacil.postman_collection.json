@@ -317,6 +317,7 @@
             "exec": [
               "pm.test('responde 200', () => pm.response.to.have.status(200));",
               "const roteiro = pm.response.json();",
+              "if (roteiro.itens.length > 0) pm.collectionVariables.set('pontoId', roteiro.itens[0].ponto.id);",
               "pm.test('fica sem teto', () => pm.expect(roteiro.orcamento).to.eql(null));",
               "pm.test('nao calcula uso do orcamento', () => pm.expect(roteiro.totais.usoOrcamento).to.eql(null));",
               "pm.test('nao descarta pontos por orcamento', () => { roteiro.descartados.forEach(d => pm.expect(d.motivo).to.not.eql('orcamento')); });"
@@ -335,6 +336,55 @@
       }
     },
     {
+      "name": "Registrar visita (check-in)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 201', () => pm.response.to.have.status(201));",
+              "const visita = pm.response.json();",
+              "pm.test('registra a hora de chegada', () => pm.expect(Date.parse(visita.chegadaEm)).to.not.be.NaN);",
+              "pm.test('guarda o valor pago', () => pm.expect(visita.custoRegistrado).to.eql(12.5));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{baseUrl}}/v1/itineraries/{{roteiroId}}/checkins",
+        "body": { "mode": "raw", "raw": "{\n  \"pontoId\": \"{{pontoId}}\",\n  \"custoRegistrado\": 12.5\n}" }
+      }
+    },
+    {
+      "name": "Roteiro mostra a visita",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 200', () => pm.response.to.have.status(200));",
+              "const roteiro = pm.response.json();",
+              "const parada = roteiro.itens.find(i => i.ponto.id === pm.collectionVariables.get('pontoId'));",
+              "pm.test('marca a parada como visitada', () => { pm.expect(parada.visitado).to.eql(true); pm.expect(parada.visita.custoRegistrado).to.eql(12.5); });",
+              "pm.test('conta a visita e o gasto real', () => { pm.expect(roteiro.totais.pontosVisitados).to.eql(1); pm.expect(roteiro.totais.custoRegistrado).to.eql(12.5); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": "{{baseUrl}}/v1/itineraries/{{roteiroId}}"
+      }
+    },
+    {
       "name": "Listar histórico",
       "event": [
         {
@@ -345,7 +395,9 @@
               "pm.test('responde 200', () => pm.response.to.have.status(200));",
               "const pagina = pm.response.json();",
               "pm.test('vem paginado', () => pm.expect(pagina).to.have.property('total'));",
-              "pm.test('lista o roteiro criado', () => pm.expect(pagina.itens.length).to.be.above(0));"
+              "pm.test('lista o roteiro criado', () => pm.expect(pagina.itens.length).to.be.above(0));",
+              "const visitado = pagina.itens.find(i => i.id === pm.collectionVariables.get('roteiroId'));",
+              "pm.test('mostra visitas e gasto real', () => { pm.expect(visitado.pontosVisitados).to.eql(1); pm.expect(visitado.custoRegistrado).to.eql(12.5); });"
             ]
           }
         }
@@ -354,6 +406,46 @@
         "method": "GET",
         "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
         "url": "{{baseUrl}}/v1/itineraries?limite=10&pagina=1"
+      }
+    },
+    {
+      "name": "Desfazer visita",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('responde 204', () => pm.response.to.have.status(204));"]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": "{{baseUrl}}/v1/itineraries/{{roteiroId}}/checkins/{{pontoId}}"
+      }
+    },
+    {
+      "name": "Roteiro volta sem a visita",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 200', () => pm.response.to.have.status(200));",
+              "const roteiro = pm.response.json();",
+              "const parada = roteiro.itens.find(i => i.ponto.id === pm.collectionVariables.get('pontoId'));",
+              "pm.test('desmarca a parada', () => { pm.expect(parada.visitado).to.eql(false); pm.expect(parada.visita).to.eql(null); });",
+              "pm.test('zera as visitas e o gasto real', () => { pm.expect(roteiro.totais.pontosVisitados).to.eql(0); pm.expect(roteiro.totais.custoRegistrado).to.eql(null); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": "{{baseUrl}}/v1/itineraries/{{roteiroId}}"
       }
     },
     {
