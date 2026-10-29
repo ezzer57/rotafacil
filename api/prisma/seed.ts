@@ -12,6 +12,9 @@
  * estabelecimentos de gastronomia também. Os atrativos turísticos são reais.
  */
 
+// O seed roda fora do servidor, então carrega o .env por conta própria.
+// No CI a DATABASE_URL já vem do ambiente e isto não muda nada.
+import 'dotenv/config';
 import { PrismaClient, type CategoriaPOI } from '@prisma/client';
 
 const prisma = new PrismaClient();
