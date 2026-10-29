@@ -141,7 +141,8 @@ model Roteiro {
   cidadeId          String   @db.VarChar(60)
   criadoEm          DateTime @default(now())
   inicioPrevisto    DateTime
-  orcamento         Decimal  @db.Decimal(10, 2)
+  /// Teto de gasto informado pelo usuário; null quando ele não define limite.
+  orcamento         Decimal? @db.Decimal(10, 2)
   tempoDisponivelMin Int
   /// Ponto de partida informado pelo aparelho.
   origemLat         Float

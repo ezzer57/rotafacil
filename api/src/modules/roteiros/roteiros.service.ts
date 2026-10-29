@@ -155,7 +155,8 @@ async function calcularEGravar(dados: DadosPersistencia) {
     usuarioId: dados.usuarioId,
     cidadeId: dados.cidadeId,
     inicioPrevisto: dados.entrada.inicioPrevisto,
-    orcamento: new Prisma.Decimal(dados.entrada.orcamento),
+    orcamento:
+      dados.entrada.orcamento == null ? null : new Prisma.Decimal(dados.entrada.orcamento),
     tempoDisponivelMin: dados.entrada.tempoDisponivelMin,
     origemLat: dados.entrada.origem.lat,
     origemLng: dados.entrada.origem.lng,
@@ -275,11 +276,16 @@ export async function listar(usuarioId: string, limite: number, pagina: number) 
   return { itens: registros.map(serializarResumo), total, pagina, limite };
 }
 
-/** Remove ou troca um ponto, ou muda o orçamento, e recalcula o roteiro. */
+/**
+ * Remove ou troca um ponto, ou muda o teto de gasto (null tira o teto), e
+ * recalcula o roteiro.
+ */
 export async function ajustar(
   usuarioId: string,
   roteiroId: string,
-  operacao: { tipo: 'remover' | 'substituir'; pontoId: string } | { tipo: 'orcamento'; valor: number },
+  operacao:
+    | { tipo: 'remover' | 'substituir'; pontoId: string }
+    | { tipo: 'orcamento'; valor: number | null },
 ) {
   const atual = await carregarDoUsuario(roteiroId, usuarioId);
 
@@ -288,8 +294,8 @@ export async function ajustar(
       ? atual.pontosExcluidos
       : [...new Set([...atual.pontosExcluidos, operacao.pontoId])];
 
-  const orcamento =
-    operacao.tipo === 'orcamento' ? operacao.valor : Number(atual.orcamento);
+  const orcamentoAtual = atual.orcamento == null ? null : Number(atual.orcamento);
+  const orcamento = operacao.tipo === 'orcamento' ? operacao.valor : orcamentoAtual;
 
   const roteiro = await calcularEGravar({
     usuarioId,

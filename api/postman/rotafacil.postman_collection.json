@@ -226,6 +226,38 @@
       }
     },
     {
+      "name": "Gerar roteiro sem limite de gasto",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 201', () => pm.response.to.have.status(201));",
+              "const roteiro = pm.response.json();",
+              "pm.test('registra que nao ha teto', () => pm.expect(roteiro.orcamento).to.eql(null));",
+              "pm.test('nao calcula uso do orcamento', () => pm.expect(roteiro.totais.usoOrcamento).to.eql(null));",
+              "pm.test('mostra o custo estimado dentro da faixa', () => { const c = roteiro.totais.custoTotal; pm.expect(c.min).to.be.at.most(c.estimado); pm.expect(c.estimado).to.be.at.most(c.max); });",
+              "pm.test('respeita o tempo disponivel', () => pm.expect(roteiro.totais.duracaoMin).to.be.at.most(roteiro.tempoDisponivelMin));",
+              "pm.test('nao descarta pontos por orcamento', () => { roteiro.descartados.forEach(d => pm.expect(d.motivo).to.not.eql('orcamento')); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{baseUrl}}/v1/itineraries",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cidadeId\": \"quixada\",\n  \"origem\": { \"lat\": -4.9712, \"lng\": -39.0156 },\n  \"categorias\": [\"natureza\", \"gastronomia\"],\n  \"tempoDisponivelMin\": 240,\n  \"inicioPrevisto\": \"2026-10-21T09:00:00.000Z\"\n}"
+        }
+      }
+    },
+    {
       "name": "Consultar roteiro",
       "event": [
         {
@@ -273,6 +305,33 @@
         ],
         "url": "{{baseUrl}}/v1/itineraries/{{roteiroId}}",
         "body": { "mode": "raw", "raw": "{\n  \"operacao\": \"orcamento\",\n  \"orcamento\": 30\n}" }
+      }
+    },
+    {
+      "name": "Tirar o limite de gasto",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 200', () => pm.response.to.have.status(200));",
+              "const roteiro = pm.response.json();",
+              "pm.test('fica sem teto', () => pm.expect(roteiro.orcamento).to.eql(null));",
+              "pm.test('nao calcula uso do orcamento', () => pm.expect(roteiro.totais.usoOrcamento).to.eql(null));",
+              "pm.test('nao descarta pontos por orcamento', () => { roteiro.descartados.forEach(d => pm.expect(d.motivo).to.not.eql('orcamento')); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{baseUrl}}/v1/itineraries/{{roteiroId}}",
+        "body": { "mode": "raw", "raw": "{\n  \"operacao\": \"orcamento\",\n  \"orcamento\": null\n}" }
       }
     },
     {

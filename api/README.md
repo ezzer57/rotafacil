@@ -56,7 +56,7 @@ permite testar o algoritmo do trabalho sem subir infraestrutura.
 | POST | `/v1/itineraries` | sim | Gera o roteiro |
 | GET | `/v1/itineraries` | sim | Histórico paginado |
 | GET | `/v1/itineraries/:id` | sim | Roteiro completo |
-| PATCH | `/v1/itineraries/:id` | sim | Remove, troca ponto ou muda orçamento |
+| PATCH | `/v1/itineraries/:id` | sim | Remove, troca ponto, muda ou tira o teto de gasto |
 | POST | `/v1/itineraries/:id/checkins` | sim | Registra visita |
 | DELETE | `/v1/itineraries/:id` | sim | Apaga o roteiro |
 
@@ -73,6 +73,12 @@ dependências. A camada HTTP só traduz entrada e saída.
 
 **Dinheiro em `Decimal`.** Valores monetários usam `Decimal(10,2)` no banco.
 Ponto flutuante acumula erro de arredondamento quando se somam custos.
+
+**Teto de gasto opcional.** Sem `orcamento` (ou com `null`), nenhum ponto é
+descartado pelo preço, mas o custo continua pesando na escolha, medido por
+uma régua fixa de R$ 80 (`ORCAMENTO_DE_REFERENCIA`). Assim o roteiro segue
+preferindo caminhadas e lugares mais baratos, e o app mostra o custo médio
+previsto em vez do uso do orçamento.
 
 **Senha com bcrypt custo 12.** O hash nunca sai do servidor. No login, a
 comparação acontece mesmo quando o e-mail não existe, para o tempo de

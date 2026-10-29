@@ -35,8 +35,8 @@ export interface RoteiroService {
   removerPonto(roteiroId: ID, pontoId: ID): Promise<Roteiro>;
   /** Troca um ponto pelo melhor substituto viável e recalcula. */
   substituirPonto(roteiroId: ID, pontoId: ID): Promise<Roteiro>;
-  /** Refaz a seleção de pontos para um novo limite de orçamento. */
-  ajustarOrcamento(roteiroId: ID, orcamento: number): Promise<Roteiro>;
+  /** Refaz a seleção de pontos para um novo teto de gasto; null tira o teto. */
+  ajustarOrcamento(roteiroId: ID, orcamento: number | null): Promise<Roteiro>;
   registrarVisita(roteiroId: ID, pontoId: ID): Promise<Visita>;
   excluir(roteiroId: ID): Promise<void>;
 }

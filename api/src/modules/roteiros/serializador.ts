@@ -79,7 +79,8 @@ export function serializarRoteiro(roteiro: RoteiroCompleto) {
     max: numero(roteiro.custoTransporteMax),
   };
   const custoLocais = numero(roteiro.custoLocais);
-  const orcamento = numero(roteiro.orcamento);
+  // null quando o usuário não definiu teto de gasto.
+  const orcamento = roteiro.orcamento == null ? null : numero(roteiro.orcamento);
 
   return {
     id: roteiro.id,
@@ -126,10 +127,15 @@ export function serializarRoteiro(roteiro: RoteiroCompleto) {
       },
       duracaoMin: roteiro.duracaoMin,
       distanciaKm: roteiro.distanciaKm,
-      usoOrcamento: Math.min(
-        100,
-        Math.round(((custoTransporte.estimado + custoLocais) / Math.max(1, orcamento)) * 100),
-      ),
+      usoOrcamento:
+        orcamento == null
+          ? null
+          : Math.min(
+              100,
+              Math.round(
+                ((custoTransporte.estimado + custoLocais) / Math.max(1, orcamento)) * 100,
+              ),
+            ),
       economiaCaminhando: numero(roteiro.economiaCaminhando),
       trechosAPe: roteiro.trechosAPe,
     },

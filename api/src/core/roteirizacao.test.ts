@@ -2,8 +2,9 @@
  * Testes do motor de roteirização.
  *
  * Cobrem o comportamento que sustenta as hipóteses do trabalho: respeitar o
- * orçamento, respeitar o tempo, respeitar o horário de funcionamento e
- * explicar o que foi descartado.
+ * orçamento quando há teto, continuar pesando o custo quando não há,
+ * respeitar o tempo e o horário de funcionamento e explicar o que foi
+ * descartado.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -121,6 +122,32 @@ describe('gerarRoteiro', () => {
     const rico = gerarRoteiro(candidatos, preferencias({ orcamento: 300 }), TARIFA);
 
     expect(rico.itens.length).toBeGreaterThan(pobre.itens.length);
+  });
+
+  it('sem teto de gasto, não descarta nenhum ponto por orçamento', () => {
+    const candidatos = [3, 6, 9, 12].map((km, i) =>
+      candidato({ id: `p${i}`, coordenada: aNorte(km) }),
+    );
+
+    const comTeto = gerarRoteiro(candidatos, preferencias({ orcamento: 30 }), TARIFA);
+    const semTeto = gerarRoteiro(candidatos, preferencias({ orcamento: null }), TARIFA);
+
+    expect(semTeto.itens.length).toBeGreaterThan(comTeto.itens.length);
+    expect(semTeto.descartados.some((d) => d.motivo === 'orcamento')).toBe(false);
+  });
+
+  it('sem teto de gasto, o custo continua pesando na escolha', () => {
+    // Mesma nota e mesma visita: um ponto perto o bastante para ir a pé e
+    // outro mais rápido de alcançar de carro, mas pago. Se o custo saísse da
+    // conta, o de carro ganharia por consumir menos tempo.
+    const candidatos = [
+      candidato({ id: 'a-pe', coordenada: aNorte(0.7) }),
+      candidato({ id: 'de-carro', coordenada: aNorte(2) }),
+    ];
+
+    const resultado = gerarRoteiro(candidatos, preferencias({ orcamento: null }), TARIFA);
+
+    expect(resultado.itens[0]?.candidato.id).toBe('a-pe');
   });
 
   it('explica o motivo de cada ponto descartado', () => {
