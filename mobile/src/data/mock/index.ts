@@ -33,7 +33,8 @@ let usuario: Usuario | null = null;
  * conferência é feita no servidor, comparando o hash da senha; o aplicativo
  * nunca guarda nem compara senha.
  */
-const SENHA_DEMONSTRACAO = '123456';
+// Oito dígitos: o formulário exige a mesma senha mínima do servidor.
+const SENHA_DEMONSTRACAO = '12345678';
 
 /* ----------------------------------------------------- roteiro de exemplo */
 
