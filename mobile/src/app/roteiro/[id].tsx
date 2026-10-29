@@ -2,11 +2,11 @@
  * Roteiro gerado (UI-06).
  *
  * Mostra a linha do tempo das paradas com o custo de cada deslocamento, a
- * bandeira tarifária aplicada e o consumo do orçamento. É a tela que
- * materializa as hipóteses 1 e 2 do trabalho.
+ * bandeira tarifária aplicada e, quando há teto de gasto, o consumo do
+ * orçamento. É a tela que materializa as hipóteses 1 e 2 do trabalho.
  *
  * Três recursos existem especificamente para a defesa:
- *  - o controle de orçamento, que refaz a seleção ao vivo;
+ *  - o controle de orçamento, que põe ou tira o teto e refaz a seleção ao vivo;
  *  - o "como calculamos", que abre a memória de cálculo da tarifa;
  *  - o painel de processamento, com as métricas do algoritmo.
  */
@@ -33,6 +33,10 @@ import type { ItemRoteiro, MotivoDescarte, PontoDescartado, Trecho } from '@/dom
 import { useAjustarRoteiro, useRoteiro } from '@/hooks/use-rotafacil';
 import { useCores } from '@/theme/provider';
 import { espaco, raio, type Paleta } from '@/theme/tokens';
+
+/** Escala do controle de teto, em reais. */
+const TETO_MINIMO = 20;
+const TETO_MAXIMO = 300;
 
 export default function TelaRoteiro() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -64,6 +68,8 @@ export default function TelaRoteiro() {
 
   const ajustando = remover.isPending || substituir.isPending || ajustarOrcamento.isPending;
   const orcamentoExibido = orcamentoVisual ?? roteiro.orcamento;
+  const semTeto = roteiro.orcamento == null;
+  const uso = roteiro.totais.usoOrcamento;
 
   return (
     <ScrollView
@@ -98,28 +104,34 @@ export default function TelaRoteiro() {
           />
         </View>
 
-        <View style={{ gap: espaco.xs, marginTop: espaco.md }}>
-          <View style={estilos.linhaTopo}>
-            <Texto variante="micro" cor={cores.textoSuave}>
-              Uso do orçamento
-            </Texto>
-            <Texto variante="micro" peso="semi">
-              {roteiro.totais.usoOrcamento}%
-            </Texto>
+        {uso != null ? (
+          <View style={{ gap: espaco.xs, marginTop: espaco.md }}>
+            <View style={estilos.linhaTopo}>
+              <Texto variante="micro" cor={cores.textoSuave}>
+                Uso do orçamento
+              </Texto>
+              <Texto variante="micro" peso="semi">
+                {uso}%
+              </Texto>
+            </View>
+            <View style={estilos.trilha}>
+              <View
+                style={[
+                  estilos.progresso,
+                  {
+                    width: `${uso}%`,
+                    backgroundColor: uso > 85 ? cores.alerta : cores.sucesso,
+                  },
+                ]}
+              />
+            </View>
           </View>
-          <View style={estilos.trilha}>
-            <View
-              style={[
-                estilos.progresso,
-                {
-                  width: `${roteiro.totais.usoOrcamento}%`,
-                  backgroundColor:
-                    roteiro.totais.usoOrcamento > 85 ? cores.alerta : cores.sucesso,
-                },
-              ]}
-            />
-          </View>
-        </View>
+        ) : (
+          <Texto variante="micro" cor={cores.textoSuave} style={{ marginTop: espaco.md }}>
+            Sem teto de gasto: o valor acima é a média prevista, e a faixa vai do mínimo ao
+            máximo.
+          </Texto>
+        )}
 
         {roteiro.totais.trechosAPe > 0 ? (
           <View style={[estilos.linhaIcone, { marginTop: espaco.md }]}>
@@ -137,19 +149,20 @@ export default function TelaRoteiro() {
       <Cartao>
         <View style={estilos.linhaTopo}>
           <Texto variante="pequeno" peso="semi">
-            E se eu tivesse outro orçamento?
+            {semTeto ? 'Quer definir um teto?' : 'E se eu tivesse outro orçamento?'}
           </Texto>
           <Texto variante="destaque" peso="forte" cor={cores.primaria}>
-            {formatarReais(orcamentoExibido)}
+            {orcamentoExibido == null ? 'Sem limite' : formatarReais(orcamentoExibido)}
           </Texto>
         </View>
 
         <Slider
           style={{ height: 40, marginTop: espaco.sm }}
-          minimumValue={20}
-          maximumValue={300}
+          minimumValue={TETO_MINIMO}
+          maximumValue={TETO_MAXIMO}
           step={5}
-          value={orcamentoExibido}
+          // Sem teto, o controle começa no fim da escala.
+          value={orcamentoExibido ?? TETO_MAXIMO}
           minimumTrackTintColor={cores.primaria}
           maximumTrackTintColor={cores.borda}
           thumbTintColor={cores.primaria}
@@ -157,11 +170,28 @@ export default function TelaRoteiro() {
           onSlidingComplete={(valor) => ajustarOrcamento.mutate(valor)}
         />
 
-        <Texto variante="micro" cor={cores.textoSuave}>
-          {ajustarOrcamento.isPending
-            ? 'Refazendo a seleção de pontos...'
-            : 'Arraste para ver o algoritmo refazer o roteiro.'}
-        </Texto>
+        <View style={estilos.linhaTopo}>
+          <Texto variante="micro" cor={cores.textoSuave} style={{ flex: 1 }}>
+            {ajustarOrcamento.isPending
+              ? 'Refazendo a seleção de pontos...'
+              : semTeto
+                ? 'Arraste para limitar o gasto e ver o algoritmo refazer o roteiro.'
+                : 'Arraste para ver o algoritmo refazer o roteiro.'}
+          </Texto>
+          {!semTeto ? (
+            <Botao
+              titulo="Tirar o limite"
+              variante="texto"
+              largura="auto"
+              desabilitado={ajustando}
+              onPress={() => {
+                setOrcamentoVisual(null);
+                ajustarOrcamento.mutate(null);
+              }}
+              style={{ height: 32, paddingHorizontal: 0 }}
+            />
+          ) : null}
+        </View>
       </Cartao>
 
       {/* ----------------------------------------------------------- mapa */}
@@ -195,9 +225,13 @@ export default function TelaRoteiro() {
 
         {roteiro.itens.length === 0 ? (
           <EstadoVazio
-            icone="wallet-outline"
-            titulo="Nada coube no orçamento"
-            descricao="Aumente o valor disponível ou o tempo livre para que o algoritmo consiga montar um roteiro."
+            icone={semTeto ? 'time-outline' : 'wallet-outline'}
+            titulo={semTeto ? 'Nada coube no tempo disponível' : 'Nada coube no orçamento'}
+            descricao={
+              semTeto
+                ? 'Aumente o tempo livre ou escolha outro horário de início para que o algoritmo consiga montar um roteiro.'
+                : 'Aumente o valor disponível ou o tempo livre para que o algoritmo consiga montar um roteiro.'
+            }
           />
         ) : null}
       </View>

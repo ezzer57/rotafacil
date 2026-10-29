@@ -50,7 +50,8 @@ export interface Candidato {
 export interface Preferencias {
   origem: Coordenada;
   categorias: Categoria[];
-  orcamento: number;
+  /** Teto de gasto do dia; null quando o usuário não define limite. */
+  orcamento: number | null;
   tempoDisponivelMin: number;
   inicioPrevisto: Date;
 }
@@ -105,6 +106,13 @@ const VELOCIDADE_CARRO_KMH = 28;
 const PROPORCAO_TRANSITO_LENTO = 0.2;
 /** Peso aplicado a pontos fora das categorias escolhidas pelo usuário. */
 const PESO_FORA_DA_PREFERENCIA = 0.25;
+
+/**
+ * Régua que pesa o custo quando o usuário não define teto de gasto. Sem ela,
+ * o custo sairia da conta e o algoritmo deixaria de preferir caminhadas e
+ * lugares mais baratos. Vale o antigo valor padrão do aplicativo (R$ 80).
+ */
+export const ORCAMENTO_DE_REFERENCIA = 80;
 
 /** Custo estimado dentro do local, a partir da faixa de preço do provedor. */
 export function custoNoLocal(candidato: Candidato): number {
@@ -180,7 +188,8 @@ function montarTrecho(
 /**
  * Gera o roteiro por inserção gulosa: a cada passo entra o ponto com a melhor
  * razão entre benefício (pontuação) e consumo de tempo e dinheiro, desde que
- * caiba nas três restrições. Para quando nenhum candidato restante é viável.
+ * caiba no tempo, no horário de funcionamento e, quando há teto, no orçamento.
+ * Para quando nenhum candidato restante é viável.
  */
 export function gerarRoteiro(
   candidatos: Candidato[],
@@ -189,6 +198,9 @@ export function gerarRoteiro(
 ): ResultadoRoteiro {
   const inicio = performance.now();
   let trechosCalculados = 0;
+
+  const teto = preferencias.orcamento;
+  const regua = teto ?? ORCAMENTO_DE_REFERENCIA;
 
   const selecionados: Candidato[] = [];
   const restantes = [...candidatos];
@@ -214,13 +226,12 @@ export function gerarRoteiro(
       const deltaCusto = trecho.custo.estimado + custoNoLocal(candidato);
 
       if (tempo + deltaTempo > preferencias.tempoDisponivelMin) continue;
-      if (gasto + deltaCusto > preferencias.orcamento) continue;
+      if (teto != null && gasto + deltaCusto > teto) continue;
       if (!cabeNaJanela(candidato, relogio, trecho.duracaoMin)) continue;
 
       const razao =
         pontuar(candidato, candidatos, peso) /
-        (deltaTempo / preferencias.tempoDisponivelMin +
-          deltaCusto / Math.max(1, preferencias.orcamento));
+        (deltaTempo / preferencias.tempoDisponivelMin + deltaCusto / Math.max(1, regua));
 
       if (!melhor || razao > melhor.razao) melhor = { candidato, trecho, razao };
     }
@@ -242,7 +253,7 @@ export function gerarRoteiro(
   const descartados: Descartado[] = restantes.map((candidato) => {
     const trecho = montarTrecho(posicao, candidato.coordenada, relogio, tarifa);
     const faltaOrcamento =
-      gasto + trecho.custo.estimado + custoNoLocal(candidato) - preferencias.orcamento;
+      teto == null ? 0 : gasto + trecho.custo.estimado + custoNoLocal(candidato) - teto;
     const faltaTempo =
       tempo + trecho.duracaoMin + candidato.tempoVisitaMin - preferencias.tempoDisponivelMin;
 

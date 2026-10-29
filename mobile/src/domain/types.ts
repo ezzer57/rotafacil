@@ -118,8 +118,8 @@ export interface TotaisRoteiro {
   custoTotal: FaixaCusto;
   duracaoMin: number;
   distanciaKm: number;
-  /** Percentual do orçamento consumido pela estimativa central. */
-  usoOrcamento: number;
+  /** Percentual do orçamento consumido pela estimativa central; null sem teto. */
+  usoOrcamento: number | null;
   /** Quanto se deixou de gastar nos trechos feitos a pé. */
   economiaCaminhando: Reais;
   trechosAPe: number;
@@ -149,7 +149,8 @@ export interface PreferenciasRoteiro {
   cidadeId: ID;
   origem: Coordenada;
   categorias: CategoriaPOI[];
-  orcamento: Reais;
+  /** Teto de gasto do dia; null quando o usuário não define limite. */
+  orcamento: Reais | null;
   tempoDisponivelMin: number;
   inicioPrevisto: DataISO;
 }
@@ -160,7 +161,8 @@ export interface Roteiro {
   cidadeNome: string;
   criadoEm: DataISO;
   inicioPrevisto: DataISO;
-  orcamento: Reais;
+  /** Teto de gasto; null quando não há limite. */
+  orcamento: Reais | null;
   tempoDisponivelMin: number;
   itens: ItemRoteiro[];
   totais: TotaisRoteiro;

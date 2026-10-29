@@ -2,7 +2,7 @@
  * Nova rota (UI-05) - o núcleo do trabalho.
  *
  * Coleta as entradas do algoritmo: posição de partida, cidade, categorias de
- * interesse, orçamento, tempo disponível e horário de início.
+ * interesse, teto de gasto (opcional), tempo disponível e horário de início.
  *
  * A posição vem do GPS do aparelho. Quando a localização não está disponível
  * - permissão negada, aparelho sem sinal ou usuário fora das cidades
@@ -61,7 +61,8 @@ export default function TelaNovaRota() {
   const [cidadeId, setCidadeId] = useState(cidadeParam ?? 'quixada');
   const [escolhaManual, setEscolhaManual] = useState(Boolean(cidadeParam));
   const [categorias, setCategorias] = useState<CategoriaPOI[]>(['natureza', 'gastronomia']);
-  const [orcamento, setOrcamento] = useState('80');
+  // Vazio é "sem limite", o padrão: o usuário só define um teto se quiser.
+  const [orcamento, setOrcamento] = useState('');
   const [tempoMin, setTempoMin] = useState(240);
   const [horaInicio, setHoraInicio] = useState<number | null>(null);
 
@@ -98,7 +99,8 @@ export default function TelaNovaRota() {
 
   const origem = usandoGps ? localizacao.coordenada! : cidade?.centro;
 
-  const valorOrcamento = Number(orcamento.replace(',', '.')) || 0;
+  const teto = Number(orcamento.replace(',', '.'));
+  const valorOrcamento = teto > 0 ? teto : null;
 
   const alternarCategoria = (c: CategoriaPOI) =>
     setCategorias((atual) => (atual.includes(c) ? atual.filter((x) => x !== c) : [...atual, c]));
@@ -183,9 +185,15 @@ export default function TelaNovaRota() {
         {/* ------------------------------------------------------ orçamento */}
         <View style={{ gap: espaco.md }}>
           <Texto variante="titulo" peso="forte">
-            Quanto pode gastar hoje?
+            Quer limitar o gasto?
           </Texto>
           <View style={{ flexDirection: 'row', gap: espaco.sm, flexWrap: 'wrap' }}>
+            <Chip
+              rotulo="Sem limite"
+              icone="infinite"
+              ativo={valorOrcamento == null}
+              onPress={() => setOrcamento('')}
+            />
             {ORCAMENTOS.map((valor) => (
               <Chip
                 key={valor}
@@ -197,14 +205,16 @@ export default function TelaNovaRota() {
           </View>
           <Campo
             icone="wallet"
-            rotulo="Ou informe outro valor (R$)"
+            rotulo="Ou defina outro teto (R$)"
             keyboardType="numeric"
             value={orcamento}
             onChangeText={setOrcamento}
-            placeholder="80"
+            placeholder="Sem limite"
           />
           <Texto variante="micro" cor={cores.textoSuave}>
-            Inclui deslocamento e gastos nos locais. O roteiro é montado para caber nesse valor.
+            {valorOrcamento == null
+              ? 'O roteiro mostra o custo médio previsto. Mesmo sem limite, caminhadas e lugares mais baratos têm preferência.'
+              : 'Inclui deslocamento e gastos nos locais. O roteiro é montado para caber nesse valor.'}
           </Texto>
         </View>
 
@@ -260,8 +270,9 @@ export default function TelaNovaRota() {
             Resumo do pedido
           </Texto>
           <Texto variante="corpo" style={{ marginTop: espaco.xs }}>
-            {cidade?.nome ?? '-'} · até {formatarReais(valorOrcamento)} em{' '}
-            {formatarDuracao(tempoMin)}, a partir das{' '}
+            {cidade?.nome ?? '-'} ·{' '}
+            {valorOrcamento == null ? 'sem limite de gasto' : `até ${formatarReais(valorOrcamento)}`}{' '}
+            em {formatarDuracao(tempoMin)}, a partir das{' '}
             {inicioPrevisto().toLocaleTimeString('pt-BR', {
               hour: '2-digit',
               minute: '2-digit',
@@ -278,7 +289,6 @@ export default function TelaNovaRota() {
           titulo={gerar.isPending ? 'Montando roteiro...' : 'Gerar roteiro'}
           icone="sparkles"
           carregando={gerar.isPending}
-          desabilitado={valorOrcamento <= 0}
           onPress={aoGerar}
         />
       </View>

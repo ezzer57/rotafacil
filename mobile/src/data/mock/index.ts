@@ -73,13 +73,13 @@ function resumir(roteiro: Roteiro): ResumoRoteiro {
 
 /**
  * Regera o roteiro a partir das preferências originais, opcionalmente com
- * outro orçamento, descartando os pontos indicados. É o que o backend fará
- * ao receber um PATCH.
+ * outro teto de gasto (null tira o teto), descartando os pontos indicados. É
+ * o que o backend faz ao receber um PATCH.
  */
-function recalcular(roteiro: Roteiro, excluir: ID[], novoOrcamento?: Reais): Roteiro {
+function recalcular(roteiro: Roteiro, excluir: ID[], novoOrcamento?: Reais | null): Roteiro {
   const preferencias: PreferenciasRoteiro = {
     ...roteiro.preferencias,
-    orcamento: novoOrcamento ?? roteiro.preferencias.orcamento,
+    orcamento: novoOrcamento === undefined ? roteiro.preferencias.orcamento : novoOrcamento,
   };
 
   const novo = gerarRoteiro(preferencias);
