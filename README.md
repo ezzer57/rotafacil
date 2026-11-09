@@ -33,7 +33,7 @@ npm run web      # abre em http://localhost:8081
 npx expo start   # QR code para o aplicativo Expo Go no celular
 ```
 
-Credencial de demonstração (modo simulado): qualquer e-mail válido com a senha `123456`.
+Credencial de demonstração (modo simulado): qualquer e-mail válido com a senha `12345678`.
 
 ### Rodando com a API de verdade
 

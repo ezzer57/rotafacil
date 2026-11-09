@@ -132,7 +132,7 @@ export function createServicosHttp(baseUrl: string): ServicosApp {
           ...json({ operacao: 'substituir', pontoId }),
         }),
 
-      ajustarOrcamento: (roteiroId: ID, orcamento: number) =>
+      ajustarOrcamento: (roteiroId: ID, orcamento: number | null) =>
         req<Roteiro>(`/v1/itineraries/${roteiroId}`, {
           method: 'PATCH',
           ...json({ operacao: 'orcamento', orcamento }),

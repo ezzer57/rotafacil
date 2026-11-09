@@ -32,6 +32,8 @@ import { CIDADES, TARIFAS, pontosPorCidade, type TarifaTaxi } from './dados';
 const DISTANCIA_MAX_A_PE_KM = 1;
 const VELOCIDADE_A_PE_KMH = 4.5;
 const VELOCIDADE_CARRO_KMH = 28;
+/** Régua do custo quando não há teto de gasto, a mesma da API. */
+const ORCAMENTO_DE_REFERENCIA = 80;
 
 /** Bandeira 2 das 22h às 6h e aos domingos. */
 export function bandeiraDe(data: Date): Bandeira {
@@ -151,12 +153,15 @@ function pontuacao(ponto: PontoInteresse, candidatos: PontoInteresse[], peso: nu
 
 /**
  * Construção gulosa por inserção: a cada passo acrescenta o ponto com a
- * melhor razão benefício/consumo que ainda cabe no tempo, no orçamento e no
- * horário de funcionamento.
+ * melhor razão benefício/consumo que ainda cabe no tempo, no horário de
+ * funcionamento e, quando há teto, no orçamento.
  */
 export function gerarRoteiro(pref: PreferenciasRoteiro): Roteiro {
   const inicio = performance.now();
   let trechosCalculados = 0;
+
+  const teto = pref.orcamento;
+  const regua = teto ?? ORCAMENTO_DE_REFERENCIA;
 
   const cidade = CIDADES.find((c) => c.id === pref.cidadeId) ?? CIDADES[0];
   const tarifa = TARIFAS[cidade.id];
@@ -188,12 +193,12 @@ export function gerarRoteiro(pref: PreferenciasRoteiro): Roteiro {
       const deltaCusto = trecho.custo.estimado + custoNoLocal(ponto);
 
       if (tempoAcumulado + deltaTempo > pref.tempoDisponivelMin) continue;
-      if (gastoAcumulado + deltaCusto > pref.orcamento) continue;
+      if (teto != null && gastoAcumulado + deltaCusto > teto) continue;
       if (!cabeNaJanela(ponto, relogio, trecho.duracaoMin)) continue;
 
       const razao =
         pontuacao(ponto, candidatos, peso) /
-        (deltaTempo / pref.tempoDisponivelMin + deltaCusto / Math.max(1, pref.orcamento));
+        (deltaTempo / pref.tempoDisponivelMin + deltaCusto / Math.max(1, regua));
 
       if (!melhor || razao > melhor.razao) melhor = { ponto, trecho, razao };
     }
@@ -219,7 +224,7 @@ export function gerarRoteiro(pref: PreferenciasRoteiro): Roteiro {
       tarifa,
     );
     const faltaOrcamento =
-      gastoAcumulado + trecho.custo.estimado + custoNoLocal(ponto) - pref.orcamento;
+      teto == null ? 0 : gastoAcumulado + trecho.custo.estimado + custoNoLocal(ponto) - teto;
     const faltaTempo =
       tempoAcumulado + trecho.duracaoMin + ponto.tempoVisitaMin - pref.tempoDisponivelMin;
 
@@ -299,10 +304,13 @@ export function gerarRoteiro(pref: PreferenciasRoteiro): Roteiro {
       0,
     ),
     distanciaKm: Number(soma((t) => t.distanciaKm).toFixed(1)),
-    usoOrcamento: Math.min(
-      100,
-      Math.round(((custoTransporte.estimado + custoLocais) / Math.max(1, pref.orcamento)) * 100),
-    ),
+    usoOrcamento:
+      teto == null
+        ? null
+        : Math.min(
+            100,
+            Math.round(((custoTransporte.estimado + custoLocais) / Math.max(1, teto)) * 100),
+          ),
     economiaCaminhando,
     trechosAPe: trechosAPe.length,
   };

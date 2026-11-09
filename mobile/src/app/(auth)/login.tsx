@@ -183,7 +183,7 @@ export default function TelaLogin() {
           {/* A credencial de demonstração só existe nos dados simulados. */}
           {usandoApiReal ? null : (
             <Texto variante="micro" cor={cores.textoSuave} style={{ textAlign: 'center' }}>
-              Demonstração: qualquer e-mail válido com a senha 123456
+              Demonstração: qualquer e-mail válido com a senha 12345678
             </Texto>
           )}
         </ScrollView>

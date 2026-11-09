@@ -52,10 +52,13 @@ export const gerarRoteiroSchema = z.object({
   cidadeId: z.string().trim().min(1).max(60).optional(),
   origem: coordenadaSchema,
   categorias: z.array(categoriaSchema).max(6).default([]),
+  /** Teto de gasto do dia. Ausente ou null: sem limite. */
   orcamento: z
     .number()
     .positive('O orçamento precisa ser maior que zero')
-    .max(100_000, 'Orçamento acima do limite aceito'),
+    .max(100_000, 'Orçamento acima do limite aceito')
+    .nullish()
+    .transform((valor) => valor ?? null),
   tempoDisponivelMin: z
     .number()
     .int()
@@ -69,7 +72,8 @@ export const ajustarRoteiroSchema = z.discriminatedUnion('operacao', [
   z.object({ operacao: z.literal('substituir'), pontoId: z.string().min(1).max(120) }),
   z.object({
     operacao: z.literal('orcamento'),
-    orcamento: z.number().positive().max(100_000),
+    /** null tira o teto de gasto. */
+    orcamento: z.number().positive().max(100_000).nullable(),
   }),
 ]);
 

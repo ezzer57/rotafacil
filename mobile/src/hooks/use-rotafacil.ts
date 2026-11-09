@@ -112,7 +112,7 @@ export function useAjustarRoteiro(roteiroId: ID | undefined) {
   });
 
   const ajustarOrcamento = useMutation({
-    mutationFn: (orcamento: number) => roteiros.ajustarOrcamento(roteiroId!, orcamento),
+    mutationFn: (orcamento: number | null) => roteiros.ajustarOrcamento(roteiroId!, orcamento),
     onSuccess: (roteiro) => qc.setQueryData(chaves.roteiro(roteiro.id), roteiro),
   });
 
