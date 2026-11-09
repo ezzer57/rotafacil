@@ -5,6 +5,10 @@
  * bandeira tarifária aplicada e, quando há teto de gasto, o consumo do
  * orçamento. É a tela que materializa as hipóteses 1 e 2 do trabalho.
  *
+ * Cada parada tem o check-in ("Cheguei"), que registra a hora de chegada e,
+ * quando o trecho foi de carro, o valor pago na corrida: é o dado do
+ * histórico (hipótese 3) e o preço real que mede a estimativa (hipótese 1).
+ *
  * Três recursos existem especificamente para a defesa:
  *  - o controle de orçamento, que põe ou tira o teto e refaz a seleção ao vivo;
  *  - o "como calculamos", que abre a memória de cálculo da tarifa;
@@ -19,7 +23,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import MapaRoteiro, { type ParadaMapa } from '@/components/mapa';
-import { Botao, Cartao, Esqueleto, EstadoVazio, Selo, Texto } from '@/components/ui';
+import { Botao, Campo, Cartao, Esqueleto, EstadoVazio, Selo, Texto } from '@/components/ui';
 import {
   formatarDistancia,
   formatarDuracao,
@@ -41,7 +45,8 @@ const TETO_MAXIMO = 300;
 export default function TelaRoteiro() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: roteiro, isLoading } = useRoteiro(id);
-  const { remover, substituir, ajustarOrcamento } = useAjustarRoteiro(id);
+  const { remover, substituir, ajustarOrcamento, registrarVisita, desfazerVisita } =
+    useAjustarRoteiro(id);
   const cores = useCores();
   const estilos = useEstilos(cores);
 
@@ -70,6 +75,8 @@ export default function TelaRoteiro() {
   const orcamentoExibido = orcamentoVisual ?? roteiro.orcamento;
   const semTeto = roteiro.orcamento == null;
   const uso = roteiro.totais.usoOrcamento;
+  const registrando = registrarVisita.isPending || desfazerVisita.isPending;
+  const paradasVisitadas = roteiro.itens.filter((item) => item.visita).length;
 
   return (
     <ScrollView
@@ -140,6 +147,18 @@ export default function TelaRoteiro() {
               {roteiro.totais.trechosAPe}{' '}
               {roteiro.totais.trechosAPe === 1 ? 'trecho a pé' : 'trechos a pé'}:{' '}
               {formatarReais(roteiro.totais.economiaCaminhando)} economizados
+            </Texto>
+          </View>
+        ) : null}
+
+        {paradasVisitadas > 0 ? (
+          <View style={[estilos.linhaIcone, { marginTop: espaco.xs }]}>
+            <Ionicons name="checkmark-done" size={14} color={cores.sucesso} />
+            <Texto variante="micro" cor={cores.sucesso}>
+              {paradasVisitadas} de {roteiro.itens.length} paradas visitadas
+              {roteiro.totais.custoRegistrado != null
+                ? ` · ${formatarReais(roteiro.totais.custoRegistrado)} pagos em corridas`
+                : ''}
             </Texto>
           </View>
         ) : null}
@@ -218,8 +237,13 @@ export default function TelaRoteiro() {
             key={item.ponto.id}
             item={item}
             ocupado={ajustando}
+            registrando={registrando}
             onRemover={() => remover.mutate(item.ponto.id)}
             onTrocar={() => substituir.mutate(item.ponto.id)}
+            onCheckin={(custoRegistrado) =>
+              registrarVisita.mutate({ pontoId: item.ponto.id, custoRegistrado })
+            }
+            onDesfazer={() => desfazerVisita.mutate(item.ponto.id)}
           />
         ))}
 
@@ -331,17 +355,34 @@ function LinhaDescartada({ descartado }: { descartado: PontoDescartado }) {
 function ParadaDoRoteiro({
   item,
   ocupado,
+  registrando,
   onRemover,
   onTrocar,
+  onCheckin,
+  onDesfazer,
 }: {
   item: ItemRoteiro;
   ocupado: boolean;
+  registrando: boolean;
   onRemover: () => void;
   onTrocar: () => void;
+  onCheckin: (custoRegistrado?: number) => void;
+  onDesfazer: () => void;
 }) {
   const cores = useCores();
   const estilos = useEstilos(cores);
   const trecho = item.trechoAteAqui;
+  // Só faz sentido perguntar o preço quando o trecho até aqui foi de carro.
+  const veioDeCarro = trecho?.modal === 'app';
+  const [informandoValor, setInformandoValor] = useState(false);
+  const [valorPago, setValorPago] = useState('');
+
+  function registrarChegada() {
+    const valor = Number(valorPago.replace(',', '.'));
+    onCheckin(valor > 0 ? valor : undefined);
+    setInformandoValor(false);
+    setValorPago('');
+  }
 
   return (
     <View style={{ gap: espaco.sm }}>
@@ -377,28 +418,94 @@ function ParadaDoRoteiro({
               </Texto>
             </View>
 
-            <View style={{ flexDirection: 'row', gap: espaco.sm, marginTop: espaco.xs }}>
+            {/* Parada já visitada não se troca nem se remove. */}
+            {item.visita ? null : (
+              <View style={{ flexDirection: 'row', gap: espaco.sm, marginTop: espaco.xs }}>
+                <Botao
+                  titulo="Trocar"
+                  variante="contorno"
+                  icone="swap-horizontal"
+                  largura="auto"
+                  desabilitado={ocupado}
+                  onPress={onTrocar}
+                  style={{ height: 36, paddingHorizontal: espaco.md }}
+                />
+                <Botao
+                  titulo="Remover"
+                  variante="texto"
+                  icone="close"
+                  largura="auto"
+                  desabilitado={ocupado}
+                  onPress={onRemover}
+                  style={{ height: 36, paddingHorizontal: espaco.sm }}
+                />
+              </View>
+            )}
+          </View>
+        </View>
+
+        {item.visita ? (
+          <View style={[estilos.linhaIcone, { marginTop: espaco.md }]}>
+            <Ionicons name="checkmark-circle" size={16} color={cores.sucesso} />
+            <Texto variante="micro" peso="semi" cor={cores.sucesso} style={{ flex: 1 }}>
+              Chegou às {formatarHora(item.visita.chegadaEm)}
+              {item.visita.custoRegistrado != null
+                ? ` · pagou ${formatarReais(item.visita.custoRegistrado)} na corrida`
+                : ''}
+            </Texto>
+            <Botao
+              titulo="Desfazer"
+              variante="texto"
+              largura="auto"
+              desabilitado={registrando}
+              onPress={onDesfazer}
+              style={{ height: 28, paddingHorizontal: 0 }}
+            />
+          </View>
+        ) : informandoValor ? (
+          <View style={{ gap: espaco.sm, marginTop: espaco.md }}>
+            <Campo
+              icone="cash-outline"
+              rotulo="Quanto pagou na corrida até aqui? (opcional)"
+              keyboardType="numeric"
+              value={valorPago}
+              onChangeText={setValorPago}
+              placeholder="Valor cobrado pelo aplicativo"
+            />
+            <Texto variante="micro" cor={cores.textoSuave}>
+              Use o valor final que o aplicativo de transporte cobrou. Ele mostra o quanto a
+              estimativa acertou.
+            </Texto>
+            <View style={{ flexDirection: 'row', gap: espaco.sm }}>
               <Botao
-                titulo="Trocar"
-                variante="contorno"
-                icone="swap-horizontal"
+                titulo="Registrar chegada"
+                variante="secundario"
+                icone="checkmark"
                 largura="auto"
-                desabilitado={ocupado}
-                onPress={onTrocar}
-                style={{ height: 36, paddingHorizontal: espaco.md }}
+                carregando={registrando}
+                onPress={registrarChegada}
+                style={{ height: 40, paddingHorizontal: espaco.md }}
               />
               <Botao
-                titulo="Remover"
+                titulo="Cancelar"
                 variante="texto"
-                icone="close"
                 largura="auto"
-                desabilitado={ocupado}
-                onPress={onRemover}
-                style={{ height: 36, paddingHorizontal: espaco.sm }}
+                onPress={() => setInformandoValor(false)}
+                style={{ height: 40, paddingHorizontal: espaco.sm }}
               />
             </View>
           </View>
-        </View>
+        ) : (
+          <Botao
+            titulo="Cheguei"
+            variante="secundario"
+            icone="checkmark-circle-outline"
+            carregando={registrando}
+            desabilitado={ocupado}
+            onPress={() => (veioDeCarro ? setInformandoValor(true) : onCheckin())}
+            style={{ height: 40, marginTop: espaco.md }}
+          />
+        )}
       </Cartao>
     </View>
   );

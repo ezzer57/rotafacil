@@ -138,10 +138,15 @@ export function createServicosHttp(baseUrl: string): ServicosApp {
           ...json({ operacao: 'orcamento', orcamento }),
         }),
 
-      registrarVisita: (roteiroId: ID, pontoId: ID) =>
+      registrarVisita: (roteiroId: ID, pontoId: ID, custoRegistrado?: number) =>
         req<Visita>(`/v1/itineraries/${roteiroId}/checkins`, {
           method: 'POST',
-          ...json({ pontoId }),
+          ...json({ pontoId, custoRegistrado }),
+        }),
+
+      desfazerVisita: (roteiroId: ID, pontoId: ID) =>
+        req<void>(`/v1/itineraries/${roteiroId}/checkins/${encodeURIComponent(pontoId)}`, {
+          method: 'DELETE',
         }),
 
       excluir: (roteiroId: ID) =>

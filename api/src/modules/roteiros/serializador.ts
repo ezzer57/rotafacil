@@ -14,6 +14,23 @@ const numero = (valor: Prisma.Decimal | number | null | undefined): number =>
   valor == null ? 0 : typeof valor === 'number' ? valor : Number(valor);
 
 type PontoBanco = Prisma.PontoInteresseGetPayload<object>;
+type VisitaBanco = Prisma.VisitaGetPayload<object>;
+
+/** Check-in de uma parada: quando o usuário chegou e quanto disse ter pago. */
+function serializarVisita(visita: VisitaBanco | undefined) {
+  if (!visita) return null;
+  return {
+    chegadaEm: visita.chegadaEm.toISOString(),
+    custoRegistrado: visita.custoRegistrado == null ? null : numero(visita.custoRegistrado),
+  };
+}
+
+/** Soma do que foi pago nas corridas; null enquanto ninguém informou valor. */
+function somaRegistrada(visitas: VisitaBanco[]): number | null {
+  const comValor = visitas.filter((v) => v.custoRegistrado != null);
+  if (comValor.length === 0) return null;
+  return Math.round(comValor.reduce((soma, v) => soma + numero(v.custoRegistrado), 0) * 100) / 100;
+}
 
 type RoteiroCompleto = Prisma.RoteiroGetPayload<{
   include: {
@@ -71,7 +88,7 @@ export function serializarCidade(
 
 export function serializarRoteiro(roteiro: RoteiroCompleto) {
   const itens = [...roteiro.itens].sort((a, b) => a.ordem - b.ordem);
-  const visitados = new Set(roteiro.visitas.map((v) => v.pontoId));
+  const visitaPorPonto = new Map(roteiro.visitas.map((v) => [v.pontoId, v]));
 
   const custoTransporte = {
     min: numero(roteiro.custoTransporteMin),
@@ -97,7 +114,8 @@ export function serializarRoteiro(roteiro: RoteiroCompleto) {
       chegadaPrevista: item.chegadaPrevista.toISOString(),
       saidaPrevista: item.saidaPrevista.toISOString(),
       custoNoLocal: numero(item.custoNoLocal),
-      visitado: item.visitado || visitados.has(item.pontoId),
+      visitado: item.visitado || visitaPorPonto.has(item.pontoId),
+      visita: serializarVisita(visitaPorPonto.get(item.pontoId)),
       trechoAteAqui: item.modal
         ? {
             // A origem do primeiro trecho é a posição do usuário.
@@ -138,6 +156,8 @@ export function serializarRoteiro(roteiro: RoteiroCompleto) {
             ),
       economiaCaminhando: numero(roteiro.economiaCaminhando),
       trechosAPe: roteiro.trechosAPe,
+      pontosVisitados: roteiro.visitas.length,
+      custoRegistrado: somaRegistrada(roteiro.visitas),
     },
 
     descartados: roteiro.descartados.map((d) => ({
@@ -161,7 +181,7 @@ export function serializarRoteiro(roteiro: RoteiroCompleto) {
 
 export function serializarResumo(
   roteiro: Prisma.RoteiroGetPayload<{
-    include: { cidade: true; itens: { include: { ponto: true } } };
+    include: { cidade: true; itens: { include: { ponto: true } }; visitas: true };
   }>,
 ) {
   const primeiro = [...roteiro.itens].sort((a, b) => a.ordem - b.ordem)[0];
@@ -175,5 +195,7 @@ export function serializarResumo(
         (numero(roteiro.custoTransporteEst) + numero(roteiro.custoLocais)) * 100,
       ) / 100,
     capaUrl: primeiro?.ponto.fotoUrl ?? null,
+    pontosVisitados: roteiro.visitas.length,
+    custoRegistrado: somaRegistrada(roteiro.visitas),
   };
 }

@@ -15,7 +15,7 @@ import type {
   ResumoRoteiro,
   Roteiro,
   Usuario,
-  Visita,
+  VisitaRegistrada,
 } from '@/domain/types';
 import type { ServicosApp } from '@/data/services';
 import { CIDADES, PONTOS, pontosPorCidade } from './dados';
@@ -24,6 +24,29 @@ import { gerarRoteiro } from './motor';
 const atraso = (ms = 700) => new Promise((r) => setTimeout(r, ms));
 
 const historico = new Map<ID, Roteiro>();
+
+/** Check-ins por roteiro, como a tabela de visitas do backend. */
+const visitas = new Map<ID, Map<ID, VisitaRegistrada>>();
+
+/** Aplica os check-ins ao roteiro guardado, como o serializador da API faz. */
+function comVisitas(roteiro: Roteiro): Roteiro {
+  const doRoteiro = visitas.get(roteiro.id) ?? new Map<ID, VisitaRegistrada>();
+  const pagas = [...doRoteiro.values()].filter((v) => v.custoRegistrado != null);
+  return {
+    ...roteiro,
+    itens: roteiro.itens.map((i) => {
+      const visita = doRoteiro.get(i.ponto.id) ?? null;
+      return { ...i, visitado: visita != null, visita };
+    }),
+    totais: {
+      ...roteiro.totais,
+      pontosVisitados: doRoteiro.size,
+      custoRegistrado: pagas.length
+        ? Math.round(pagas.reduce((s, v) => s + (v.custoRegistrado ?? 0), 0) * 100) / 100
+        : null,
+    },
+  };
+}
 
 /** Começa deslogado, para que o fluxo de entrada possa ser demonstrado. */
 let usuario: Usuario | null = null;
@@ -68,6 +91,8 @@ function resumir(roteiro: Roteiro): ResumoRoteiro {
     totalPontos: roteiro.itens.length,
     custoEstimado: roteiro.totais.custoTotal.estimado,
     capaUrl: roteiro.itens[0]?.ponto.fotoUrl ?? null,
+    pontosVisitados: roteiro.totais.pontosVisitados,
+    custoRegistrado: roteiro.totais.custoRegistrado,
   };
 }
 
@@ -92,7 +117,7 @@ function recalcular(roteiro: Roteiro, excluir: ID[], novoOrcamento?: Reais | nul
       .map((i, idx) => ({ ...i, ordem: idx + 1 })),
   };
   historico.set(atualizado.id, atualizado);
-  return atualizado;
+  return comVisitas(atualizado);
 }
 
 export function createServicosMock(): ServicosApp {
@@ -108,13 +133,13 @@ export function createServicosMock(): ServicosApp {
         await atraso(300);
         const roteiro = historico.get(id);
         if (!roteiro) throw new Error('Roteiro não encontrado');
-        return roteiro;
+        return comVisitas(roteiro);
       },
       async listar() {
         await atraso(400);
         return [...historico.values()]
           .sort((a, b) => b.criadoEm.localeCompare(a.criadoEm))
-          .map(resumir);
+          .map((roteiro) => resumir(comVisitas(roteiro)));
       },
       async removerPonto(roteiroId, pontoId) {
         await atraso(900);
@@ -134,29 +159,33 @@ export function createServicosMock(): ServicosApp {
         if (!roteiro) throw new Error('Roteiro não encontrado');
         return recalcular(roteiro, [], novoOrcamento);
       },
-      async registrarVisita(roteiroId, pontoId) {
+      async registrarVisita(roteiroId, pontoId, custoRegistrado) {
         await atraso(300);
         const roteiro = historico.get(roteiroId);
-        if (roteiro) {
-          historico.set(roteiroId, {
-            ...roteiro,
-            itens: roteiro.itens.map((i) =>
-              i.ponto.id === pontoId ? { ...i, visitado: true } : i,
-            ),
-          });
+        if (!roteiro) throw new Error('Roteiro não encontrado');
+        if (!roteiro.itens.some((i) => i.ponto.id === pontoId)) {
+          throw new Error('Este ponto não faz parte do roteiro');
         }
-        const visita: Visita = {
-          id: `v-${Date.now()}`,
-          roteiroId,
-          pontoId,
-          chegadaEm: new Date().toISOString(),
-          custoRegistrado: null,
+
+        const doRoteiro = visitas.get(roteiroId) ?? new Map<ID, VisitaRegistrada>();
+        // Refazer o check-in só atualiza o valor pago; a hora de chegada fica.
+        const visita: VisitaRegistrada = {
+          chegadaEm: doRoteiro.get(pontoId)?.chegadaEm ?? new Date().toISOString(),
+          custoRegistrado: custoRegistrado ?? null,
         };
-        return visita;
+        doRoteiro.set(pontoId, visita);
+        visitas.set(roteiroId, doRoteiro);
+
+        return { id: `v-${roteiroId}-${pontoId}`, roteiroId, pontoId, ...visita };
+      },
+      async desfazerVisita(roteiroId, pontoId) {
+        await atraso(300);
+        if (!visitas.get(roteiroId)?.delete(pontoId)) throw new Error('Check-in não encontrado');
       },
       async excluir(roteiroId) {
         await atraso(300);
         historico.delete(roteiroId);
+        visitas.delete(roteiroId);
       },
     },
 

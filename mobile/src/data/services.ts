@@ -12,6 +12,7 @@
  *   GET    /v1/itineraries              -> RoteiroService.listar
  *   PATCH  /v1/itineraries/:id          -> RoteiroService.removerPonto / substituirPonto
  *   POST   /v1/itineraries/:id/checkins -> RoteiroService.registrarVisita
+ *   DELETE /v1/itineraries/:id/checkins/:pontoId -> RoteiroService.desfazerVisita
  *   GET    /v1/cities                   -> CidadeService.listar
  *   POST   /v1/sessions                 -> AuthService.entrar
  */
@@ -37,7 +38,10 @@ export interface RoteiroService {
   substituirPonto(roteiroId: ID, pontoId: ID): Promise<Roteiro>;
   /** Refaz a seleção de pontos para um novo teto de gasto; null tira o teto. */
   ajustarOrcamento(roteiroId: ID, orcamento: number | null): Promise<Roteiro>;
-  registrarVisita(roteiroId: ID, pontoId: ID): Promise<Visita>;
+  /** Check-in na parada, com o valor pago na corrida quando o usuário informa. */
+  registrarVisita(roteiroId: ID, pontoId: ID, custoRegistrado?: number): Promise<Visita>;
+  /** Desfaz um check-in feito por engano. */
+  desfazerVisita(roteiroId: ID, pontoId: ID): Promise<void>;
   excluir(roteiroId: ID): Promise<void>;
 }
 

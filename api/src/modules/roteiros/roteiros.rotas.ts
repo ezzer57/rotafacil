@@ -5,6 +5,7 @@ import {
   gerarRoteiroSchema,
   idParamSchema,
   paginacaoSchema,
+  visitaParamSchema,
   visitaSchema,
 } from '@/contratos/index.js';
 import { autenticar } from '@/middlewares/autenticacao.js';
@@ -55,6 +56,16 @@ rotasRoteiros.post(
       req.body.custoRegistrado,
     );
     res.status(201).json(visita);
+  },
+);
+
+// Desfaz um check-in feito por engano.
+rotasRoteiros.delete(
+  '/:id/checkins/:pontoId',
+  validar({ params: visitaParamSchema }),
+  async (req, res) => {
+    await servico.desfazerVisita(req.usuarioId!, req.parametros.id, req.parametros.pontoId);
+    res.status(204).send();
   },
 );
 

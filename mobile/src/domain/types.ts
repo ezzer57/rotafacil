@@ -101,6 +101,12 @@ export interface Trecho {
   calculo: DetalheCalculoTarifa | null;
 }
 
+/** Registro do check-in: quando o usuário chegou e quanto pagou na corrida. */
+export interface VisitaRegistrada {
+  chegadaEm: DataISO;
+  custoRegistrado: Reais | null;
+}
+
 export interface ItemRoteiro {
   ordem: number;
   ponto: PontoInteresse;
@@ -110,6 +116,8 @@ export interface ItemRoteiro {
   trechoAteAqui: Trecho | null;
   custoNoLocal: Reais;
   visitado: boolean;
+  /** Check-in feito na parada; null enquanto o usuário não chegou. */
+  visita: VisitaRegistrada | null;
 }
 
 export interface TotaisRoteiro {
@@ -123,6 +131,10 @@ export interface TotaisRoteiro {
   /** Quanto se deixou de gastar nos trechos feitos a pé. */
   economiaCaminhando: Reais;
   trechosAPe: number;
+  /** Paradas com check-in feito. */
+  pontosVisitados: number;
+  /** Soma do que o usuário pagou nas corridas; null se não informou nenhum valor. */
+  custoRegistrado: Reais | null;
 }
 
 export type MotivoDescarte = 'orcamento' | 'tempo' | 'horario';
@@ -181,6 +193,8 @@ export interface ResumoRoteiro {
   totalPontos: number;
   custoEstimado: Reais;
   capaUrl: string | null;
+  pontosVisitados: number;
+  custoRegistrado: Reais | null;
 }
 
 export interface Visita {
