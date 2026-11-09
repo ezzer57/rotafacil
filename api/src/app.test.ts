@@ -13,6 +13,13 @@ import { criarApp } from './app.js';
 
 const app = criarApp();
 
+describe('configuração', () => {
+  it('faz as contas de horário no fuso de Fortaleza, e não no do servidor', () => {
+    // 12h em UTC são 9h em Quixadá, que fica em UTC-3 o ano inteiro.
+    expect(new Date('2026-10-21T12:00:00Z').getHours()).toBe(9);
+  });
+});
+
 describe('infraestrutura HTTP', () => {
   it('responde ao teste de vida sem tocar no banco', async () => {
     const resposta = await request(app).get('/health/live');
