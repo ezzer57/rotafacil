@@ -1,11 +1,12 @@
-/** Perfil e configurações (UI-09, versão inicial). */
+/** Perfil e configurações (UI-09). */
 
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Botao, Cartao, Campo, Chip, Texto } from '@/components/ui';
-import { useSair, useUsuario } from '@/hooks/use-rotafacil';
+import { Botao, Cartao, Chip, Texto } from '@/components/ui';
+import { useExcluirConta, useSair, useUsuario } from '@/hooks/use-rotafacil';
 import { useTema, type ModoTema } from '@/theme/provider';
 import { espaco, raio } from '@/theme/tokens';
 
@@ -18,7 +19,10 @@ const OPCOES_TEMA: { modo: ModoTema; rotulo: string; icone: 'sunny' | 'moon' | '
 export default function TelaPerfil() {
   const { data: usuario } = useUsuario();
   const sair = useSair();
+  const excluirConta = useExcluirConta();
   const { cores, modo, definirModo } = useTema();
+  // Apagar a conta não tem volta, então o primeiro toque só pede confirmação.
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: cores.fundo }} edges={['top']}>
@@ -64,22 +68,47 @@ export default function TelaPerfil() {
           </View>
         </Cartao>
 
-        <View style={{ gap: espaco.md }}>
-          <Campo rotulo="Nome" defaultValue={usuario?.nome} placeholder="Seu nome" />
-          <Campo rotulo="E-mail" defaultValue={usuario?.email} placeholder="seu@email.com" />
-          <Campo rotulo="Número de celular" placeholder="(85) 90000-0000" keyboardType="phone-pad" />
-          <Botao titulo="Salvar mudanças" variante="secundario" />
-        </View>
-
-        {/* Exigência da LGPD: o usuário precisa conseguir apagar os dados. */}
+        {/* Exigência da LGPD (art. 18, VI): o usuário precisa conseguir apagar os dados. */}
         <Cartao style={{ backgroundColor: cores.erroSuave, borderColor: cores.erroSuave }}>
           <Texto variante="pequeno" peso="semi" cor={cores.erro}>
             Privacidade
           </Texto>
           <Texto variante="micro" cor={cores.textoSuave} style={{ marginTop: 4, marginBottom: espaco.md }}>
-            Você pode apagar seu histórico de roteiros e dados de localização a qualquer momento.
+            {confirmandoExclusao
+              ? 'Tem certeza? A conta, os roteiros, as visitas e os pontos de partida serão apagados de vez. Não dá para desfazer.'
+              : 'Você pode apagar sua conta e todos os seus dados (roteiros, visitas e pontos de partida) a qualquer momento.'}
           </Texto>
-          <Botao titulo="Excluir meus dados" variante="contorno" icone="trash-outline" />
+          {confirmandoExclusao ? (
+            <View style={{ flexDirection: 'row', gap: espaco.sm }}>
+              <Botao
+                titulo="Apagar tudo"
+                icone="trash-outline"
+                largura="auto"
+                carregando={excluirConta.isPending}
+                onPress={() => excluirConta.mutate()}
+                style={{ paddingHorizontal: espaco.lg }}
+              />
+              <Botao
+                titulo="Cancelar"
+                variante="texto"
+                largura="auto"
+                desabilitado={excluirConta.isPending}
+                onPress={() => setConfirmandoExclusao(false)}
+              />
+            </View>
+          ) : (
+            <Botao
+              titulo="Excluir minha conta e meus dados"
+              variante="contorno"
+              icone="trash-outline"
+              onPress={() => setConfirmandoExclusao(true)}
+            />
+          )}
+          {excluirConta.isError ? (
+            <Texto variante="micro" cor={cores.erro} style={{ marginTop: espaco.sm }}>
+              {(excluirConta.error as Error).message}
+            </Texto>
+          ) : null}
         </Cartao>
 
         <Botao

@@ -181,6 +181,12 @@ export function createServicosHttp(baseUrl: string): ServicosApp {
 
       // O JWT não guarda estado no servidor: sair é descartar o token.
       sair: () => encerrarSessao(),
+
+      // A API apaga a conta e, em cascata, roteiros, visitas e pontos de partida.
+      excluirConta: async () => {
+        await req<void>('/v1/me', { method: 'DELETE' });
+        await encerrarSessao();
+      },
     },
   };
 }

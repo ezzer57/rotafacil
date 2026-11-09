@@ -85,6 +85,18 @@ export function useSair() {
   });
 }
 
+export function useExcluirConta() {
+  const { auth } = useServicos();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => auth.excluirConta(),
+    onSuccess: () => {
+      qc.setQueryData(chaves.usuario, null);
+      qc.clear(); // nada da conta apagada pode ficar em cache
+    },
+  });
+}
+
 export function useGerarRoteiro() {
   const { roteiros } = useServicos();
   const qc = useQueryClient();

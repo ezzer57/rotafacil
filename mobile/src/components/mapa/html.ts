@@ -68,7 +68,9 @@ export function construirHtmlMapa({
 
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
-    attribution: '&copy; OpenStreetMap'
+    // Crédito exigido pela licença ODbL dos dados do OpenStreetMap.
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
   }).addTo(mapa);
 
   function avisarSelecao(id) {

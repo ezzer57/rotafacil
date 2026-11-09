@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "RotaFácil",
+    "slug": "rotafacil",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "scheme": "rotafacil",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"
@@ -37,7 +37,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "O RotaFacil usa sua localizacao para montar o roteiro a partir de onde voce esta."
+          "locationWhenInUsePermission": "O RotaFácil usa sua localização para montar o roteiro a partir de onde você está."
         }
       ]
     ],
