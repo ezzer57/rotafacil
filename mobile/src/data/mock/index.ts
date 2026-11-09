@@ -244,6 +244,12 @@ export function createServicosMock(): ServicosApp {
         await atraso(200);
         usuario = null;
       },
+      async excluirConta() {
+        await atraso(600);
+        historico.clear();
+        visitas.clear();
+        usuario = null;
+      },
     },
   };
 }

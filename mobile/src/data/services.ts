@@ -15,6 +15,7 @@
  *   DELETE /v1/itineraries/:id/checkins/:pontoId -> RoteiroService.desfazerVisita
  *   GET    /v1/cities                   -> CidadeService.listar
  *   POST   /v1/sessions                 -> AuthService.entrar
+ *   DELETE /v1/me                       -> AuthService.excluirConta
  */
 
 import type {
@@ -59,6 +60,8 @@ export interface AuthService {
   entrar(email: string, senha: string): Promise<Usuario>;
   registrar(nome: string, email: string, senha: string): Promise<Usuario>;
   sair(): Promise<void>;
+  /** Apaga a conta e tudo ligado a ela (LGPD, art. 18, VI) e encerra a sessão. */
+  excluirConta(): Promise<void>;
 }
 
 export interface ServicosApp {
