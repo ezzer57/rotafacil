@@ -53,7 +53,7 @@ export default function TelaInicio() {
               <Ionicons name="navigate" size={18} color="#FFFFFF" />
             </View>
             <Texto variante="destaque" peso="forte">
-              RotaFacil
+              RotaFácil
             </Texto>
           </View>
 
@@ -183,7 +183,7 @@ export default function TelaInicio() {
             <EstadoVazio
               icone="navigate-outline"
               titulo="Nenhuma rota ainda"
-              descricao="Toque em Nova rota e informe quanto tempo e quanto dinheiro você tem hoje."
+              descricao="Toque em Nova rota e informe quanto tempo você tem hoje. O limite de gasto é opcional."
             />
           )}
         </View>
