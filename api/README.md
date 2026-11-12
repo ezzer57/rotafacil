@@ -118,6 +118,27 @@ chegada (a entrada, o início da trilha), não a do centro do lugar.
 Ponto que sai da lista não é apagado: fica com `ativo = false`, fora dos
 roteiros novos e visível nos antigos.
 
+## Escolha e ordem das paradas
+
+O benefício de cada ponto mistura a **relevância** (curadoria de 1 a 5, o mesmo
+critério em todas as cidades, coluna `relevancia`) com a nota das avaliações
+(média bayesiana, que pode faltar): 70% relevância, 30% nota. A relevância
+entra ao cubo, para o símbolo da cidade (5) valer cerca de 4,6 vezes um ponto
+de relevância 3.
+
+1. **Fases:** primeiro entram os pontos de relevância 5, depois os de 4, por
+   fim o resto, sempre pela razão benefício/consumo de tempo e dinheiro e só
+   se couberem no tempo, no teto e nos horários. Sem as fases, um roteiro de
+   4 horas em Quixadá ficava no centro, sem Açude do Cedro nem Galinha Choca.
+   Nas fases dos imperdíveis só entram categorias que o usuário escolheu.
+2. **2-opt:** com os pontos escolhidos, o motor inverte trechos da rota
+   enquanto isso reduzir tempo e custo e a rota continuar válida (horários
+   incluídos). Isso desfaz o zigue-zague da inserção gulosa. O tempo que
+   sobra volta para a etapa 1.
+
+A relevância é opinião do autor, não dado do OpenStreetMap: está em
+`prisma/seed.ts` e deve ser validada por quem conhece cada cidade.
+
 ## Rotas pelas ruas
 
 Distância e tempo entre as paradas vêm de um servidor **OSRM** (dados do

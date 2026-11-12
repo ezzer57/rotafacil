@@ -128,6 +128,10 @@ model PontoInteresse {
   /// Falso quando o ponto saiu da lista: não entra em roteiro novo, mas segue
   /// no banco para os roteiros antigos que passaram por ele.
   ativo         Boolean      @default(true)
+  /// Quanto o lugar é imperdível, de 1 a 5, com o mesmo critério em todas as
+  /// cidades (5 = símbolo da cidade; 1 = só se sobrar tempo). É curadoria,
+  /// não dado do provedor: não depende de haver avaliações.
+  relevancia    Int          @default(3)
   /// Registro de origem, ex.: "osm:node/4663218620", para conferência e crédito.
   fonte         String?      @db.VarChar(60)
 

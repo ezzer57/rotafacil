@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 import {
   cabeNaJanela,
   custoNoLocal,
+  beneficio,
   gerarRoteiro,
   pontuar,
   type Candidato,
@@ -41,6 +42,7 @@ function candidato(parcial: Partial<Candidato> & { id: string }): Candidato {
     avaliacoes: 500,
     faixaPreco: null,
     tempoVisitaMin: 30,
+    relevancia: 3,
     abreMin: null,
     fechaMin: null,
     ...parcial,
@@ -194,9 +196,14 @@ describe('gerarRoteiro', () => {
       candidato({ id: 'de-carro', coordenada: aNorte(2) }),
     ];
 
-    const resultado = gerarRoteiro(candidatos, preferencias({ orcamento: null }), TARIFA);
+    // Só um dos dois cabe no tempo, então a escolha é só de custo.
+    const resultado = gerarRoteiro(
+      candidatos,
+      preferencias({ orcamento: null, tempoDisponivelMin: 50 }),
+      TARIFA,
+    );
 
-    expect(resultado.itens[0]?.candidato.id).toBe('a-pe');
+    expect(resultado.itens.map((i) => i.candidato.id)).toEqual(['a-pe']);
   });
 
   it('explica o motivo de cada ponto descartado', () => {
@@ -251,11 +258,12 @@ describe('gerarRoteiro', () => {
 
     const resultado = gerarRoteiro(
       candidatos,
-      preferencias({ categorias: ['gastronomia'], orcamento: 40 }),
+      // Tempo para um só: a escolha é de preferência, não de ordem.
+      preferencias({ categorias: ['gastronomia'], orcamento: 40, tempoDisponivelMin: 60 }),
       TARIFA,
     );
 
-    expect(resultado.itens[0]?.candidato.id).toBe('restaurante');
+    expect(resultado.itens.map((i) => i.candidato.id)).toEqual(['restaurante']);
   });
 
   it('devolve roteiro vazio, e não erro, quando nada cabe', () => {
@@ -294,5 +302,88 @@ describe('gerarRoteiro', () => {
     expect(resultado.diagnostico.candidatosAvaliados).toBe(3);
     expect(resultado.diagnostico.trechosCalculados).toBeGreaterThan(0);
     expect(resultado.diagnostico.duracaoMs).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('beneficio', () => {
+  it('a relevância separa pontos sem nota: o cartão-postal vale mais que o complementar', () => {
+    const universo = [
+      candidato({ id: 'postal', relevancia: 5, nota: null, avaliacoes: 0 }),
+      candidato({ id: 'cafe', relevancia: 2, nota: null, avaliacoes: 0 }),
+    ];
+    expect(beneficio(universo[0]!, universo, 1)).toBeGreaterThan(beneficio(universo[1]!, universo, 1));
+  });
+
+  it('a nota desempata pontos de mesma relevância', () => {
+    const universo = [
+      candidato({ id: 'bom', relevancia: 3, nota: 4.8, avaliacoes: 900 }),
+      candidato({ id: 'ruim', relevancia: 3, nota: 3.2, avaliacoes: 900 }),
+    ];
+    expect(beneficio(universo[0]!, universo, 1)).toBeGreaterThan(beneficio(universo[1]!, universo, 1));
+  });
+
+  it('a preferência de categoria multiplica o benefício', () => {
+    const universo = [candidato({ id: 'a', relevancia: 4 })];
+    expect(beneficio(universo[0]!, universo, 0.25)).toBeCloseTo(beneficio(universo[0]!, universo, 1) / 4);
+  });
+});
+
+describe('gerarRoteiro: relevância e ordem das paradas', () => {
+  it('com tempo para só um ponto, escolhe o mais relevante mesmo estando mais longe', () => {
+    const candidatos = [
+      candidato({ id: 'complementar', relevancia: 2, coordenada: aNorte(0.3), nota: null, avaliacoes: 0 }),
+      candidato({ id: 'simbolo', relevancia: 5, coordenada: aNorte(0.9), nota: null, avaliacoes: 0 }),
+    ];
+    const resultado = gerarRoteiro(
+      candidatos,
+      preferencias({ orcamento: null, tempoDisponivelMin: 50 }),
+      TARIFA,
+    );
+    expect(resultado.itens.map((i) => i.candidato.id)).toEqual(['simbolo']);
+  });
+
+  it('desfaz o zigue-zague: visita em fila, e não indo e voltando', () => {
+    // Três pontos em linha para o norte. A inserção gulosa pode começar pelo
+    // do meio ou pelo mais relevante; a ordem final tem de ser a da fila.
+    const candidatos = [
+      candidato({ id: 'p3', relevancia: 5, coordenada: aNorte(0.9) }),
+      candidato({ id: 'p1', relevancia: 3, coordenada: aNorte(0.3) }),
+      candidato({ id: 'p2', relevancia: 4, coordenada: aNorte(0.6) }),
+    ];
+    const resultado = gerarRoteiro(candidatos, preferencias({ orcamento: null }), TARIFA);
+
+    expect(resultado.itens.map((i) => i.candidato.id)).toEqual(['p1', 'p2', 'p3']);
+  });
+
+  it('a ordem final nunca é mais demorada que a da inserção gulosa', () => {
+    const candidatos = [
+      candidato({ id: 'a', relevancia: 5, coordenada: aNorte(0.8) }),
+      candidato({ id: 'b', relevancia: 4, coordenada: { lat: CENTRO.lat, lng: CENTRO.lng + 0.008 } }),
+      candidato({ id: 'c', relevancia: 3, coordenada: aNorte(0.4) }),
+      candidato({ id: 'd', relevancia: 3, coordenada: { lat: CENTRO.lat, lng: CENTRO.lng - 0.006 } }),
+    ];
+    const resultado = gerarRoteiro(candidatos, preferencias({ orcamento: null, tempoDisponivelMin: 480 }), TARIFA);
+
+    const deslocamento = resultado.itens.reduce((s, i) => s + i.trechoAteAqui.duracaoMin, 0);
+    // Cota simples: nenhum percurso razoável de 4 pontos a menos de 1 km um do outro passa de 1 h.
+    expect(deslocamento).toBeLessThan(60);
+    expect(resultado.itens).toHaveLength(4);
+  });
+
+  it('respeita o horário de funcionamento ao reordenar', () => {
+    // O ponto do fim da fila só abre às 11h: reordenar para visitá-lo primeiro,
+    // às 9h, seria um erro, mesmo que encurtasse o caminho.
+    const candidatos = [
+      candidato({ id: 'abre-tarde', relevancia: 5, coordenada: aNorte(0.2), abreMin: 11 * 60, fechaMin: 18 * 60 }),
+      candidato({ id: 'longe', relevancia: 5, coordenada: aNorte(0.9) }),
+      candidato({ id: 'meio', relevancia: 5, coordenada: aNorte(0.5) }),
+    ];
+    const resultado = gerarRoteiro(candidatos, preferencias({ orcamento: null, tempoDisponivelMin: 480 }), TARIFA);
+
+    for (const item of resultado.itens) {
+      if (item.candidato.id === 'abre-tarde') {
+        expect(item.chegadaPrevista.getHours()).toBeGreaterThanOrEqual(11);
+      }
+    }
   });
 });

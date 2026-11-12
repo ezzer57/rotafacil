@@ -133,7 +133,48 @@ const PONTOS: PontoSemente[] = [
   { id: 'fz-centro-das-tapioqueiras', cidadeId: 'fortaleza', nome: 'Centro das Tapioqueiras', categoria: 'gastronomia', endereco: 'Avenida Washington Soares, 10215, Coaçu, Fortaleza - CE', lat: -3.840443, lng: -38.479317, nota: null, avaliacoes: 0, faixaPreco: 1, tempoVisitaMin: 45, abre: '06:30', fecha: '23:00', horarioFonte: 'osm', fonte: 'osm:way/242892565' },
 ];
 
+/**
+ * Relevância de cada ponto, de 1 a 5, com o mesmo critério em todas as cidades:
+ *   5  símbolo da cidade: quem não vê, não conheceu o lugar
+ *   4  grande atrativo
+ *   3  vale a visita
+ *   2  complementar (uma refeição ou um passeio curto)
+ *   1  só se sobrar tempo
+ * É curadoria do autor, a validar com quem conhece cada cidade.
+ */
+const RELEVANCIA: Record<string, 1 | 2 | 3 | 4 | 5> = {
+  // Quixadá
+  'qx-galinha-choca': 5,
+  'qx-acude-cedro': 5,
+  'qx-pedra-cruzeiro': 4,
+  'qx-santuario-rainha-sertao': 4,
+  'qx-catedral': 3,
+  'qx-memorial-cego-aderaldo': 3,
+  'qx-museu-jacinto-sousa': 3,
+  'qx-mercado-publico': 3,
+  'qx-chale-da-pedra': 3,
+  'qx-peixada-abelardo': 3,
+  'qx-sabores-do-sertao': 2,
+  'qx-itajuba': 2,
+  'qx-maria-pitanga': 2,
+  // Fortaleza
+  'fz-praia-iracema': 5,
+  'fz-dragao-do-mar': 5,
+  'fz-theatro-jose-alencar': 4,
+  'fz-mercado-central': 4,
+  'fz-catedral': 4,
+  'fz-feirinha-beira-mar': 4,
+  'fz-parque-coco': 3,
+  'fz-mercado-dos-peixes': 3,
+  'fz-centro-das-tapioqueiras': 3,
+};
+
 async function main() {
+  const semRelevancia = PONTOS.filter((ponto) => !(ponto.id in RELEVANCIA));
+  if (semRelevancia.length > 0) {
+    throw new Error(`Faltou a relevância de: ${semRelevancia.map((p) => p.id).join(', ')}`);
+  }
+
   for (const cidade of CIDADES) {
     await prisma.cidade.upsert({
       where: { id: cidade.id },
@@ -163,6 +204,7 @@ async function main() {
       abreMin: abre ? hora(abre) : null,
       fechaMin: fecha ? hora(fecha) : null,
       fotoUrl: `https://picsum.photos/seed/${ponto.id}/800/600`,
+      relevancia: RELEVANCIA[ponto.id]!,
       ativo: true,
       sincronizadoEm: new Date(),
     };

@@ -67,6 +67,7 @@ export function serializarPonto(ponto: PontoBanco) {
     faixaPreco: ponto.faixaPreco,
     fotoUrl: ponto.fotoUrl,
     tempoVisitaMin: ponto.tempoVisitaMin,
+    relevancia: ponto.relevancia,
     abertoAgora: abertoAgora(ponto),
     horarioHoje: horarioLegivel(ponto),
   };

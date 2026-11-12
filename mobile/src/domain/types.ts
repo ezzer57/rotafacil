@@ -57,6 +57,8 @@ export interface PontoInteresse {
   faixaPreco: number | null;
   fotoUrl: string | null;
   tempoVisitaMin: number;
+  /** Quanto o lugar é imperdível, de 1 a 5, com o mesmo critério em toda cidade. */
+  relevancia: number;
   abertoAgora: boolean | null;
   horarioHoje: string | null;
 }

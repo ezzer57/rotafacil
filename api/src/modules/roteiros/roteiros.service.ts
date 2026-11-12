@@ -115,6 +115,7 @@ async function carregarCandidatos(cidadeId: string, excluir: string[]): Promise<
     avaliacoes: ponto.avaliacoes,
     faixaPreco: ponto.faixaPreco,
     tempoVisitaMin: ponto.tempoVisitaMin,
+    relevancia: ponto.relevancia,
     abreMin: ponto.abreMin,
     fechaMin: ponto.fechaMin,
   }));

@@ -166,10 +166,27 @@ function pontuacao(ponto: PontoInteresse, candidatos: PontoInteresse[], peso: nu
   return peso * ((n * ponto.nota + m * C) / (n + m));
 }
 
+/** Mesmo cálculo da API (src/core/roteirizacao.ts): relevância pesa 70%, a nota 30%. */
+const PESO_RELEVANCIA = 0.7;
+const EXPOENTE_RELEVANCIA = 3;
+const relevanciaEfetiva = (relevancia: number) => 5 * (relevancia / 5) ** EXPOENTE_RELEVANCIA;
+
+function beneficio(ponto: PontoInteresse, candidatos: PontoInteresse[], peso: number): number {
+  return (
+    peso *
+    (PESO_RELEVANCIA * relevanciaEfetiva(ponto.relevancia) +
+      (1 - PESO_RELEVANCIA) * pontuacao(ponto, candidatos, 1))
+  );
+}
+
+/** Primeiro os símbolos da cidade (5), depois os grandes atrativos (4), por fim o resto. */
+const FASES_DE_RELEVANCIA = [5, 4, 0];
+
 /**
- * Construção gulosa por inserção: a cada passo acrescenta o ponto com a
- * melhor razão benefício/consumo que ainda cabe no tempo, no horário de
- * funcionamento e, quando há teto, no orçamento.
+ * Construção gulosa por inserção seguida de 2-opt: a cada passo acrescenta o
+ * ponto com a melhor razão benefício/consumo que ainda cabe no tempo, no
+ * horário de funcionamento e, quando há teto, no orçamento; depois inverte
+ * trechos da rota para desfazer o zigue-zague.
  */
 export function gerarRoteiro(pref: PreferenciasRoteiro): Roteiro {
   const inicio = performance.now();
@@ -183,52 +200,127 @@ export function gerarRoteiro(pref: PreferenciasRoteiro): Roteiro {
   const candidatos = pontosPorCidade(cidade.id);
 
   const selecionados: PontoInteresse[] = [];
-  let posicao = { id: 'origem', coordenada: pref.origem };
-  let relogio = new Date(pref.inicioPrevisto);
-  let gastoAcumulado = 0;
-  let tempoAcumulado = 0;
+  const origem = { id: 'origem', coordenada: pref.origem };
+  const alvo = (p: PontoInteresse) => ({ id: p.id, coordenada: p.coordenada });
 
-  const restantes = [...candidatos];
+  interface Estado {
+    posicao: { id: string; coordenada: Coordenada };
+    relogio: Date;
+    gasto: number;
+    tempo: number;
+  }
 
-  while (restantes.length > 0) {
-    let melhor: { ponto: PontoInteresse; trecho: Trecho; razao: number } | null = null;
-
-    for (const ponto of restantes) {
-      const peso =
-        pref.categorias.length === 0 || pref.categorias.includes(ponto.categoria) ? 1 : 0.25;
-      const trecho = montarTrecho(
-        posicao,
-        { id: ponto.id, coordenada: ponto.coordenada },
-        relogio,
-        tarifa,
-      );
+  /** Percorre a sequência; devolve null se ela não couber no tempo, no teto ou nos horários. */
+  const simular = (sequencia: PontoInteresse[]): Estado | null => {
+    let estado: Estado = {
+      posicao: origem,
+      relogio: new Date(pref.inicioPrevisto),
+      gasto: 0,
+      tempo: 0,
+    };
+    for (const ponto of sequencia) {
+      const trecho = montarTrecho(estado.posicao, alvo(ponto), estado.relogio, tarifa);
       trechosCalculados += 1;
-
       const deltaTempo = trecho.duracaoMin + ponto.tempoVisitaMin;
       const deltaCusto = trecho.custo.estimado + custoNoLocal(ponto);
 
-      if (tempoAcumulado + deltaTempo > pref.tempoDisponivelMin) continue;
-      if (teto != null && gastoAcumulado + deltaCusto > teto) continue;
-      if (!cabeNaJanela(ponto, relogio, trecho.duracaoMin)) continue;
+      if (estado.tempo + deltaTempo > pref.tempoDisponivelMin) return null;
+      if (teto != null && estado.gasto + deltaCusto > teto) return null;
+      if (!cabeNaJanela(ponto, estado.relogio, trecho.duracaoMin)) return null;
 
-      const razao =
-        pontuacao(ponto, candidatos, peso) /
-        (deltaTempo / pref.tempoDisponivelMin + deltaCusto / Math.max(1, regua));
-
-      if (!melhor || razao > melhor.razao) melhor = { ponto, trecho, razao };
+      estado = {
+        posicao: alvo(ponto),
+        relogio: new Date(estado.relogio.getTime() + deltaTempo * 60000),
+        gasto: estado.gasto + deltaCusto,
+        tempo: estado.tempo + deltaTempo,
+      };
     }
+    return estado;
+  };
 
-    if (!melhor) break;
+  const restantes = [...candidatos];
 
-    selecionados.push(melhor.ponto);
-    gastoAcumulado += melhor.trecho.custo.estimado + custoNoLocal(melhor.ponto);
-    tempoAcumulado += melhor.trecho.duracaoMin + melhor.ponto.tempoVisitaMin;
-    relogio = new Date(
-      relogio.getTime() + (melhor.trecho.duracaoMin + melhor.ponto.tempoVisitaMin) * 60000,
-    );
-    posicao = { id: melhor.ponto.id, coordenada: melhor.ponto.coordenada };
-    restantes.splice(restantes.indexOf(melhor.ponto), 1);
+  const ampliar = (relevanciaMinima: number) => {
+    for (;;) {
+      const estado = simular(selecionados)!;
+      let melhor: { ponto: PontoInteresse; razao: number } | null = null;
+
+      for (const ponto of restantes) {
+        const dentroDaPreferencia =
+          pref.categorias.length === 0 || pref.categorias.includes(ponto.categoria);
+        const peso = dentroDaPreferencia ? 1 : 0.25;
+
+        if (relevanciaMinima > 0 && (!dentroDaPreferencia || ponto.relevancia < relevanciaMinima)) {
+          continue;
+        }
+
+        const trecho = montarTrecho(estado.posicao, alvo(ponto), estado.relogio, tarifa);
+        trechosCalculados += 1;
+
+        const deltaTempo = trecho.duracaoMin + ponto.tempoVisitaMin;
+        const deltaCusto = trecho.custo.estimado + custoNoLocal(ponto);
+
+        if (estado.tempo + deltaTempo > pref.tempoDisponivelMin) continue;
+        if (teto != null && estado.gasto + deltaCusto > teto) continue;
+        if (!cabeNaJanela(ponto, estado.relogio, trecho.duracaoMin)) continue;
+
+        const razao =
+          beneficio(ponto, candidatos, peso) /
+          (deltaTempo / pref.tempoDisponivelMin + deltaCusto / Math.max(1, regua));
+
+        if (!melhor || razao > melhor.razao) melhor = { ponto, razao };
+      }
+
+      if (!melhor) return;
+      selecionados.push(melhor.ponto);
+      restantes.splice(restantes.indexOf(melhor.ponto), 1);
+    }
+  };
+
+  const custoDaRota = (estado: Estado) =>
+    estado.tempo / pref.tempoDisponivelMin + estado.gasto / Math.max(1, regua);
+
+  /** 2-opt: inverte um trecho da rota quando isso diminui tempo e custo e ela continua cabendo. */
+  const desembaracar = (): boolean => {
+    let melhorou = false;
+    let atual = simular(selecionados)!;
+
+    for (let rodada = 0; rodada < 20; rodada += 1) {
+      let achou = false;
+      for (let i = 0; i < selecionados.length - 1 && !achou; i += 1) {
+        for (let j = i + 1; j < selecionados.length && !achou; j += 1) {
+          const tentativa = [
+            ...selecionados.slice(0, i),
+            ...selecionados.slice(i, j + 1).reverse(),
+            ...selecionados.slice(j + 1),
+          ];
+          const estado = simular(tentativa);
+          if (estado && custoDaRota(estado) < custoDaRota(atual) - 1e-4) {
+            selecionados.splice(0, selecionados.length, ...tentativa);
+            atual = estado;
+            achou = true;
+            melhorou = true;
+          }
+        }
+      }
+      if (!achou) break;
+    }
+    return melhorou;
+  };
+
+  const completar = () => FASES_DE_RELEVANCIA.forEach((fase) => ampliar(fase));
+
+  completar();
+  for (let rodada = 0; rodada < 5; rodada += 1) {
+    if (!desembaracar()) break;
+    completar();
   }
+
+  const final = simular(selecionados)!;
+  const posicao = final.posicao;
+  const relogio = final.relogio;
+  const gastoAcumulado = final.gasto;
+  const tempoAcumulado = final.tempo;
 
   // Explica, ponto a ponto, por que cada candidato ficou de fora.
   const descartados: PontoDescartado[] = restantes.map((ponto) => {
