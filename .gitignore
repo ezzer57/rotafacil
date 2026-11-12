@@ -36,3 +36,6 @@ Thumbs.db
 
 # arquivo de trabalho (texto extraido do PDF do TCC)
 tcc.txt
+
+# mapa baixado e dados processados do OSRM (grandes, gerados por osrm/preparar.sh)
+/osrm/dados/

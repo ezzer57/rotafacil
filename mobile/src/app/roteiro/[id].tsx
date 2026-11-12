@@ -38,6 +38,15 @@ import { useAjustarRoteiro, useRoteiro } from '@/hooks/use-rotafacil';
 import { useCores } from '@/theme/provider';
 import { espaco, raio, type Paleta } from '@/theme/tokens';
 
+/** O que a legenda sob o mapa diz sobre a origem das distâncias. */
+const ORIGEM_DAS_MEDIDAS = {
+  ruas: 'Distâncias e tempos medidos pelas ruas (dados do OpenStreetMap).',
+  parcial:
+    'Parte dos trechos foi medida pelas ruas; o restante é estimado em linha reta (linhas claras no mapa).',
+  estimada:
+    'Distâncias estimadas em linha reta (× 1,3), sem consulta às ruas. As linhas do mapa são retas entre as paradas.',
+} as const;
+
 /** Escala do controle de teto, em reais. */
 const TETO_MINIMO = 20;
 const TETO_MAXIMO = 300;
@@ -49,6 +58,22 @@ export default function TelaRoteiro() {
     useAjustarRoteiro(id);
   const cores = useCores();
   const estilos = useEstilos(cores);
+
+  // Estável entre renderizações: um array novo a cada render recarregaria o
+  // mapa inteiro.
+  const paradasDoMapa = useMemo(
+    () =>
+      (roteiro?.itens ?? []).map<ParadaMapa>((item) => ({
+        id: item.ponto.id,
+        nome: item.ponto.nome,
+        ordem: item.ordem,
+        lat: item.ponto.coordenada.lat,
+        lng: item.ponto.coordenada.lng,
+        modalAteAqui: item.trechoAteAqui?.modal ?? null,
+        trajetoAteAqui: item.trechoAteAqui?.trajeto ?? null,
+      })),
+    [roteiro?.itens],
+  );
 
   // Valor mostrado enquanto o controle é arrastado, antes do recálculo.
   const [orcamentoVisual, setOrcamentoVisual] = useState<number | null>(null);
@@ -214,17 +239,10 @@ export default function TelaRoteiro() {
       </Cartao>
 
       {/* ----------------------------------------------------------- mapa */}
-      <MapaRoteiro
-        origem={roteiro.preferencias.origem}
-        paradas={roteiro.itens.map<ParadaMapa>((item) => ({
-          id: item.ponto.id,
-          nome: item.ponto.nome,
-          ordem: item.ordem,
-          lat: item.ponto.coordenada.lat,
-          lng: item.ponto.coordenada.lng,
-          modalAteAqui: item.trechoAteAqui?.modal ?? null,
-        }))}
-      />
+      <MapaRoteiro origem={roteiro.preferencias.origem} paradas={paradasDoMapa} />
+      <Texto variante="micro" cor={cores.textoSuave} style={{ marginTop: -espaco.sm }}>
+        {ORIGEM_DAS_MEDIDAS[roteiro.diagnostico.rotas ?? 'estimada']}
+      </Texto>
 
       {/* ----------------------------------------------------- percurso */}
       <View style={{ gap: espaco.md }}>
@@ -411,12 +429,15 @@ function ParadaDoRoteiro({
               {item.custoNoLocal > 0 ? ` · ${formatarReais(item.custoNoLocal)}` : ''}
             </Texto>
 
-            <View style={estilos.linhaIcone}>
-              <Ionicons name="star" size={12} color={cores.alerta} />
-              <Texto variante="micro" cor={cores.textoSuave}>
-                {item.ponto.nota?.toFixed(1)} ({item.ponto.avaliacoes})
-              </Texto>
-            </View>
+            {/* Ponto vindo só do mapa não tem nota: a linha some, em vez de inventar. */}
+            {item.ponto.nota != null ? (
+              <View style={estilos.linhaIcone}>
+                <Ionicons name="star" size={12} color={cores.alerta} />
+                <Texto variante="micro" cor={cores.textoSuave}>
+                  {item.ponto.nota.toFixed(1)} ({item.ponto.avaliacoes})
+                </Texto>
+              </View>
+            ) : null}
 
             {/* Parada já visitada não se troca nem se remove. */}
             {item.visita ? null : (

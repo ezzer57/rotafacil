@@ -1,0 +1,22 @@
+# Servidores de rotas proprios (OSRM), um para carro e outro para a pe.
+# Antes de ligar, rode uma vez: bash osrm/preparar.sh
+services:
+  osrm-carro:
+    image: ghcr.io/project-osrm/osrm-backend:latest
+    container_name: rotafacil-osrm-carro
+    restart: unless-stopped
+    command: osrm-routed --algorithm mld /dados/carro.osrm
+    volumes:
+      - ./dados:/dados:ro
+    ports:
+      - '${OSRM_PORTA_CARRO:-5000}:5000'
+
+  osrm-a-pe:
+    image: ghcr.io/project-osrm/osrm-backend:latest
+    container_name: rotafacil-osrm-a-pe
+    restart: unless-stopped
+    command: osrm-routed --algorithm mld /dados/a-pe.osrm
+    volumes:
+      - ./dados:/dados:ro
+    ports:
+      - '${OSRM_PORTA_A_PE:-5001}:5000'

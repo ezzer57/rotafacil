@@ -11,6 +11,7 @@
  */
 
 import { distanciaViaria, type Coordenada } from './geo.js';
+import type { MedidorDeRotas } from './medidor.js';
 import {
   emReais,
   estimarTrechoPorAplicativo,
@@ -42,6 +43,8 @@ export interface Candidato {
   avaliacoes: number;
   faixaPreco: number | null;
   tempoVisitaMin: number;
+  /** Quanto o lugar é imperdível, de 1 a 5 (curadoria; vale igual em toda cidade). */
+  relevancia: number;
   /** Janela de funcionamento em minutos desde a meia-noite. */
   abreMin: number | null;
   fechaMin: number | null;
@@ -56,8 +59,13 @@ export interface Preferencias {
   inicioPrevisto: Date;
 }
 
+/** De onde vieram a distância e o tempo do trecho. */
+export type FonteDaMedida = 'ruas' | 'estimada';
+
 export interface Trecho {
   modal: Modal;
+  /** "ruas": medido no mapa; "estimada": linha reta vezes o fator de circuidade. */
+  fonte: FonteDaMedida;
   distanciaKm: number;
   duracaoMin: number;
   bandeira: Bandeira | null;
@@ -92,6 +100,8 @@ export interface ResultadoRoteiro {
     economiaCaminhando: number;
   };
   diagnostico: {
+    /** Quantos trechos do roteiro final foram medidos pelas ruas. */
+    rotas: 'ruas' | 'parcial' | 'estimada';
     candidatosAvaliados: number;
     trechosCalculados: number;
     duracaoMs: number;
@@ -135,20 +145,64 @@ export function cabeNaJanela(
   );
 }
 
+/** Valor de todos os pontos quando nenhum candidato tem nota. */
+const NOTA_NEUTRA = 3;
+
+const temNota = (c: Candidato): c is Candidato & { nota: number } =>
+  c.nota != null && c.avaliacoes > 0;
+
 /**
  * Pontuação do ponto (equação 6): média bayesiana ponderada pela preferência.
  * Usar a nota crua favoreceria um lugar com nota 5 e três avaliações; a média
  * bayesiana puxa quem tem poucas avaliações na direção da média geral.
+ *
+ * Ponto sem nota vale a média dos que têm: não é favorecido nem punido. Só
+ * quem tem nota entra na média e na confiança, porque contar a falta de nota
+ * como zero derrubaria a média sem motivo.
  */
 export function pontuar(candidato: Candidato, universo: Candidato[], peso: number): number {
-  const notas = universo.map((c) => c.nota ?? 0);
-  const mediaGeral = notas.reduce((s, n) => s + n, 0) / Math.max(1, notas.length);
-  const avaliacoesOrdenadas = universo.map((c) => c.avaliacoes).sort((a, b) => a - b);
-  const confianca = avaliacoesOrdenadas[Math.floor(universo.length / 2)] ?? 1;
+  const avaliados = universo.filter(temNota);
+  if (avaliados.length === 0) return peso * NOTA_NEUTRA;
+
+  const mediaGeral = avaliados.reduce((soma, c) => soma + c.nota, 0) / avaliados.length;
+  if (!temNota(candidato)) return peso * mediaGeral;
+
+  const avaliacoesOrdenadas = avaliados.map((c) => c.avaliacoes).sort((a, b) => a - b);
+  const confianca = avaliacoesOrdenadas[Math.floor(avaliados.length / 2)]!;
 
   const n = candidato.avaliacoes;
-  const r = candidato.nota ?? mediaGeral;
-  return peso * ((n * r + confianca * mediaGeral) / (n + confianca || 1));
+  return peso * ((n * candidato.nota + confianca * mediaGeral) / (n + confianca));
+}
+
+/**
+ * Mede o deslocamento entre dois pontos. Com o medidor, usa a distância pelas
+ * ruas (a pé até DISTANCIA_MAX_A_PE_KM, de carro acima disso); sem ele, ou
+ * quando ele não tem a medida, cai na estimativa por linha reta.
+ */
+/** Peso da relevância no benefício do ponto; o restante vem da nota. */
+const PESO_RELEVANCIA = 0.7;
+
+/**
+ * A relevância entra elevada ao cubo (na escala de 0 a 5): o símbolo da cidade
+ * (5) vale cerca de 4,6 vezes um ponto de relevância 3, e não 1,7 vez. Sem
+ * isso, a razão entre benefício e consumo de tempo favorece quem está perto e
+ * visita rápido, e um roteiro de 4 horas ficaria só no centro, deixando de fora
+ * justamente o que a pessoa foi ver.
+ */
+const EXPOENTE_RELEVANCIA = 3;
+const relevanciaEfetiva = (relevancia: number) => 5 * (relevancia / 5) ** EXPOENTE_RELEVANCIA;
+
+/**
+ * Benefício do ponto para o algoritmo: mistura a relevância (curadoria, de 1 a
+ * 5, existe para todo ponto) com a nota das avaliações (média bayesiana, que
+ * pode faltar), ponderada pela preferência de categoria do usuário.
+ *
+ * Sem a relevância, o benefício dependia só da nota, e pontos sem avaliação
+ * valiam a média: um café e o cartão-postal da cidade empatavam.
+ */
+export function beneficio(candidato: Candidato, universo: Candidato[], peso: number): number {
+  const nota = pontuar(candidato, universo, 1);
+  return peso * (PESO_RELEVANCIA * relevanciaEfetiva(candidato.relevancia) + (1 - PESO_RELEVANCIA) * nota);
 }
 
 function montarTrecho(
@@ -156,16 +210,32 @@ function montarTrecho(
   destino: Coordenada,
   partida: Date,
   tarifa: ParametrosTarifa,
+  medidor?: MedidorDeRotas,
 ): Trecho {
-  const distanciaKm = Number(distanciaViaria(origem, destino).toFixed(2));
-  const aPe = distanciaKm <= DISTANCIA_MAX_A_PE_KM;
-  const duracaoMin = Math.round(
-    (distanciaKm / (aPe ? VELOCIDADE_A_PE_KMH : VELOCIDADE_CARRO_KMH)) * 60,
+  const estimada = distanciaViaria(origem, destino);
+  const aPePelasRuas = medidor?.aPe(origem, destino) ?? null;
+  const deCarroPelasRuas = medidor?.deCarro(origem, destino) ?? null;
+
+  // O modal sai da distância mais confiável que houver.
+  const aPe = (aPePelasRuas?.distanciaKm ?? deCarroPelasRuas?.distanciaKm ?? estimada) <=
+    DISTANCIA_MAX_A_PE_KM;
+
+  const medida = aPe ? aPePelasRuas : deCarroPelasRuas;
+  const fonte: FonteDaMedida = medida ? 'ruas' : 'estimada';
+
+  const distanciaKm = Number((medida?.distanciaKm ?? estimada).toFixed(2));
+  const duracaoMin = Math.max(
+    1,
+    Math.round(
+      medida?.duracaoMin ??
+        (estimada / (aPe ? VELOCIDADE_A_PE_KMH : VELOCIDADE_CARRO_KMH)) * 60,
+    ),
   );
 
   if (aPe) {
     return {
       modal: 'pe',
+      fonte,
       distanciaKm,
       duracaoMin,
       bandeira: null,
@@ -182,7 +252,7 @@ function montarTrecho(
     tarifa,
   );
 
-  return { modal: 'app', distanciaKm, duracaoMin, bandeira, custo, calculo };
+  return { modal: 'app', fonte, distanciaKm, duracaoMin, bandeira, custo, calculo };
 }
 
 /**
@@ -195,6 +265,7 @@ export function gerarRoteiro(
   candidatos: Candidato[],
   preferencias: Preferencias,
   tarifa: ParametrosTarifa,
+  medidor?: MedidorDeRotas,
 ): ResultadoRoteiro {
   const inicio = performance.now();
   let trechosCalculados = 0;
@@ -203,55 +274,154 @@ export function gerarRoteiro(
   const regua = teto ?? ORCAMENTO_DE_REFERENCIA;
 
   const selecionados: Candidato[] = [];
-  const restantes = [...candidatos];
 
-  let posicao = preferencias.origem;
-  let relogio = new Date(preferencias.inicioPrevisto);
-  let gasto = 0;
-  let tempo = 0;
+  interface Estado {
+    posicao: Coordenada;
+    relogio: Date;
+    gasto: number;
+    tempo: number;
+  }
 
-  while (restantes.length > 0) {
-    let melhor: { candidato: Candidato; trecho: Trecho; razao: number } | null = null;
-
-    for (const candidato of restantes) {
-      const dentroDaPreferencia =
-        preferencias.categorias.length === 0 ||
-        preferencias.categorias.includes(candidato.categoria);
-      const peso = dentroDaPreferencia ? 1 : PESO_FORA_DA_PREFERENCIA;
-
-      const trecho = montarTrecho(posicao, candidato.coordenada, relogio, tarifa);
+  /**
+   * Percorre uma sequência de paradas e diz se ela cabe no tempo, no
+   * orçamento e nos horários de funcionamento. Devolve null se não couber.
+   */
+  const simular = (sequencia: Candidato[]): Estado | null => {
+    let estado: Estado = {
+      posicao: preferencias.origem,
+      relogio: new Date(preferencias.inicioPrevisto),
+      gasto: 0,
+      tempo: 0,
+    };
+    for (const candidato of sequencia) {
+      const trecho = montarTrecho(estado.posicao, candidato.coordenada, estado.relogio, tarifa, medidor);
       trechosCalculados += 1;
-
       const deltaTempo = trecho.duracaoMin + candidato.tempoVisitaMin;
       const deltaCusto = trecho.custo.estimado + custoNoLocal(candidato);
 
-      if (tempo + deltaTempo > preferencias.tempoDisponivelMin) continue;
-      if (teto != null && gasto + deltaCusto > teto) continue;
-      if (!cabeNaJanela(candidato, relogio, trecho.duracaoMin)) continue;
+      if (estado.tempo + deltaTempo > preferencias.tempoDisponivelMin) return null;
+      if (teto != null && estado.gasto + deltaCusto > teto) return null;
+      if (!cabeNaJanela(candidato, estado.relogio, trecho.duracaoMin)) return null;
 
-      const razao =
-        pontuar(candidato, candidatos, peso) /
-        (deltaTempo / preferencias.tempoDisponivelMin + deltaCusto / Math.max(1, regua));
-
-      if (!melhor || razao > melhor.razao) melhor = { candidato, trecho, razao };
+      estado = {
+        posicao: candidato.coordenada,
+        relogio: new Date(estado.relogio.getTime() + deltaTempo * 60_000),
+        gasto: estado.gasto + deltaCusto,
+        tempo: estado.tempo + deltaTempo,
+      };
     }
+    return estado;
+  };
 
-    if (!melhor) break;
+  const restantes = [...candidatos];
 
-    selecionados.push(melhor.candidato);
-    gasto += melhor.trecho.custo.estimado + custoNoLocal(melhor.candidato);
-    tempo += melhor.trecho.duracaoMin + melhor.candidato.tempoVisitaMin;
-    relogio = new Date(
-      relogio.getTime() +
-        (melhor.trecho.duracaoMin + melhor.candidato.tempoVisitaMin) * 60_000,
-    );
-    posicao = melhor.candidato.coordenada;
-    restantes.splice(restantes.indexOf(melhor.candidato), 1);
+  /**
+   * Inserção gulosa: acrescenta ao fim da rota o melhor candidato que ainda
+   * cabe, entre os de relevância igual ou maior que `relevanciaMinima`.
+   */
+  const ampliar = (relevanciaMinima: number) => {
+    for (;;) {
+      const estado = simular(selecionados)!;
+      let melhor: { candidato: Candidato; razao: number } | null = null;
+
+      for (const candidato of restantes) {
+        const dentroDaPreferencia =
+          preferencias.categorias.length === 0 ||
+          preferencias.categorias.includes(candidato.categoria);
+        const peso = dentroDaPreferencia ? 1 : PESO_FORA_DA_PREFERENCIA;
+
+        // Nas fases dos imperdíveis só entra o que o usuário disse querer.
+        if (relevanciaMinima > 0 && (!dentroDaPreferencia || candidato.relevancia < relevanciaMinima)) {
+          continue;
+        }
+
+        const trecho = montarTrecho(estado.posicao, candidato.coordenada, estado.relogio, tarifa, medidor);
+        trechosCalculados += 1;
+
+        const deltaTempo = trecho.duracaoMin + candidato.tempoVisitaMin;
+        const deltaCusto = trecho.custo.estimado + custoNoLocal(candidato);
+
+        if (estado.tempo + deltaTempo > preferencias.tempoDisponivelMin) continue;
+        if (teto != null && estado.gasto + deltaCusto > teto) continue;
+        if (!cabeNaJanela(candidato, estado.relogio, trecho.duracaoMin)) continue;
+
+        const razao =
+          beneficio(candidato, candidatos, peso) /
+          (deltaTempo / preferencias.tempoDisponivelMin + deltaCusto / Math.max(1, regua));
+
+        if (!melhor || razao > melhor.razao) melhor = { candidato, razao };
+      }
+
+      if (!melhor) return;
+      selecionados.push(melhor.candidato);
+      restantes.splice(restantes.indexOf(melhor.candidato), 1);
+    }
+  };
+
+  /**
+   * 2-opt: inverte um trecho da rota quando isso diminui o deslocamento total
+   * e a rota continua cabendo no tempo, no orçamento e nos horários. É o que
+   * desfaz o zigue-zague que a inserção gulosa deixa (ela escolhe cada parada
+   * pelo valor, sem olhar o desenho do percurso).
+   *
+   * "Menor deslocamento" pesa tempo e dinheiro como a escolha das paradas:
+   * pegar um carro para chegar mais rápido ao ponto mais distante não é
+   * melhor do que caminhar na ordem, e o custo sai de graça na conta.
+   */
+  const custoDaRota = (estado: Estado) =>
+    estado.tempo / preferencias.tempoDisponivelMin + estado.gasto / Math.max(1, regua);
+
+  const desembaracar = (): boolean => {
+    let melhorou = false;
+    let atual = simular(selecionados)!;
+
+    for (let rodada = 0; rodada < 20; rodada += 1) {
+      let achou = false;
+      for (let i = 0; i < selecionados.length - 1 && !achou; i += 1) {
+        for (let j = i + 1; j < selecionados.length && !achou; j += 1) {
+          const tentativa = [
+            ...selecionados.slice(0, i),
+            ...selecionados.slice(i, j + 1).reverse(),
+            ...selecionados.slice(j + 1),
+          ];
+          const estado = simular(tentativa);
+          // Exige ganho real, para não trocar por ruído de arredondamento.
+          if (estado && custoDaRota(estado) < custoDaRota(atual) - 1e-4) {
+            selecionados.splice(0, selecionados.length, ...tentativa);
+            atual = estado;
+            achou = true;
+            melhorou = true;
+          }
+        }
+      }
+      if (!achou) break;
+    }
+    return melhorou;
+  };
+
+  /**
+   * Primeiro os símbolos da cidade (relevância 5), depois os grandes atrativos
+   * (4), por fim o que sobrar. A razão entre benefício e tempo, sozinha,
+   * favorece o que está perto e se visita rápido, e um roteiro curto ficaria
+   * no centro sem ver o que a pessoa foi conhecer. Aqui cada fase só escolhe
+   * entre os pontos da sua faixa; o que não cabe no tempo, no orçamento ou no
+   * horário continua de fora, como sempre.
+   */
+  const FASES_DE_RELEVANCIA = [5, 4, 0];
+  const completar = () => FASES_DE_RELEVANCIA.forEach(ampliar);
+
+  // Escolhe, desembaraça e, com o tempo que sobrou, escolhe de novo.
+  completar();
+  for (let rodada = 0; rodada < 5; rodada += 1) {
+    if (!desembaracar()) break;
+    completar();
   }
+
+  const { posicao, relogio, gasto, tempo } = simular(selecionados)!;
 
   // Explica por que cada candidato restante ficou de fora.
   const descartados: Descartado[] = restantes.map((candidato) => {
-    const trecho = montarTrecho(posicao, candidato.coordenada, relogio, tarifa);
+    const trecho = montarTrecho(posicao, candidato.coordenada, relogio, tarifa, medidor);
     const faltaOrcamento =
       teto == null ? 0 : gasto + trecho.custo.estimado + custoNoLocal(candidato) - teto;
     const faltaTempo =
@@ -283,7 +453,7 @@ export function gerarRoteiro(
   let anterior = preferencias.origem;
 
   const itens: ItemRoteiro[] = selecionados.map((candidato, indice) => {
-    const trecho = montarTrecho(anterior, candidato.coordenada, cursor, tarifa);
+    const trecho = montarTrecho(anterior, candidato.coordenada, cursor, tarifa, medidor);
     const chegada = new Date(cursor.getTime() + trecho.duracaoMin * 60_000);
     const saida = new Date(chegada.getTime() + candidato.tempoVisitaMin * 60_000);
     cursor = saida;
@@ -335,6 +505,12 @@ export function gerarRoteiro(
       economiaCaminhando,
     },
     diagnostico: {
+      rotas:
+        itens.length === 0 || itens.every((i) => i.trechoAteAqui.fonte === 'estimada')
+          ? 'estimada'
+          : itens.every((i) => i.trechoAteAqui.fonte === 'ruas')
+            ? 'ruas'
+            : 'parcial',
       candidatosAvaliados: candidatos.length,
       trechosCalculados,
       duracaoMs: Number((performance.now() - inicio).toFixed(1)),

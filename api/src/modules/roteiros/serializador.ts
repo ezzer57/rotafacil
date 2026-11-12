@@ -67,6 +67,7 @@ export function serializarPonto(ponto: PontoBanco) {
     faixaPreco: ponto.faixaPreco,
     fotoUrl: ponto.fotoUrl,
     tempoVisitaMin: ponto.tempoVisitaMin,
+    relevancia: ponto.relevancia,
     abertoAgora: abertoAgora(ponto),
     horarioHoje: horarioLegivel(ponto),
   };
@@ -125,6 +126,10 @@ export function serializarRoteiro(roteiro: RoteiroCompleto) {
             distanciaKm: item.distanciaKm ?? 0,
             duracaoMin: item.duracaoMin ?? 0,
             bandeira: item.bandeira,
+            // "ruas" quando a distância veio do mapa; "estimada" quando é
+            // linha reta x fator de circuidade.
+            fonte: item.fonteRota === 'ruas' ? 'ruas' : 'estimada',
+            trajeto: (item.trajeto as [number, number][] | null) ?? null,
             custo: {
               min: numero(item.custoMin),
               estimado: numero(item.custoEst),

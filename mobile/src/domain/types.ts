@@ -57,6 +57,8 @@ export interface PontoInteresse {
   faixaPreco: number | null;
   fotoUrl: string | null;
   tempoVisitaMin: number;
+  /** Quanto o lugar é imperdível, de 1 a 5, com o mesmo critério em toda cidade. */
+  relevancia: number;
   abertoAgora: boolean | null;
   horarioHoje: string | null;
 }
@@ -89,10 +91,16 @@ export interface DetalheCalculoTarifa {
   norma: string;
 }
 
+/** Origem da distância: medida pelas ruas ou estimada em linha reta x 1,3. */
+export type FonteDaMedida = 'ruas' | 'estimada';
+
 export interface Trecho {
   origemId: ID;
   destinoId: ID;
   modal: Modal;
+  fonte: FonteDaMedida;
+  /** Ruas do trecho, como [lat, lng]; null quando não foi possível traçar. */
+  trajeto: [number, number][] | null;
   distanciaKm: number;
   duracaoMin: number;
   bandeira: Bandeira | null;
@@ -151,6 +159,8 @@ export interface PontoDescartado {
  * no capítulo de resultados.
  */
 export interface DiagnosticoRoteiro {
+  /** Quantos trechos foram medidos pelas ruas: todos, alguns ou nenhum. */
+  rotas: 'ruas' | 'parcial' | 'estimada';
   candidatosAvaliados: number;
   trechosCalculados: number;
   duracaoMs: number;

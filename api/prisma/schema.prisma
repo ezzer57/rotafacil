@@ -125,6 +125,15 @@ model PontoInteresse {
   fechaMin      Int?
   /// Quando os dados vieram do provedor, para controle de validade do cache.
   sincronizadoEm DateTime    @default(now())
+  /// Falso quando o ponto saiu da lista: não entra em roteiro novo, mas segue
+  /// no banco para os roteiros antigos que passaram por ele.
+  ativo         Boolean      @default(true)
+  /// Quanto o lugar é imperdível, de 1 a 5, com o mesmo critério em todas as
+  /// cidades (5 = símbolo da cidade; 1 = só se sobrar tempo). É curadoria,
+  /// não dado do provedor: não depende de haver avaliações.
+  relevancia    Int          @default(3)
+  /// Registro de origem, ex.: "osm:node/4663218620", para conferência e crédito.
+  fonte         String?      @db.VarChar(60)
 
   cidade  Cidade        @relation(fields: [cidadeId], references: [id], onDelete: Cascade)
   itens       RoteiroItem[]
@@ -188,6 +197,11 @@ model RoteiroItem {
   distanciaKm  Float?
   duracaoMin   Int?
   bandeira     Int?
+  /// "ruas" (medido no mapa) ou "estimada" (linha reta x fator de circuidade).
+  fonteRota    String?  @db.VarChar(10)
+  /// Ruas do trecho, como lista de [lat, lng]; ausente quando o servidor de
+  /// rotas não respondeu.
+  trajeto      Json?
   custoMin     Decimal? @db.Decimal(10, 2)
   custoEst     Decimal? @db.Decimal(10, 2)
   custoMax     Decimal? @db.Decimal(10, 2)

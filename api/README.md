@@ -107,11 +107,71 @@ espera as requisições em andamento e fecha o banco antes de sair.
 **Exclusão em cascata.** Apagar a conta apaga roteiros, itens, visitas e as
 coordenadas de origem (LGPD, art. 18).
 
+## Dados dos pontos
+
+Nome, coordenada e endereço dos pontos de interesse vêm do
+[OpenStreetMap](https://www.openstreetmap.org/copyright), © colaboradores do
+OpenStreetMap, sob a licença ODbL. A carga fica em `prisma/seed.ts`, e cada
+ponto guarda em `fonte` o elemento de origem. A coordenada é a do ponto de
+chegada (a entrada, o início da trilha), não a do centro do lugar.
+
+Ponto que sai da lista não é apagado: fica com `ativo = false`, fora dos
+roteiros novos e visível nos antigos.
+
+## Escolha e ordem das paradas
+
+O benefício de cada ponto mistura a **relevância** (curadoria de 1 a 5, o mesmo
+critério em todas as cidades, coluna `relevancia`) com a nota das avaliações
+(média bayesiana, que pode faltar): 70% relevância, 30% nota. A relevância
+entra ao cubo, para o símbolo da cidade (5) valer cerca de 4,6 vezes um ponto
+de relevância 3.
+
+1. **Fases:** primeiro entram os pontos de relevância 5, depois os de 4, por
+   fim o resto, sempre pela razão benefício/consumo de tempo e dinheiro e só
+   se couberem no tempo, no teto e nos horários. Sem as fases, um roteiro de
+   4 horas em Quixadá ficava no centro, sem Açude do Cedro nem Galinha Choca.
+   Nas fases dos imperdíveis só entram categorias que o usuário escolheu.
+2. **2-opt:** com os pontos escolhidos, o motor inverte trechos da rota
+   enquanto isso reduzir tempo e custo e a rota continuar válida (horários
+   incluídos). Isso desfaz o zigue-zague da inserção gulosa. O tempo que
+   sobra volta para a etapa 1.
+
+A relevância é opinião do autor, não dado do OpenStreetMap: está em
+`prisma/seed.ts` e deve ser validada por quem conhece cada cidade.
+
+## Rotas pelas ruas
+
+Distância e tempo entre as paradas vêm de um servidor **OSRM** (dados do
+OpenStreetMap), a pé e de carro. A cada roteiro a API faz uma consulta de
+matriz com a origem e todos os candidatos, e o motor decide a ordem e o modal
+(a pé até 1 km de caminho) com essas medidas. Depois traça, trecho a trecho, as
+ruas por onde o percurso passa; o aplicativo desenha o traçado no mapa.
+
+- Cada trecho informa `fonte`: `ruas` (medido) ou `estimada` (linha reta ×
+  1,3). O roteiro informa em `diagnostico.rotas` se foi `ruas`, `parcial` ou
+  `estimada`, e o aplicativo mostra isso sob o mapa.
+- Se o servidor não responder (6 s de prazo), o roteiro sai com a estimativa e
+  a API para de insistir por 60 s, para o usuário não esperar a cada pedido.
+- Os servidores públicos (`router.project-osrm.org` e
+  `routing.openstreetmap.de`) são de demonstração: já levaram mais de 6 s para
+  responder e não têm garantia. Para a apresentação, use um OSRM próprio:
+
+```bash
+bash osrm/preparar.sh                                # uma vez: baixa o mapa (~450 MB) e processa
+docker compose -f osrm/docker-compose.yml up -d      # liga carro (5000) e a pé (5001)
+```
+
+  e, em `api/.env`: `OSRM_URL_CARRO=http://localhost:5000` e
+  `OSRM_URL_A_PE=http://localhost:5001`. Com o servidor próprio, um roteiro de
+  10 paradas sai em cerca de 100 ms.
+- `ROTAS_PELAS_RUAS=false` desliga a consulta (os testes já rodam assim).
+
 ## Pendências conhecidas
 
 - As tarifas carregadas pelo seed são **provisórias**; precisam ser trocadas
   pelos valores dos decretos municipais de Quixadá e Fortaleza.
-- Os pontos de interesse vêm do seed. A integração com a Places API ainda não
-  foi feita, assim como a Routes API para distância e tempo reais.
-- O índice geográfico usa caixa envolvente sobre `lat`/`lng`. Quando o volume
-  de pontos crescer, vale migrar para PostGIS com índice GiST.
+- Parte dos horários dos pontos é suposição (a carga informa quantos), e
+  tempo de visita e faixa de preço são estimativas. As notas dos pontos mais
+  antigos são fictícias, e os pontos novos não têm nota.
+- Os candidatos de um roteiro são todos os pontos ativos da cidade (até 40).
+  Quando o volume de pontos crescer, vale filtrar por proximidade com PostGIS.

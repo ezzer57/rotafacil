@@ -50,6 +50,19 @@ const esquema = z.object({
         return false;
       }
     }, 'FUSO_HORARIO precisa ser um fuso válido, ex.: America/Fortaleza'),
+
+  // Distância e tempo pelas ruas, vindos de um servidor OSRM. Desligado nos
+  // testes, que não podem depender de rede. Se o servidor não responder, o
+  // roteiro sai com a estimativa em linha reta, e o aplicativo avisa.
+  ROTAS_PELAS_RUAS: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((valor) => (valor ? valor === 'true' : process.env.NODE_ENV !== 'test')),
+  // Os servidores públicos são de demonstração (sem garantia de disponibilidade
+  // nem de volume). Para a apresentação, aponte para um OSRM próprio.
+  OSRM_URL_CARRO: z.string().url().default('https://router.project-osrm.org'),
+  OSRM_URL_A_PE: z.string().url().default('https://routing.openstreetmap.de/routed-foot'),
+  OSRM_TIMEOUT_MS: z.coerce.number().int().positive().default(6000),
 });
 
 const resultado = esquema.safeParse(process.env);
