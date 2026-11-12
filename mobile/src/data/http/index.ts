@@ -23,6 +23,7 @@ import type {
   Usuario,
   Visita,
 } from '@/domain/types';
+import { CONSENTIMENTO_POLITICA } from '@/domain/privacidade';
 
 /** Tempo máximo de espera por resposta. Rede de celular em viagem oscila. */
 const TEMPO_LIMITE_MS = 15_000;
@@ -171,13 +172,18 @@ export function createServicosHttp(baseUrl: string): ServicosApp {
           req<RespostaAutenticacao>('/v1/sessions', { method: 'POST', ...json({ email, senha }) }),
         ),
 
-      registrar: (nome: string, email: string, senha: string) =>
-        autenticarE(
+      registrar: async (nome: string, email: string, senha: string) => {
+        const usuario = await autenticarE(
           req<RespostaAutenticacao>('/v1/users', {
             method: 'POST',
             ...json({ nome, email, senha }),
           }),
-        ),
+        );
+        // O aceite dado no cadastro fica registrado no servidor com a versão
+        // lida da política, para poder ser comprovado (LGPD, art. 8º, § 2º).
+        await req('/v1/consents', { method: 'POST', ...json(CONSENTIMENTO_POLITICA) });
+        return usuario;
+      },
 
       // O JWT não guarda estado no servidor: sair é descartar o token.
       sair: () => encerrarSessao(),

@@ -171,6 +171,35 @@ export function Campo({
   );
 }
 
+/* --------------------------------------------------- caixa de marcação */
+
+/** Aceite explícito: a pessoa marca, nada vem marcado por padrão. */
+export function CaixaMarcacao({
+  marcada,
+  onPress,
+  children,
+}: {
+  marcada: boolean;
+  onPress: () => void;
+  children: ReactNode;
+}) {
+  const cores = useCores();
+  return (
+    <Pressable
+      onPress={onPress}
+      role="checkbox"
+      aria-checked={marcada}
+      style={{ flexDirection: 'row', alignItems: 'flex-start', gap: espaco.sm }}>
+      <Ionicons
+        name={marcada ? 'checkbox' : 'square-outline'}
+        size={22}
+        color={marcada ? cores.primaria : cores.textoSuave}
+      />
+      <View style={{ flex: 1 }}>{children}</View>
+    </Pressable>
+  );
+}
+
 /* ------------------------------------------------------------- chip e selo */
 
 export function Chip({

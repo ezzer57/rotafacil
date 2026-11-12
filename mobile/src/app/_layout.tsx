@@ -39,6 +39,7 @@ function Navegacao() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="nova-rota" options={{ title: 'Nova rota', presentation: 'modal' }} />
         <Stack.Screen name="roteiro/[id]" options={{ title: 'Seu roteiro' }} />
+        <Stack.Screen name="privacidade" options={{ title: 'Política de Privacidade' }} />
       </Stack>
     </>
   );
@@ -56,6 +57,8 @@ function useProtecaoDeRota() {
 
   useEffect(() => {
     if (isLoading) return;
+    // A politica de privacidade abre antes do cadastro e tambem depois do login.
+    if (segmentos[0] === 'privacidade') return;
     const emTelaDeAutenticacao = segmentos[0] === '(auth)';
 
     if (!usuario && !emTelaDeAutenticacao) {
