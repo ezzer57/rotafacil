@@ -80,6 +80,8 @@ export function montarTrecho(
       origemId: origem.id,
       destinoId: destino.id,
       modal: 'pe',
+      fonte: 'estimada',
+      trajeto: null,
       distanciaKm,
       duracaoMin,
       bandeira: null,
@@ -108,6 +110,8 @@ export function montarTrecho(
     origemId: origem.id,
     destinoId: destino.id,
     modal: 'app',
+    fonte: 'estimada',
+    trajeto: null,
     distanciaKm,
     duracaoMin,
     bandeira,
@@ -341,6 +345,8 @@ export function gerarRoteiro(pref: PreferenciasRoteiro): Roteiro {
     totais,
     descartados,
     diagnostico: {
+      // O modo de demonstração não tem servidor de rotas.
+      rotas: 'estimada',
       candidatosAvaliados: candidatos.length,
       trechosCalculados,
       duracaoMs: Number((performance.now() - inicio).toFixed(1)),

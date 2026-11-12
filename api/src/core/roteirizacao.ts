@@ -11,6 +11,7 @@
  */
 
 import { distanciaViaria, type Coordenada } from './geo.js';
+import type { MedidorDeRotas } from './medidor.js';
 import {
   emReais,
   estimarTrechoPorAplicativo,
@@ -56,8 +57,13 @@ export interface Preferencias {
   inicioPrevisto: Date;
 }
 
+/** De onde vieram a distância e o tempo do trecho. */
+export type FonteDaMedida = 'ruas' | 'estimada';
+
 export interface Trecho {
   modal: Modal;
+  /** "ruas": medido no mapa; "estimada": linha reta vezes o fator de circuidade. */
+  fonte: FonteDaMedida;
   distanciaKm: number;
   duracaoMin: number;
   bandeira: Bandeira | null;
@@ -92,6 +98,8 @@ export interface ResultadoRoteiro {
     economiaCaminhando: number;
   };
   diagnostico: {
+    /** Quantos trechos do roteiro final foram medidos pelas ruas. */
+    rotas: 'ruas' | 'parcial' | 'estimada';
     candidatosAvaliados: number;
     trechosCalculados: number;
     duracaoMs: number;
@@ -164,21 +172,42 @@ export function pontuar(candidato: Candidato, universo: Candidato[], peso: numbe
   return peso * ((n * candidato.nota + confianca * mediaGeral) / (n + confianca));
 }
 
+/**
+ * Mede o deslocamento entre dois pontos. Com o medidor, usa a distância pelas
+ * ruas (a pé até DISTANCIA_MAX_A_PE_KM, de carro acima disso); sem ele, ou
+ * quando ele não tem a medida, cai na estimativa por linha reta.
+ */
 function montarTrecho(
   origem: Coordenada,
   destino: Coordenada,
   partida: Date,
   tarifa: ParametrosTarifa,
+  medidor?: MedidorDeRotas,
 ): Trecho {
-  const distanciaKm = Number(distanciaViaria(origem, destino).toFixed(2));
-  const aPe = distanciaKm <= DISTANCIA_MAX_A_PE_KM;
-  const duracaoMin = Math.round(
-    (distanciaKm / (aPe ? VELOCIDADE_A_PE_KMH : VELOCIDADE_CARRO_KMH)) * 60,
+  const estimada = distanciaViaria(origem, destino);
+  const aPePelasRuas = medidor?.aPe(origem, destino) ?? null;
+  const deCarroPelasRuas = medidor?.deCarro(origem, destino) ?? null;
+
+  // O modal sai da distância mais confiável que houver.
+  const aPe = (aPePelasRuas?.distanciaKm ?? deCarroPelasRuas?.distanciaKm ?? estimada) <=
+    DISTANCIA_MAX_A_PE_KM;
+
+  const medida = aPe ? aPePelasRuas : deCarroPelasRuas;
+  const fonte: FonteDaMedida = medida ? 'ruas' : 'estimada';
+
+  const distanciaKm = Number((medida?.distanciaKm ?? estimada).toFixed(2));
+  const duracaoMin = Math.max(
+    1,
+    Math.round(
+      medida?.duracaoMin ??
+        (estimada / (aPe ? VELOCIDADE_A_PE_KMH : VELOCIDADE_CARRO_KMH)) * 60,
+    ),
   );
 
   if (aPe) {
     return {
       modal: 'pe',
+      fonte,
       distanciaKm,
       duracaoMin,
       bandeira: null,
@@ -195,7 +224,7 @@ function montarTrecho(
     tarifa,
   );
 
-  return { modal: 'app', distanciaKm, duracaoMin, bandeira, custo, calculo };
+  return { modal: 'app', fonte, distanciaKm, duracaoMin, bandeira, custo, calculo };
 }
 
 /**
@@ -208,6 +237,7 @@ export function gerarRoteiro(
   candidatos: Candidato[],
   preferencias: Preferencias,
   tarifa: ParametrosTarifa,
+  medidor?: MedidorDeRotas,
 ): ResultadoRoteiro {
   const inicio = performance.now();
   let trechosCalculados = 0;
@@ -232,7 +262,7 @@ export function gerarRoteiro(
         preferencias.categorias.includes(candidato.categoria);
       const peso = dentroDaPreferencia ? 1 : PESO_FORA_DA_PREFERENCIA;
 
-      const trecho = montarTrecho(posicao, candidato.coordenada, relogio, tarifa);
+      const trecho = montarTrecho(posicao, candidato.coordenada, relogio, tarifa, medidor);
       trechosCalculados += 1;
 
       const deltaTempo = trecho.duracaoMin + candidato.tempoVisitaMin;
@@ -264,7 +294,7 @@ export function gerarRoteiro(
 
   // Explica por que cada candidato restante ficou de fora.
   const descartados: Descartado[] = restantes.map((candidato) => {
-    const trecho = montarTrecho(posicao, candidato.coordenada, relogio, tarifa);
+    const trecho = montarTrecho(posicao, candidato.coordenada, relogio, tarifa, medidor);
     const faltaOrcamento =
       teto == null ? 0 : gasto + trecho.custo.estimado + custoNoLocal(candidato) - teto;
     const faltaTempo =
@@ -296,7 +326,7 @@ export function gerarRoteiro(
   let anterior = preferencias.origem;
 
   const itens: ItemRoteiro[] = selecionados.map((candidato, indice) => {
-    const trecho = montarTrecho(anterior, candidato.coordenada, cursor, tarifa);
+    const trecho = montarTrecho(anterior, candidato.coordenada, cursor, tarifa, medidor);
     const chegada = new Date(cursor.getTime() + trecho.duracaoMin * 60_000);
     const saida = new Date(chegada.getTime() + candidato.tempoVisitaMin * 60_000);
     cursor = saida;
@@ -348,6 +378,12 @@ export function gerarRoteiro(
       economiaCaminhando,
     },
     diagnostico: {
+      rotas:
+        itens.length === 0 || itens.every((i) => i.trechoAteAqui.fonte === 'estimada')
+          ? 'estimada'
+          : itens.every((i) => i.trechoAteAqui.fonte === 'ruas')
+            ? 'ruas'
+            : 'parcial',
       candidatosAvaliados: candidatos.length,
       trechosCalculados,
       duracaoMs: Number((performance.now() - inicio).toFixed(1)),

@@ -19,7 +19,8 @@ Centro Universitário Católica de Quixadá
 | Backend (Node.js + Express) | Funcionando (`api/`) |
 | Banco de dados (PostgreSQL) | Modelado, com migração e carga inicial |
 | APIs do Google (Places e Routes) | A fazer |
-| Mapa do percurso | Funcionando (Leaflet + OpenStreetMap, sem chave de API) |
+| Mapa do percurso | Funcionando (Leaflet + OpenStreetMap, sem chave de API), com o trajeto pelas ruas |
+| Distância e tempo | Pelas ruas (OSRM, dados do OpenStreetMap) com reserva em linha reta × 1,3; no modo simulado, sempre estimados |
 
 As tarifas de táxi usadas na estimativa são **provisórias** e precisam ser
 substituídas pelos valores dos decretos municipais de Quixadá e Fortaleza.

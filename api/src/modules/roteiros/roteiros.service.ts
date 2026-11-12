@@ -11,6 +11,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma.js';
 import { naoEncontrado, regraDeNegocio, semPermissao } from '@/lib/erros.js';
 import { haversine } from '@/core/geo.js';
+import { clienteDeRotas, type Tracado } from '@/lib/rotas.js';
 import {
   gerarRoteiro,
   type Candidato,
@@ -119,6 +120,23 @@ async function carregarCandidatos(cidadeId: string, excluir: string[]): Promise<
   }));
 }
 
+interface TrechoParaTracar {
+  de: { lat: number; lng: number };
+  para: { lat: number; lng: number };
+  modal: 'pe' | 'app';
+  pelasRuas: boolean;
+}
+
+/** Só traça o que foi medido pelas ruas; o resto fica sem desenho. */
+async function tracarTrechos(trechos: TrechoParaTracar[]): Promise<(Tracado | null)[]> {
+  if (!clienteDeRotas) return trechos.map(() => null);
+  return Promise.all(
+    trechos.map((t) =>
+      t.pelasRuas ? clienteDeRotas!.tracar(t.modal === 'pe' ? 'pe' : 'carro', t.de, t.para) : null,
+    ),
+  );
+}
+
 interface DadosPersistencia {
   usuarioId: string;
   cidadeId: string;
@@ -136,7 +154,23 @@ async function calcularEGravar(dados: DadosPersistencia) {
     throw regraDeNegocio('Esta cidade ainda não tem pontos turísticos cadastrados');
   }
 
-  const resultado = gerarRoteiro(candidatos, dados.entrada, tarifa);
+  // Uma só consulta mede todos os pares de pontos; sem resposta, o motor usa
+  // a estimativa em linha reta e o roteiro diz isso.
+  const medidor =
+    (await clienteDeRotas?.medirTudo([
+      dados.entrada.origem,
+      ...candidatos.map((c) => c.coordenada),
+    ])) ?? undefined;
+
+  const resultado = gerarRoteiro(candidatos, dados.entrada, tarifa, medidor);
+
+  // Ruas de cada trecho medido, para desenhar no mapa.
+  const tracados = await tracarTrechos(resultado.itens.map((item, i) => ({
+    de: i === 0 ? dados.entrada.origem : resultado.itens[i - 1]!.candidato.coordenada,
+    para: item.candidato.coordenada,
+    modal: item.trechoAteAqui.modal,
+    pelasRuas: item.trechoAteAqui.fonte === 'ruas',
+  })));
 
   const dadosRoteiro = {
     usuarioId: dados.usuarioId,
@@ -170,6 +204,10 @@ async function calcularEGravar(dados: DadosPersistencia) {
     distanciaKm: item.trechoAteAqui.distanciaKm,
     duracaoMin: item.trechoAteAqui.duracaoMin,
     bandeira: item.trechoAteAqui.bandeira,
+    fonteRota: item.trechoAteAqui.fonte,
+    trajeto: tracados[item.ordem - 1]
+      ? (tracados[item.ordem - 1] as unknown as Prisma.InputJsonValue)
+      : Prisma.JsonNull,
     custoMin: new Prisma.Decimal(item.trechoAteAqui.custo.min),
     custoEst: new Prisma.Decimal(item.trechoAteAqui.custo.estimado),
     custoMax: new Prisma.Decimal(item.trechoAteAqui.custo.max),

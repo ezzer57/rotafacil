@@ -25,8 +25,8 @@ export function haversine(a: Coordenada, b: Coordenada): number {
 
 /**
  * Fator de circuidade: aproxima a distância pelas vias a partir da linha
- * reta (BALLOU; RAHARDJA; SAKAI, 2002). É uma estimativa provisória, que
- * sai de cena quando a API de rotas passar a devolver a distância real.
+ * reta (BALLOU; RAHARDJA; SAKAI, 2002). É a reserva do motor: vale quando o
+ * servidor de rotas não responde, e o trecho sai marcado como "estimada".
  */
 export const FATOR_CIRCUIDADE = 1.3;
 

@@ -193,6 +193,11 @@ model RoteiroItem {
   distanciaKm  Float?
   duracaoMin   Int?
   bandeira     Int?
+  /// "ruas" (medido no mapa) ou "estimada" (linha reta x fator de circuidade).
+  fonteRota    String?  @db.VarChar(10)
+  /// Ruas do trecho, como lista de [lat, lng]; ausente quando o servidor de
+  /// rotas não respondeu.
+  trajeto      Json?
   custoMin     Decimal? @db.Decimal(10, 2)
   custoEst     Decimal? @db.Decimal(10, 2)
   custoMax     Decimal? @db.Decimal(10, 2)

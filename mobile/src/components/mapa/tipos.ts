@@ -17,6 +17,8 @@ export interface ParadaMapa {
   lng: number;
   /** Modal usado para chegar nesta parada. Ausente na primeira. */
   modalAteAqui: Modal | null;
+  /** Ruas do trecho até esta parada, como [lat, lng]; sem ele, linha reta. */
+  trajetoAteAqui?: [number, number][] | null;
 }
 
 export interface MapaPartidaProps {

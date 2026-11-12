@@ -118,6 +118,33 @@ chegada (a entrada, o início da trilha), não a do centro do lugar.
 Ponto que sai da lista não é apagado: fica com `ativo = false`, fora dos
 roteiros novos e visível nos antigos.
 
+## Rotas pelas ruas
+
+Distância e tempo entre as paradas vêm de um servidor **OSRM** (dados do
+OpenStreetMap), a pé e de carro. A cada roteiro a API faz uma consulta de
+matriz com a origem e todos os candidatos, e o motor decide a ordem e o modal
+(a pé até 1 km de caminho) com essas medidas. Depois traça, trecho a trecho, as
+ruas por onde o percurso passa; o aplicativo desenha o traçado no mapa.
+
+- Cada trecho informa `fonte`: `ruas` (medido) ou `estimada` (linha reta ×
+  1,3). O roteiro informa em `diagnostico.rotas` se foi `ruas`, `parcial` ou
+  `estimada`, e o aplicativo mostra isso sob o mapa.
+- Se o servidor não responder (6 s de prazo), o roteiro sai com a estimativa e
+  a API para de insistir por 60 s, para o usuário não esperar a cada pedido.
+- Os servidores públicos (`router.project-osrm.org` e
+  `routing.openstreetmap.de`) são de demonstração: já levaram mais de 6 s para
+  responder e não têm garantia. Para a apresentação, use um OSRM próprio:
+
+```bash
+bash osrm/preparar.sh                                # uma vez: baixa o mapa (~450 MB) e processa
+docker compose -f osrm/docker-compose.yml up -d      # liga carro (5000) e a pé (5001)
+```
+
+  e, em `api/.env`: `OSRM_URL_CARRO=http://localhost:5000` e
+  `OSRM_URL_A_PE=http://localhost:5001`. Com o servidor próprio, um roteiro de
+  10 paradas sai em cerca de 100 ms.
+- `ROTAS_PELAS_RUAS=false` desliga a consulta (os testes já rodam assim).
+
 ## Pendências conhecidas
 
 - As tarifas carregadas pelo seed são **provisórias**; precisam ser trocadas
@@ -125,6 +152,5 @@ roteiros novos e visível nos antigos.
 - Parte dos horários dos pontos é suposição (a carga informa quantos), e
   tempo de visita e faixa de preço são estimativas. As notas dos pontos mais
   antigos são fictícias, e os pontos novos não têm nota.
-- Distância e tempo ainda são estimados pela linha reta × 1,3, não pelas ruas.
 - Os candidatos de um roteiro são todos os pontos ativos da cidade (até 40).
   Quando o volume de pontos crescer, vale filtrar por proximidade com PostGIS.
