@@ -4,8 +4,10 @@
  * Coleta as entradas do algoritmo: posição de partida, cidade, categorias de
  * interesse, teto de gasto (opcional), tempo disponível e horário de início.
  *
- * A posição vem do GPS do aparelho. Quando a localização não está disponível
- * - permissão negada, aparelho sem sinal ou usuário fora das cidades
+ * A posição vem do GPS do aparelho e aparece num mapa, com a margem de erro.
+ * O usuário pode corrigir o ponto de partida tocando no mapa ou escolher o
+ * centro da cidade. Quando a localização não está disponível - permissão
+ * negada, GPS desligado, aparelho sem sinal ou usuário fora das cidades
  * atendidas -, o roteiro parte do centro da cidade escolhida, e a tela diz
  * isso com todas as letras em vez de fingir que sabe onde a pessoa está.
  */
@@ -13,10 +15,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Linking, Platform, ScrollView, View } from 'react-native';
 
+import MapaPartida from '@/components/mapa/partida';
 import { Botao, Cartao, Campo, Chip, Texto } from '@/components/ui';
-import { cidadeMaisProxima } from '@/domain/geo';
+import { RAIO_COBERTURA_CIDADE_KM, cidadeMaisProxima, haversine } from '@/domain/geo';
 import {
   formatarDistancia,
   formatarDuracao,
@@ -24,7 +27,7 @@ import {
   iconeCategoria,
   rotuloCategoria,
 } from '@/domain/format';
-import type { CategoriaPOI } from '@/domain/types';
+import type { CategoriaPOI, Coordenada } from '@/domain/types';
 import { useCidades, useGerarRoteiro } from '@/hooks/use-rotafacil';
 import { useLocalizacao } from '@/hooks/use-localizacao';
 import { useCores } from '@/theme/provider';
@@ -41,6 +44,12 @@ const CATEGORIAS: CategoriaPOI[] = [
 
 const TEMPOS = [120, 240, 360, 480];
 const ORCAMENTOS = [30, 50, 80, 150];
+
+/** De onde o roteiro parte: do GPS, de um toque no mapa ou do centro da cidade. */
+type ModoPartida = 'gps' | 'manual' | 'centro';
+
+/** Acima desta margem de erro, a tela pede para conferir o ponto no mapa. */
+const PRECISAO_BAIXA_M = 100;
 
 /** null = agora; os demais são horas do dia de hoje. */
 const HORARIOS: { rotulo: string; hora: number | null }[] = [
@@ -65,6 +74,9 @@ export default function TelaNovaRota() {
   const [orcamento, setOrcamento] = useState('');
   const [tempoMin, setTempoMin] = useState(240);
   const [horaInicio, setHoraInicio] = useState<number | null>(null);
+  /** Ponto que o usuário marcou no mapa; tem prioridade sobre o GPS. */
+  const [partidaManual, setPartidaManual] = useState<Coordenada | null>(null);
+  const [preferirCentro, setPreferirCentro] = useState(false);
 
   /** Em qual cidade atendida o GPS indica que o usuário está. */
   const detectada = useMemo(
@@ -91,13 +103,35 @@ export default function TelaNovaRota() {
    * Partir de uma posição a centenas de quilômetros dos pontos cadastrados
    * geraria um roteiro sem sentido.
    */
-  const usandoGps =
-    localizacao.estado === 'obtida' &&
+  const gpsNaCidade =
+    // 'solicitando' com coordenada é uma atualização: a posição anterior vale.
+    (localizacao.estado === 'obtida' || localizacao.estado === 'solicitando') &&
     localizacao.coordenada != null &&
     detectada?.dentroDaCobertura === true &&
     detectada.cidade.id === cidadeId;
 
-  const origem = usandoGps ? localizacao.coordenada! : cidade?.centro;
+  const modo: ModoPartida = partidaManual
+    ? 'manual'
+    : gpsNaCidade && !preferirCentro
+      ? 'gps'
+      : 'centro';
+
+  const origem =
+    partidaManual ?? (modo === 'gps' ? localizacao.coordenada! : cidade?.centro);
+
+  // A API recusa partida a mais de 60 km do centro; a tela avisa antes.
+  const partidaLonge =
+    cidade != null &&
+    origem != null &&
+    haversine(origem, cidade.centro) > RAIO_COBERTURA_CIDADE_KM;
+
+  /** Ponto marcado no mapa pertence à cidade em que foi marcado. */
+  function trocarCidade(id: string) {
+    setCidadeId(id);
+    setEscolhaManual(true);
+    setPartidaManual(null);
+    setPreferirCentro(false);
+  }
 
   const teto = Number(orcamento.replace(',', '.'));
   const valorOrcamento = teto > 0 ? teto : null;
@@ -121,15 +155,19 @@ export default function TelaNovaRota() {
 
   async function aoGerar() {
     if (!cidade || !origem) return;
-    const roteiro = await gerar.mutateAsync({
-      cidadeId: cidade.id,
-      origem,
-      categorias,
-      orcamento: valorOrcamento,
-      tempoDisponivelMin: tempoMin,
-      inicioPrevisto: inicioPrevisto().toISOString(),
-    });
-    router.replace(`/roteiro/${roteiro.id}`);
+    try {
+      const roteiro = await gerar.mutateAsync({
+        cidadeId: cidade.id,
+        origem,
+        categorias,
+        orcamento: valorOrcamento,
+        tempoDisponivelMin: tempoMin,
+        inicioPrevisto: inicioPrevisto().toISOString(),
+      });
+      router.replace(`/roteiro/${roteiro.id}`);
+    } catch {
+      // A mensagem do serviço aparece acima do botão.
+    }
   }
 
   return (
@@ -137,12 +175,60 @@ export default function TelaNovaRota() {
       <ScrollView
         contentContainerStyle={{ padding: espaco.lg, gap: espaco.xl, paddingBottom: 140 }}>
         {/* --------------------------------------------------- localização */}
-        <CartaoLocalizacao
-          localizacao={localizacao}
-          nomeCidade={cidade?.nome}
-          detectada={detectada}
-          usandoGps={usandoGps}
-        />
+        <View style={{ gap: espaco.md }}>
+          <CartaoLocalizacao
+            localizacao={localizacao}
+            nomeCidade={cidade?.nome}
+            detectada={detectada}
+            modo={modo}
+            gpsNaCidade={gpsNaCidade}
+          />
+
+          {origem ? (
+            <>
+              <MapaPartida
+                posicao={gpsNaCidade ? localizacao.coordenada : null}
+                precisaoM={gpsNaCidade ? localizacao.precisaoM : null}
+                partida={origem}
+                altura={200}
+                onEscolher={setPartidaManual}
+              />
+              <Texto variante="micro" cor={cores.textoSuave}>
+                Toque no mapa para ajustar o ponto de partida. O ponto com borda verde é de onde o
+                roteiro sai.
+              </Texto>
+              <View style={{ flexDirection: 'row', gap: espaco.sm, flexWrap: 'wrap' }}>
+                {gpsNaCidade ? (
+                  <Chip
+                    rotulo="Minha posição"
+                    icone="navigate"
+                    ativo={modo === 'gps'}
+                    onPress={() => {
+                      setPartidaManual(null);
+                      setPreferirCentro(false);
+                    }}
+                  />
+                ) : null}
+                <Chip
+                  rotulo={`Centro de ${cidade?.nome ?? 'cidade'}`}
+                  icone="business"
+                  ativo={modo === 'centro'}
+                  onPress={() => {
+                    setPartidaManual(null);
+                    setPreferirCentro(true);
+                  }}
+                />
+                {modo === 'manual' ? <Chip rotulo="Ponto no mapa" icone="pin" ativo /> : null}
+              </View>
+              {partidaLonge ? (
+                <Texto variante="micro" cor={cores.erro}>
+                  Esse ponto fica a mais de {RAIO_COBERTURA_CIDADE_KM} km do centro de{' '}
+                  {cidade?.nome}. Escolha um ponto mais perto ou parta do centro.
+                </Texto>
+              ) : null}
+            </>
+          ) : null}
+        </View>
 
         {/* --------------------------------------------------------- cidade */}
         <View style={{ gap: espaco.md }}>
@@ -155,10 +241,7 @@ export default function TelaNovaRota() {
                 key={c.id}
                 rotulo={`${c.bandeira} ${c.nome}`}
                 ativo={c.id === cidadeId}
-                onPress={() => {
-                  setCidadeId(c.id);
-                  setEscolhaManual(true);
-                }}
+                onPress={() => trocarCidade(c.id)}
               />
             ))}
           </View>
@@ -279,16 +362,42 @@ export default function TelaNovaRota() {
             })}
           </Texto>
           <Texto variante="micro" cor={cores.textoSuave} style={{ marginTop: 2 }}>
-            Partindo {usandoGps ? 'da sua posição atual' : `do centro de ${cidade?.nome ?? '-'}`}
+            Partindo{' '}
+            {modo === 'gps'
+              ? 'da sua posição atual'
+              : modo === 'manual'
+                ? 'do ponto que você marcou no mapa'
+                : `do centro de ${cidade?.nome ?? '-'}`}
           </Texto>
         </Cartao>
       </ScrollView>
 
-      <View style={{ position: 'absolute', left: espaco.lg, right: espaco.lg, bottom: espaco.xl }}>
+      <View
+        style={{
+          position: 'absolute',
+          left: espaco.lg,
+          right: espaco.lg,
+          bottom: espaco.xl,
+          gap: espaco.sm,
+        }}>
+        {/* Fica junto do botão para aparecer sem precisar rolar a tela. */}
+        {gerar.isError ? (
+          <Cartao
+            padding={espaco.md}
+            style={{ backgroundColor: cores.erroSuave, borderColor: cores.erro }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: espaco.sm }}>
+              <Ionicons name="alert-circle" size={16} color={cores.erro} />
+              <Texto variante="pequeno" cor={cores.erro} style={{ flex: 1 }}>
+                {(gerar.error as Error).message}
+              </Texto>
+            </View>
+          </Cartao>
+        ) : null}
         <Botao
           titulo={gerar.isPending ? 'Montando roteiro...' : 'Gerar roteiro'}
           icone="sparkles"
           carregando={gerar.isPending}
+          desabilitado={partidaLonge}
           onPress={aoGerar}
         />
       </View>
@@ -297,6 +406,15 @@ export default function TelaNovaRota() {
 }
 
 /* --------------------------------------------------------------- auxiliar */
+
+interface ConteudoLocalizacao {
+  icone: keyof typeof Ionicons.glyphMap;
+  cor: string;
+  fundo: string;
+  titulo: string;
+  detalhe: string;
+  acao: { rotulo: string; aoTocar: () => void } | null;
+}
 
 /**
  * Mostra de onde o roteiro vai partir. Ser explícito aqui atende ao
@@ -307,19 +425,82 @@ function CartaoLocalizacao({
   localizacao,
   nomeCidade,
   detectada,
-  usandoGps,
+  modo,
+  gpsNaCidade,
 }: {
   localizacao: ReturnType<typeof useLocalizacao>;
   nomeCidade?: string;
   detectada: ReturnType<typeof cidadeMaisProxima>;
-  usandoGps: boolean;
+  modo: ModoPartida;
+  gpsNaCidade: boolean;
 }) {
   const cores = useCores();
+  const cidade = nomeCidade ?? 'cidade';
+  const tentarDeNovo = { rotulo: 'Tentar novamente', aoTocar: () => void localizacao.solicitar() };
 
-  const conteudo = (() => {
+  const conteudo = ((): ConteudoLocalizacao => {
+    if (modo === 'manual') {
+      return {
+        icone: 'pin',
+        cor: cores.sucesso,
+        fundo: cores.sucessoSuave,
+        titulo: 'Partindo do ponto que você marcou',
+        detalhe: gpsNaCidade
+          ? 'Toque em "Minha posição" para voltar a usar o GPS.'
+          : `Toque em "Centro de ${cidade}" para desfazer.`,
+        acao: null,
+      };
+    }
+
+    if (modo === 'gps') {
+      const precisao = localizacao.precisaoM != null ? Math.round(localizacao.precisaoM) : null;
+      const atualizando = localizacao.refinando || localizacao.estado === 'solicitando';
+      const imprecisa = localizacao.aproximada || (precisao != null && precisao > PRECISAO_BAIXA_M);
+
+      const detalhe = (() => {
+        if (atualizando) {
+          return 'Melhorando a precisão com o GPS... O ponto no mapa pode se mexer um pouco.';
+        }
+        if (localizacao.aproximada) {
+          return 'O aparelho liberou só a localização aproximada, que pode errar por quilômetros. Confira o ponto no mapa e toque no lugar certo se precisar.';
+        }
+        if (precisao == null) return 'O roteiro parte da sua posição atual.';
+        if (imprecisa) {
+          return `Margem de erro de cerca de ${precisao} m (círculo no mapa). Se o ponto estiver errado, toque no lugar certo ou atualize em um local aberto.`;
+        }
+        return `Margem de erro de cerca de ${precisao} m. O roteiro parte daqui.`;
+      })();
+
+      const alertar = imprecisa && !atualizando;
+      return {
+        icone: 'navigate-circle',
+        cor: alertar ? cores.alerta : cores.sucesso,
+        fundo: alertar ? cores.alertaSuave : cores.sucessoSuave,
+        titulo: localizacao.descricao
+          ? `Você está em ${localizacao.descricao}`
+          : 'Usando sua posição atual',
+        detalhe,
+        acao: alertar
+          ? { rotulo: 'Atualizar posição', aoTocar: () => void localizacao.solicitar() }
+          : null,
+      };
+    }
+
+    // Daqui em diante o roteiro parte do centro; o cartão explica o motivo.
+    if (gpsNaCidade) {
+      return {
+        icone: 'business-outline',
+        cor: cores.textoSuave,
+        fundo: cores.fundoAlt,
+        titulo: `Partindo do centro de ${cidade}`,
+        detalhe: 'Toque em "Minha posição" para partir de onde você está.',
+        acao: null,
+      };
+    }
+
     if (localizacao.estado === 'solicitando' || localizacao.estado === 'inicial') {
       return {
-        icone: 'locate-outline' as const,
+        icone: 'locate-outline',
         cor: cores.textoSuave,
         fundo: cores.fundoAlt,
         titulo: 'Obtendo sua localização...',
@@ -328,53 +509,65 @@ function CartaoLocalizacao({
       };
     }
 
-    if (usandoGps) {
-      return {
-        icone: 'navigate-circle' as const,
-        cor: cores.sucesso,
-        fundo: cores.sucessoSuave,
-        titulo: localizacao.descricao
-          ? `Você está em ${localizacao.descricao}`
-          : 'Usando sua posição atual',
-        detalhe: localizacao.precisaoM
-          ? `Precisão de cerca de ${Math.round(localizacao.precisaoM)} m. O roteiro parte daqui.`
-          : 'O roteiro parte da sua posição atual.',
-        acao: null,
-      };
-    }
-
     if (localizacao.estado === 'obtida' && detectada && !detectada.dentroDaCobertura) {
       return {
-        icone: 'alert-circle-outline' as const,
+        icone: 'alert-circle-outline',
         cor: cores.alerta,
         fundo: cores.alertaSuave,
         titulo: 'Você está fora das cidades atendidas',
-        detalhe: `A cidade mais próxima é ${detectada.cidade.nome}, a ${formatarDistancia(detectada.distanciaKm)} daqui. O roteiro vai partir do centro dela.`,
+        detalhe: `A cidade mais próxima é ${detectada.cidade.nome}, a ${formatarDistancia(detectada.distanciaKm)} daqui. O roteiro vai partir do centro dela, ou do ponto que você tocar no mapa.`,
         acao: null,
       };
     }
 
     if (localizacao.estado === 'obtida') {
       return {
-        icone: 'navigate-outline' as const,
+        icone: 'navigate-outline',
         cor: cores.textoSuave,
         fundo: cores.fundoAlt,
-        titulo: `Partindo do centro de ${nomeCidade ?? 'cidade'}`,
+        titulo: `Partindo do centro de ${cidade}`,
         detalhe: 'Você escolheu uma cidade diferente da sua posição atual.',
         acao: null,
       };
     }
 
+    const reserva = `Enquanto isso, o roteiro parte do centro de ${cidade} ou do ponto que você tocar no mapa.`;
+
+    if (localizacao.estado === 'desligada') {
+      return {
+        icone: 'location-outline',
+        cor: cores.alerta,
+        fundo: cores.alertaSuave,
+        titulo: 'A localização do aparelho está desligada',
+        detalhe: `Ligue a localização (GPS) nas configurações rápidas do aparelho e tente de novo. ${reserva}`,
+        acao: tentarDeNovo,
+      };
+    }
+
+    if (localizacao.estado === 'negada') {
+      // Depois de negar de vez, o sistema não mostra mais o pedido de permissão.
+      const abrirAjustes = localizacao.precisaAbrirAjustes && Platform.OS !== 'web';
+      return {
+        icone: 'location-outline',
+        cor: cores.alerta,
+        fundo: cores.alertaSuave,
+        titulo: 'Sem acesso à sua localização',
+        detalhe: abrirAjustes
+          ? `Libere a localização para o RotaFácil nos ajustes do aparelho. ${reserva}`
+          : reserva,
+        acao: abrirAjustes
+          ? { rotulo: 'Abrir ajustes', aoTocar: () => void Linking.openSettings() }
+          : tentarDeNovo,
+      };
+    }
+
     return {
-      icone: 'location-outline' as const,
+      icone: 'location-outline',
       cor: cores.alerta,
       fundo: cores.alertaSuave,
-      titulo:
-        localizacao.estado === 'negada'
-          ? 'Sem acesso à sua localização'
-          : 'Não foi possível obter sua localização',
-      detalhe: `O roteiro vai partir do centro de ${nomeCidade ?? 'cidade'}.`,
-      acao: 'Tentar novamente',
+      titulo: 'Não foi possível obter sua localização',
+      detalhe: `${localizacao.erro ? `${localizacao.erro.replace(/\.$/, '')}. ` : ''}${reserva}`,
+      acao: tentarDeNovo,
     };
   })();
 
@@ -391,10 +584,10 @@ function CartaoLocalizacao({
           </Texto>
           {conteudo.acao ? (
             <Botao
-              titulo={conteudo.acao}
+              titulo={conteudo.acao.rotulo}
               variante="texto"
               largura="auto"
-              onPress={() => void localizacao.solicitar()}
+              onPress={conteudo.acao.aoTocar}
               style={{ height: 32, paddingHorizontal: 0, marginTop: espaco.xs }}
             />
           ) : null}
