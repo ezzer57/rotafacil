@@ -135,20 +135,33 @@ export function cabeNaJanela(
   );
 }
 
+/** Valor de todos os pontos quando nenhum candidato tem nota. */
+const NOTA_NEUTRA = 3;
+
+const temNota = (c: Candidato): c is Candidato & { nota: number } =>
+  c.nota != null && c.avaliacoes > 0;
+
 /**
  * Pontuação do ponto (equação 6): média bayesiana ponderada pela preferência.
  * Usar a nota crua favoreceria um lugar com nota 5 e três avaliações; a média
  * bayesiana puxa quem tem poucas avaliações na direção da média geral.
+ *
+ * Ponto sem nota vale a média dos que têm: não é favorecido nem punido. Só
+ * quem tem nota entra na média e na confiança, porque contar a falta de nota
+ * como zero derrubaria a média sem motivo.
  */
 export function pontuar(candidato: Candidato, universo: Candidato[], peso: number): number {
-  const notas = universo.map((c) => c.nota ?? 0);
-  const mediaGeral = notas.reduce((s, n) => s + n, 0) / Math.max(1, notas.length);
-  const avaliacoesOrdenadas = universo.map((c) => c.avaliacoes).sort((a, b) => a - b);
-  const confianca = avaliacoesOrdenadas[Math.floor(universo.length / 2)] ?? 1;
+  const avaliados = universo.filter(temNota);
+  if (avaliados.length === 0) return peso * NOTA_NEUTRA;
+
+  const mediaGeral = avaliados.reduce((soma, c) => soma + c.nota, 0) / avaliados.length;
+  if (!temNota(candidato)) return peso * mediaGeral;
+
+  const avaliacoesOrdenadas = avaliados.map((c) => c.avaliacoes).sort((a, b) => a - b);
+  const confianca = avaliacoesOrdenadas[Math.floor(avaliados.length / 2)]!;
 
   const n = candidato.avaliacoes;
-  const r = candidato.nota ?? mediaGeral;
-  return peso * ((n * r + confianca * mediaGeral) / (n + confianca || 1));
+  return peso * ((n * candidato.nota + confianca * mediaGeral) / (n + confianca));
 }
 
 function montarTrecho(

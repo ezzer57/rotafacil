@@ -13,6 +13,7 @@ import {
   cabeNaJanela,
   custoNoLocal,
   gerarRoteiro,
+  pontuar,
   type Candidato,
   type Preferencias,
 } from './roteirizacao.js';
@@ -86,7 +87,55 @@ describe('cabeNaJanela', () => {
   });
 });
 
+describe('pontuar', () => {
+  const semNota = { nota: null, avaliacoes: 0 };
+
+  it('dá a um ponto sem nota a média dos que têm', () => {
+    const universo = [
+      candidato({ id: 'a', nota: 5, avaliacoes: 100 }),
+      candidato({ id: 'b', nota: 4, avaliacoes: 100 }),
+      candidato({ id: 'novo', ...semNota }),
+    ];
+
+    expect(pontuar(universo[2]!, universo, 1)).toBeCloseTo(4.5);
+  });
+
+  it('não deixa a falta de nota de uns derrubar a pontuação dos outros', () => {
+    const avaliados = [
+      candidato({ id: 'a', nota: 5, avaliacoes: 100 }),
+      candidato({ id: 'b', nota: 4, avaliacoes: 100 }),
+    ];
+    const comNovos = [
+      ...avaliados,
+      candidato({ id: 'n1', ...semNota }),
+      candidato({ id: 'n2', ...semNota }),
+      candidato({ id: 'n3', ...semNota }),
+    ];
+
+    expect(pontuar(avaliados[0]!, comNovos, 1)).toBeCloseTo(pontuar(avaliados[0]!, avaliados, 1));
+  });
+
+  it('trata todos por igual quando ninguém tem nota', () => {
+    const universo = [candidato({ id: 'x', ...semNota }), candidato({ id: 'y', ...semNota })];
+
+    const x = pontuar(universo[0]!, universo, 1);
+    expect(x).toBeGreaterThan(0);
+    expect(pontuar(universo[1]!, universo, 1)).toBe(x);
+  });
+});
+
 describe('gerarRoteiro', () => {
+  it('sem nota em nenhum ponto, começa pelo que consome menos', () => {
+    const candidatos = [
+      candidato({ id: 'longe', coordenada: aNorte(6), nota: null, avaliacoes: 0 }),
+      candidato({ id: 'perto', coordenada: aNorte(0.5), nota: null, avaliacoes: 0 }),
+    ];
+
+    const resultado = gerarRoteiro(candidatos, preferencias(), TARIFA);
+
+    expect(resultado.itens[0]?.candidato.id).toBe('perto');
+  });
+
   it('não ultrapassa o orçamento informado', () => {
     const candidatos = [3, 6, 9, 12].map((km, i) =>
       candidato({ id: `p${i}`, coordenada: aNorte(km) }),

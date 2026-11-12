@@ -138,17 +138,28 @@ function janelaDe(ponto: PontoInteresse): { abre: number; fecha: number } | null
 
 const minutosDoDia = (data: Date) => data.getHours() * 60 + data.getMinutes();
 
-/** Pontuação bayesiana ponderada pela preferência (equação 6 do TCC). */
+/** Valor de todos os pontos quando nenhum candidato tem nota, como na API. */
+const NOTA_NEUTRA = 3;
+
+const temNota = (p: PontoInteresse): p is PontoInteresse & { nota: number } =>
+  p.nota != null && p.avaliacoes > 0;
+
+/**
+ * Pontuação bayesiana ponderada pela preferência (equação 6 do TCC). Ponto
+ * sem nota vale a média dos que têm, e só quem tem nota entra na média.
+ */
 function pontuacao(ponto: PontoInteresse, candidatos: PontoInteresse[], peso: number): number {
-  const notas = candidatos.map((p) => p.nota ?? 0);
-  const C = notas.reduce((s, n) => s + n, 0) / Math.max(1, notas.length);
-  const m =
-    [...candidatos.map((p) => p.avaliacoes)].sort((a, b) => a - b)[
-      Math.floor(candidatos.length / 2)
-    ] ?? 1;
+  const avaliados = candidatos.filter(temNota);
+  if (avaliados.length === 0) return peso * NOTA_NEUTRA;
+
+  const C = avaliados.reduce((s, p) => s + p.nota, 0) / avaliados.length;
+  if (!temNota(ponto)) return peso * C;
+
+  const m = avaliados.map((p) => p.avaliacoes).sort((a, b) => a - b)[
+    Math.floor(avaliados.length / 2)
+  ]!;
   const n = ponto.avaliacoes;
-  const r = ponto.nota ?? C;
-  return peso * ((n * r + m * C) / (n + m));
+  return peso * ((n * ponto.nota + m * C) / (n + m));
 }
 
 /**

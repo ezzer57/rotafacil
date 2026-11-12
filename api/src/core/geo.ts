@@ -32,15 +32,3 @@ export const FATOR_CIRCUIDADE = 1.3;
 
 export const distanciaViaria = (a: Coordenada, b: Coordenada): number =>
   haversine(a, b) * FATOR_CIRCUIDADE;
-
-/** Caixa envolvente para pré-filtrar pontos no banco antes do cálculo exato. */
-export function caixaEnvolvente(centro: Coordenada, raioKm: number) {
-  const grausLat = raioKm / 111.32;
-  const grausLng = raioKm / (111.32 * Math.cos((centro.lat * Math.PI) / 180));
-  return {
-    latMin: centro.lat - grausLat,
-    latMax: centro.lat + grausLat,
-    lngMin: centro.lng - grausLng,
-    lngMax: centro.lng + grausLng,
-  };
-}

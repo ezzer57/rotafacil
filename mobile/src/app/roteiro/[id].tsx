@@ -411,12 +411,15 @@ function ParadaDoRoteiro({
               {item.custoNoLocal > 0 ? ` · ${formatarReais(item.custoNoLocal)}` : ''}
             </Texto>
 
-            <View style={estilos.linhaIcone}>
-              <Ionicons name="star" size={12} color={cores.alerta} />
-              <Texto variante="micro" cor={cores.textoSuave}>
-                {item.ponto.nota?.toFixed(1)} ({item.ponto.avaliacoes})
-              </Texto>
-            </View>
+            {/* Ponto vindo só do mapa não tem nota: a linha some, em vez de inventar. */}
+            {item.ponto.nota != null ? (
+              <View style={estilos.linhaIcone}>
+                <Ionicons name="star" size={12} color={cores.alerta} />
+                <Texto variante="micro" cor={cores.textoSuave}>
+                  {item.ponto.nota.toFixed(1)} ({item.ponto.avaliacoes})
+                </Texto>
+              </View>
+            ) : null}
 
             {/* Parada já visitada não se troca nem se remove. */}
             {item.visita ? null : (

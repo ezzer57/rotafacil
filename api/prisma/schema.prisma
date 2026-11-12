@@ -125,6 +125,11 @@ model PontoInteresse {
   fechaMin      Int?
   /// Quando os dados vieram do provedor, para controle de validade do cache.
   sincronizadoEm DateTime    @default(now())
+  /// Falso quando o ponto saiu da lista: não entra em roteiro novo, mas segue
+  /// no banco para os roteiros antigos que passaram por ele.
+  ativo         Boolean      @default(true)
+  /// Registro de origem, ex.: "osm:node/4663218620", para conferência e crédito.
+  fonte         String?      @db.VarChar(60)
 
   cidade  Cidade        @relation(fields: [cidadeId], references: [id], onDelete: Cascade)
   itens       RoteiroItem[]

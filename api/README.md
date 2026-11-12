@@ -107,11 +107,24 @@ espera as requisições em andamento e fecha o banco antes de sair.
 **Exclusão em cascata.** Apagar a conta apaga roteiros, itens, visitas e as
 coordenadas de origem (LGPD, art. 18).
 
+## Dados dos pontos
+
+Nome, coordenada e endereço dos pontos de interesse vêm do
+[OpenStreetMap](https://www.openstreetmap.org/copyright), © colaboradores do
+OpenStreetMap, sob a licença ODbL. A carga fica em `prisma/seed.ts`, e cada
+ponto guarda em `fonte` o elemento de origem. A coordenada é a do ponto de
+chegada (a entrada, o início da trilha), não a do centro do lugar.
+
+Ponto que sai da lista não é apagado: fica com `ativo = false`, fora dos
+roteiros novos e visível nos antigos.
+
 ## Pendências conhecidas
 
 - As tarifas carregadas pelo seed são **provisórias**; precisam ser trocadas
   pelos valores dos decretos municipais de Quixadá e Fortaleza.
-- Os pontos de interesse vêm do seed. A integração com a Places API ainda não
-  foi feita, assim como a Routes API para distância e tempo reais.
-- O índice geográfico usa caixa envolvente sobre `lat`/`lng`. Quando o volume
-  de pontos crescer, vale migrar para PostGIS com índice GiST.
+- Parte dos horários dos pontos é suposição (a carga informa quantos), e
+  tempo de visita e faixa de preço são estimativas. As notas dos pontos mais
+  antigos são fictícias, e os pontos novos não têm nota.
+- Distância e tempo ainda são estimados pela linha reta × 1,3, não pelas ruas.
+- Os candidatos de um roteiro são todos os pontos ativos da cidade (até 40).
+  Quando o volume de pontos crescer, vale filtrar por proximidade com PostGIS.

@@ -10,7 +10,7 @@ import { Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/prisma.js';
 import { naoEncontrado, regraDeNegocio, semPermissao } from '@/lib/erros.js';
-import { caixaEnvolvente, haversine } from '@/core/geo.js';
+import { haversine } from '@/core/geo.js';
 import {
   gerarRoteiro,
   type Candidato,
@@ -21,8 +21,12 @@ import type { ParametrosTarifa } from '@/core/tarifa.js';
 import type { DadosGerarRoteiro } from '@/contratos/index.js';
 import { serializarResumo, serializarRoteiro } from './serializador.js';
 
-/** Raio de busca de pontos em torno da posição do usuário. */
-const RAIO_BUSCA_KM = 15;
+/**
+ * Distância máxima entre o ponto de partida e o centro da cidade. É o mesmo
+ * raio que o aplicativo usa para decidir se parte do GPS ou do centro: os
+ * dois precisam concordar, senão o app manda uma posição que a API recusa.
+ */
+const RAIO_COBERTURA_CIDADE_KM = 60;
 /** Teto de candidatos levados ao motor, para manter o tempo de resposta. */
 const MAX_CANDIDATOS = 40;
 
@@ -83,49 +87,36 @@ async function resolverCidade(entrada: DadosGerarRoteiro) {
 }
 
 /**
- * Busca os pontos candidatos.
+ * Busca os pontos candidatos: os pontos ativos da cidade.
  *
- * O filtro por caixa envolvente roda no banco, usando o índice, e o corte
- * exato por distância acontece depois, em memória. Isso evita calcular
- * haversine linha a linha sobre a tabela inteira.
+ * Não há corte por distância até a origem. Quem está num distrito a 30 km do
+ * centro quer um roteiro pela cidade, e o tempo do primeiro trecho já entra
+ * na conta do algoritmo. Cortar aqui deixava essa pessoa sem roteiro nenhum.
  */
-async function carregarCandidatos(
-  cidadeId: string,
-  origem: { lat: number; lng: number },
-  excluir: string[],
-): Promise<Candidato[]> {
-  const caixa = caixaEnvolvente(origem, RAIO_BUSCA_KM);
-
+async function carregarCandidatos(cidadeId: string, excluir: string[]): Promise<Candidato[]> {
   const pontos = await prisma.pontoInteresse.findMany({
     where: {
       cidadeId,
+      // Ponto que saiu da lista continua no banco, mas fora de roteiro novo.
+      ativo: true,
       id: { notIn: excluir.length > 0 ? excluir : undefined },
-      lat: { gte: caixa.latMin, lte: caixa.latMax },
-      lng: { gte: caixa.lngMin, lte: caixa.lngMax },
     },
-    orderBy: [{ avaliacoes: 'desc' }],
-    take: MAX_CANDIDATOS * 2,
+    orderBy: [{ avaliacoes: 'desc' }, { id: 'asc' }],
+    take: MAX_CANDIDATOS,
   });
 
-  return pontos
-    .map((ponto) => ({
-      ponto,
-      distancia: haversine(origem, { lat: ponto.lat, lng: ponto.lng }),
-    }))
-    .filter(({ distancia }) => distancia <= RAIO_BUSCA_KM)
-    .slice(0, MAX_CANDIDATOS)
-    .map(({ ponto }) => ({
-      id: ponto.id,
-      nome: ponto.nome,
-      categoria: ponto.categoria as Categoria,
-      coordenada: { lat: ponto.lat, lng: ponto.lng },
-      nota: ponto.nota,
-      avaliacoes: ponto.avaliacoes,
-      faixaPreco: ponto.faixaPreco,
-      tempoVisitaMin: ponto.tempoVisitaMin,
-      abreMin: ponto.abreMin,
-      fechaMin: ponto.fechaMin,
-    }));
+  return pontos.map((ponto) => ({
+    id: ponto.id,
+    nome: ponto.nome,
+    categoria: ponto.categoria as Categoria,
+    coordenada: { lat: ponto.lat, lng: ponto.lng },
+    nota: ponto.nota,
+    avaliacoes: ponto.avaliacoes,
+    faixaPreco: ponto.faixaPreco,
+    tempoVisitaMin: ponto.tempoVisitaMin,
+    abreMin: ponto.abreMin,
+    fechaMin: ponto.fechaMin,
+  }));
 }
 
 interface DadosPersistencia {
@@ -139,14 +130,10 @@ interface DadosPersistencia {
 /** Executa o motor e grava o resultado, substituindo o roteiro quando é recálculo. */
 async function calcularEGravar(dados: DadosPersistencia) {
   const tarifa = await carregarTarifa(dados.cidadeId);
-  const candidatos = await carregarCandidatos(
-    dados.cidadeId,
-    dados.entrada.origem,
-    dados.excluidos,
-  );
+  const candidatos = await carregarCandidatos(dados.cidadeId, dados.excluidos);
 
   if (candidatos.length === 0) {
-    throw regraDeNegocio('Nenhum ponto turístico encontrado perto da sua posição');
+    throw regraDeNegocio('Esta cidade ainda não tem pontos turísticos cadastrados');
   }
 
   const resultado = gerarRoteiro(candidatos, dados.entrada, tarifa);
@@ -227,6 +214,14 @@ async function calcularEGravar(dados: DadosPersistencia) {
 
 export async function gerar(usuarioId: string, entrada: DadosGerarRoteiro) {
   const cidade = await resolverCidade(entrada);
+
+  const distanciaDoCentro = haversine(entrada.origem, { lat: cidade.lat, lng: cidade.lng });
+  if (distanciaDoCentro > RAIO_COBERTURA_CIDADE_KM) {
+    throw regraDeNegocio(
+      `O ponto de partida está a ${Math.round(distanciaDoCentro)} km de ${cidade.nome}. ` +
+        'Escolha partir do centro da cidade.',
+    );
+  }
 
   const roteiro = await calcularEGravar({
     usuarioId,
