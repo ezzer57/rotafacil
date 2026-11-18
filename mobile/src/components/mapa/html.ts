@@ -52,6 +52,12 @@ export function construirHtmlMapa({
     font-size: 13px; font-weight: 700;
     border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.35);
   }
+  /* Parada em que o usuário já chegou: visto no lugar do número. */
+  .marcador-visitado {
+    background: #fff; color: ${corSucesso};
+    border: 2px solid ${corSucesso};
+    font-size: 15px;
+  }
   .marcador-origem {
     width: 14px; height: 14px; border-radius: 999px;
     background: #fff; border: 4px solid ${corSucesso};
@@ -101,13 +107,17 @@ export function construirHtmlMapa({
     L.marker(posicao, {
       icon: L.divIcon({
         className: '',
-        html: '<div class="marcador">' + parada.ordem + '</div>',
+        html: parada.visitada
+          ? '<div class="marcador marcador-visitado">&#10003;</div>'
+          : '<div class="marcador">' + parada.ordem + '</div>',
         iconSize: [28, 28],
         iconAnchor: [14, 14]
-      })
+      }),
+      // Parada já visitada fica atrás das que ainda faltam.
+      zIndexOffset: parada.visitada ? -100 : 0
     })
       .addTo(mapa)
-      .bindPopup(parada.ordem + '. ' + parada.nome)
+      .bindPopup(parada.ordem + '. ' + parada.nome + (parada.visitada ? ' (você já chegou)' : ''))
       .on('click', function () { avisarSelecao(parada.id); });
   });
 
@@ -116,9 +126,11 @@ export function construirHtmlMapa({
 
   // Um segmento por trecho, para diferenciar o que é feito a pé. Quando há
   // traçado, a linha segue as ruas; sem ele, é a reta entre os dois pontos,
-  // mais clara para não se passar por caminho de verdade.
+  // mais clara para não se passar por caminho de verdade. O trecho até uma
+  // parada em que o usuário já chegou sai do mapa: fica só o que falta fazer.
   for (var i = 1; i < pontos.length; i++) {
     var parada = dados.paradas[dados.origem ? i - 1 : i];
+    if (parada && parada.visitada) continue;
     var aPe = parada && parada.modalAteAqui === 'pe';
     var ruas = parada && parada.trajetoAteAqui && parada.trajetoAteAqui.length > 1;
     var linha = ruas ? parada.trajetoAteAqui : [pontos[i - 1], pontos[i]];
