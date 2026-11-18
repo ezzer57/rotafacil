@@ -189,7 +189,8 @@ docker compose -f osrm/docker-compose.yml up -d      # liga carro (5000) e a pé
 - As tarifas carregadas pelo seed são **provisórias**; precisam ser trocadas
   pelos valores dos decretos municipais de Quixadá e Fortaleza.
 - Parte dos horários dos pontos é suposição (a carga informa quantos), e
-  tempo de visita e faixa de preço são estimativas. As notas dos pontos mais
-  antigos são fictícias, e os pontos novos não têm nota.
+  tempo de visita e faixa de preço são estimativas. Nenhum ponto tem nota de
+  avaliação (o OpenStreetMap não traz): a parte da nota no benefício fica
+  neutra até haver uma fonte real.
 - Os candidatos de um roteiro são todos os pontos ativos da cidade (até 40).
   Quando o volume de pontos crescer, vale filtrar por proximidade com PostGIS.
