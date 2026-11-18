@@ -90,7 +90,7 @@ function resumir(roteiro: Roteiro): ResumoRoteiro {
     criadoEm: roteiro.criadoEm,
     totalPontos: roteiro.itens.length,
     custoEstimado: roteiro.totais.custoTotal.estimado,
-    capaUrl: roteiro.itens[0]?.ponto.fotoUrl ?? null,
+    capaUrl: roteiro.itens.find((item) => item.ponto.fotoUrl)?.ponto.fotoUrl ?? null,
     pontosVisitados: roteiro.totais.pontosVisitados,
     custoRegistrado: roteiro.totais.custoRegistrado,
   };

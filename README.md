@@ -22,9 +22,11 @@ Centro Universitário Católica de Quixadá
 | Rodar sem Expo Go | Um comando com Docker, abrindo no navegador |
 
 Ainda provisório: as tarifas de táxi (a trocar pelos decretos municipais de
-Quixadá e Fortaleza), 10 dos 22 horários de funcionamento (suposições), as
-fotos dos lugares (imagens aleatórias) e a relevância de cada ponto
-(curadoria do autor). Nenhum ponto tem nota de avaliação, porque o
+Quixadá e Fortaleza), 10 dos 22 horários de funcionamento (suposições) e a
+relevância de cada ponto (curadoria do autor). As fotos são reais, do
+Wikimedia Commons com licença livre e crédito, mas 6 lugares ainda não têm foto
+livre (o Mercado Público e os quatro restaurantes de Quixadá e o Centro das
+Tapioqueiras). Nenhum ponto tem nota de avaliação, porque o
 OpenStreetMap não traz essa informação.
 
 ## Tecnologias necessárias
@@ -163,6 +165,8 @@ estimadas em linha reta e nada fica salvo.
 | Entrega | Docker Compose, nginx (site), GitHub Actions (integração contínua) |
 
 Dados de mapa e de pontos: © colaboradores do OpenStreetMap, licença ODbL.
+Fotos dos lugares: Wikimedia Commons, com autor e licença em cada parada do
+roteiro e na tela de perfil.
 
 ## Estrutura
 

@@ -119,6 +119,10 @@ model PontoInteresse {
   avaliacoes    Int          @default(0)
   faixaPreco    Int?
   fotoUrl       String?      @db.VarChar(500)
+  /// Autor e licença da foto, exibidos junto dela (ex.: "Foto: Fulano · CC BY-SA 4.0 · Wikimedia Commons").
+  fotoCredito   String?      @db.VarChar(300)
+  /// Página da foto no Wikimedia Commons, com a licença completa.
+  fotoFonte     String?      @db.VarChar(500)
   tempoVisitaMin Int
   /// Janela de funcionamento em minutos desde a meia-noite (null = sempre aberto).
   abreMin       Int?

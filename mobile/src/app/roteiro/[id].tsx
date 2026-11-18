@@ -17,11 +17,11 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
-import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 
+import { FotoDoLugar } from '@/components/foto';
 import MapaRoteiro, { type ParadaMapa } from '@/components/mapa';
 import { LARGURA_DUAS_COLUNAS, useAlturaDoMapa } from '@/components/mapa/altura';
 import { Botao, Campo, Cartao, Esqueleto, EstadoVazio, Selo, Texto } from '@/components/ui';
@@ -480,11 +480,7 @@ function ParadaDoRoteiro({
 
       <Cartao padding={espaco.md}>
         <View style={{ flexDirection: 'row', gap: espaco.md }}>
-          <Image
-            source={{ uri: item.ponto.fotoUrl ?? undefined }}
-            style={estilos.foto}
-            contentFit="cover"
-          />
+          <FotoDoLugar uri={item.ponto.fotoUrl} style={estilos.foto} />
           <View style={{ flex: 1, gap: 4 }}>
             <View style={estilos.linhaTopo}>
               <Texto variante="corpo" peso="semi" numberOfLines={1} style={{ flex: 1 }}>
@@ -537,6 +533,18 @@ function ParadaDoRoteiro({
                   {item.ponto.nota.toFixed(1)} ({item.ponto.avaliacoes})
                 </Texto>
               </View>
+            ) : null}
+
+            {/* Crédito exigido pela licença da foto; leva à página dela no Commons. */}
+            {item.ponto.fotoCredito ? (
+              <Pressable
+                hitSlop={6}
+                disabled={!item.ponto.fotoFonte}
+                onPress={() => item.ponto.fotoFonte && void Linking.openURL(item.ponto.fotoFonte)}>
+                <Texto variante="micro" cor={cores.textoSuave} numberOfLines={1}>
+                  {item.ponto.fotoCredito}
+                </Texto>
+              </Pressable>
             ) : null}
 
             {/* Parada já visitada não se troca nem se remove. */}

@@ -69,6 +69,8 @@ export function serializarPonto(ponto: PontoBanco) {
     avaliacoes: ponto.avaliacoes,
     faixaPreco: ponto.faixaPreco,
     fotoUrl: ponto.fotoUrl,
+    fotoCredito: ponto.fotoCredito,
+    fotoFonte: ponto.fotoFonte,
     tempoVisitaMin: ponto.tempoVisitaMin,
     relevancia: ponto.relevancia,
     arLivre: ponto.arLivre,
@@ -196,7 +198,10 @@ export function serializarResumo(
     include: { cidade: true; itens: { include: { ponto: true } }; visitas: true };
   }>,
 ) {
-  const primeiro = [...roteiro.itens].sort((a, b) => a.ordem - b.ordem)[0];
+  // Capa: a primeira parada que tem foto (restaurante sem foto livre não serve).
+  const primeiro = [...roteiro.itens]
+    .sort((a, b) => a.ordem - b.ordem)
+    .find((item) => item.ponto.fotoUrl);
   return {
     id: roteiro.id,
     cidadeNome: roteiro.cidade.nome,

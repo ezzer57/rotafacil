@@ -56,6 +56,10 @@ export interface PontoInteresse {
   /** Faixa de preço de 0 a 4, quando informada pelo provedor. */
   faixaPreco: number | null;
   fotoUrl: string | null;
+  /** Autor e licença da foto, para exibir junto dela. */
+  fotoCredito: string | null;
+  /** Página da foto no Wikimedia Commons. */
+  fotoFonte: string | null;
   tempoVisitaMin: number;
   /** Quanto o lugar é imperdível, de 1 a 5, com o mesmo critério em toda cidade. */
   relevancia: number;
