@@ -27,6 +27,33 @@ substituídas pelos valores dos decretos municipais de Quixadá e Fortaleza.
 
 ## Como rodar
 
+### Jeito mais fácil: tudo com Docker, no navegador
+
+Precisa só do [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+aberto. Na pasta do projeto:
+
+```bash
+docker compose up --build
+```
+
+Quando o terminal mostrar `RotaFácil API no ar`, abra **http://localhost:8080**
+e crie uma conta. Sobem o banco (com as cidades e os pontos já carregados), a
+API e o aplicativo como site; nada mais precisa ser instalado. A primeira vez
+leva alguns minutos, porque o Docker baixa as imagens e monta o site.
+
+- Para parar: `Ctrl+C`, ou `docker compose down` (os dados continuam salvos);
+  `docker compose down -v` apaga também o banco.
+- Porta 3333 ou 8080 ocupada? Copie `.env.example` para `.env` e troque
+  `API_PORTA` ou `WEB_PORTA`.
+- Num computador, o navegador acha a posição pelo Wi-Fi, com erro de centenas
+  de metros. Toque no mapa da tela Nova rota para marcar o ponto de partida.
+- As distâncias pelas ruas usam servidores públicos do OSRM, que às vezes
+  demoram; nesse caso o roteiro sai com a estimativa em linha reta e avisa.
+  Para servidores próprios, veja `osrm/preparar.sh` e o perfil `osrm` no
+  `docker-compose.yml`.
+
+### Para desenvolver
+
 ```bash
 cd mobile
 npm install
