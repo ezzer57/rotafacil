@@ -77,6 +77,7 @@ export default function TelaRoteiro() {
         lng: item.ponto.coordenada.lng,
         modalAteAqui: item.trechoAteAqui?.modal ?? null,
         trajetoAteAqui: item.trechoAteAqui?.trajeto ?? null,
+        visitada: item.visitado || item.visita != null,
       })),
     [roteiro?.itens],
   );
@@ -259,6 +260,9 @@ export default function TelaRoteiro() {
   const legendaDoMapa = (
     <Texto variante="micro" cor={cores.textoSuave}>
       {ORIGEM_DAS_MEDIDAS[roteiro.diagnostico.rotas ?? 'estimada']}
+      {paradasVisitadas > 0
+        ? ' O trecho até cada parada em que você chegou sai do mapa.'
+        : ''}
     </Texto>
   );
 

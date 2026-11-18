@@ -19,6 +19,11 @@ export interface ParadaMapa {
   modalAteAqui: Modal | null;
   /** Ruas do trecho até esta parada, como [lat, lng]; sem ele, linha reta. */
   trajetoAteAqui?: [number, number][] | null;
+  /**
+   * O usuário já fez check-in aqui ("Cheguei"): o trecho até esta parada sai
+   * do mapa, e o marcador vira um visto.
+   */
+  visitada?: boolean;
 }
 
 export interface MapaPartidaProps {
