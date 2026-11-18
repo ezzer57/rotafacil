@@ -1,0 +1,6 @@
+# Arquivos usados dentro de contêineres Linux e scripts de shell: sempre com
+# fim de linha LF, mesmo num clone feito no Windows (onde o Git costuma
+# trocar por CRLF e quebrar o bash e o nginx).
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.conf text eol=lf
