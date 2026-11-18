@@ -1,0 +1,10 @@
+node_modules
+.expo
+dist
+dist-web
+web-build
+# O endereço da API vem do build (EXPO_PUBLIC_API_URL), não do .env local.
+.env
+.env.*
+.claude
+.vscode

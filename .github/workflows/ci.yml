@@ -68,3 +68,25 @@ jobs:
       - run: npm ci
       - name: Verificação de tipos
         run: npx tsc --noEmit
+
+  docker:
+    name: Docker (sobe tudo e responde)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Monta as imagens
+        run: docker compose build
+      - name: Sobe banco, API e site
+        # Sem consulta às ruas: a CI não pode depender dos servidores públicos.
+        run: ROTAS_PELAS_RUAS=false docker compose up -d --wait --wait-timeout 180
+      - name: Confere API e site
+        run: |
+          curl --fail --silent http://localhost:3333/health/ready
+          curl --fail --silent --output /dev/null http://localhost:8080/
+          curl --fail --silent --output /dev/null http://localhost:8080/roteiro/qualquer-id
+      - name: Log da API em caso de falha
+        if: failure()
+        run: docker compose logs api
+      - name: Desliga
+        if: always()
+        run: docker compose down -v
