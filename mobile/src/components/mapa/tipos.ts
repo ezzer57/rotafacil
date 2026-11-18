@@ -37,6 +37,7 @@ export interface MapaRoteiroProps {
   /** Posição de partida do usuário. */
   origem?: { lat: number; lng: number } | null;
   paradas: ParadaMapa[];
-  altura?: number;
+  /** Em pixels, ou "preencher" para ocupar todo o espaço do contêiner. */
+  altura?: number | 'preencher';
   onSelecionarParada?: (id: string) => void;
 }

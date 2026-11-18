@@ -10,6 +10,8 @@
 
 import type { Prisma } from '@prisma/client';
 
+import { situacaoNoHorario } from '@/core/roteirizacao.js';
+
 const numero = (valor: Prisma.Decimal | number | null | undefined): number =>
   valor == null ? 0 : typeof valor === 'number' ? valor : Number(valor);
 
@@ -43,6 +45,7 @@ type RoteiroCompleto = Prisma.RoteiroGetPayload<{
 
 /** "08:00 às 17:00" a partir dos minutos guardados no banco. */
 function horarioLegivel(ponto: PontoBanco): string | null {
+  if (ponto.arLivre) return 'Ao ar livre, sem horário';
   if (ponto.abreMin == null || ponto.fechaMin == null) return 'Aberto 24 horas';
   const formatar = (minutos: number) =>
     `${String(Math.floor(minutos / 60)).padStart(2, '0')}:${String(minutos % 60).padStart(2, '0')}`;
@@ -50,7 +53,7 @@ function horarioLegivel(ponto: PontoBanco): string | null {
 }
 
 function abertoAgora(ponto: PontoBanco, momento = new Date()): boolean | null {
-  if (ponto.abreMin == null || ponto.fechaMin == null) return true;
+  if (ponto.arLivre || ponto.abreMin == null || ponto.fechaMin == null) return true;
   const agora = momento.getHours() * 60 + momento.getMinutes();
   return agora >= ponto.abreMin && agora <= ponto.fechaMin;
 }
@@ -68,6 +71,7 @@ export function serializarPonto(ponto: PontoBanco) {
     fotoUrl: ponto.fotoUrl,
     tempoVisitaMin: ponto.tempoVisitaMin,
     relevancia: ponto.relevancia,
+    arLivre: ponto.arLivre,
     abertoAgora: abertoAgora(ponto),
     horarioHoje: horarioLegivel(ponto),
   };
@@ -115,6 +119,9 @@ export function serializarRoteiro(roteiro: RoteiroCompleto) {
       chegadaPrevista: item.chegadaPrevista.toISOString(),
       saidaPrevista: item.saidaPrevista.toISOString(),
       custoNoLocal: numero(item.custoNoLocal),
+      // Calculada na hora (o servidor roda no fuso da cidade), e não gravada:
+      // vale também para roteiros feitos antes desta regra.
+      situacaoNoHorario: situacaoNoHorario(item.ponto, item.chegadaPrevista),
       visitado: item.visitado || visitaPorPonto.has(item.pontoId),
       visita: serializarVisita(visitaPorPonto.get(item.pontoId)),
       trechoAteAqui: item.modal

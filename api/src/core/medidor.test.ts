@@ -33,6 +33,7 @@ const candidato = (id: string, coordenada: { lat: number; lng: number }): Candid
   faixaPreco: null,
   tempoVisitaMin: 30,
   relevancia: 3,
+  arLivre: false,
   abreMin: null,
   fechaMin: null,
 });

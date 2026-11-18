@@ -132,6 +132,9 @@ model PontoInteresse {
   /// cidades (5 = símbolo da cidade; 1 = só se sobrar tempo). É curadoria,
   /// não dado do provedor: não depende de haver avaliações.
   relevancia    Int          @default(3)
+  /// Lugar público ao ar livre (parque, praça, praia, mirante, trilha): nunca
+  /// fica fora do horário no roteiro.
+  arLivre       Boolean      @default(false)
   /// Registro de origem, ex.: "osm:node/4663218620", para conferência e crédito.
   fonte         String?      @db.VarChar(60)
 
