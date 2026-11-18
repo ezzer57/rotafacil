@@ -15,6 +15,16 @@ npm run db:seed               # carrega cidades, tarifas e pontos
 npm run dev                   # http://localhost:3333
 ```
 
+Em produção, com `NODE_ENV=production` no `.env` ou no ambiente:
+
+```bash
+npm start                     # mesma API, sem recarregar a cada alteração
+```
+
+A API roda direto do TypeScript com o `tsx`, como no desenvolvimento: não há
+etapa de compilação, e os atalhos de importação `@/` funcionam igual nos dois
+modos. `npm run build` só confere os tipos do código de produção.
+
 Verificações:
 
 ```bash
