@@ -20,9 +20,10 @@ import Slider from '@react-native-community/slider';
 import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import MapaRoteiro, { type ParadaMapa } from '@/components/mapa';
+import { LARGURA_DUAS_COLUNAS, useAlturaDoMapa } from '@/components/mapa/altura';
 import { Botao, Campo, Cartao, Esqueleto, EstadoVazio, Selo, Texto } from '@/components/ui';
 import {
   formatarDistancia,
@@ -58,6 +59,11 @@ export default function TelaRoteiro() {
     useAjustarRoteiro(id);
   const cores = useCores();
   const estilos = useEstilos(cores);
+  const { width } = useWindowDimensions();
+  // Navegador largo: mapa numa coluna ao lado da lista, da altura da janela.
+  // Celular e tela estreita: mapa numa caixa vertical, no meio da lista.
+  const duasColunas = width >= LARGURA_DUAS_COLUNAS;
+  const alturaMapa = useAlturaDoMapa(0.62, 360, 620);
 
   // Estável entre renderizações: um array novo a cada render recarregaria o
   // mapa inteiro.
@@ -102,183 +108,197 @@ export default function TelaRoteiro() {
   const uso = roteiro.totais.usoOrcamento;
   const registrando = registrarVisita.isPending || desfazerVisita.isPending;
   const paradasVisitadas = roteiro.itens.filter((item) => item.visita).length;
+  const foraDoHorario = roteiro.itens.filter(
+    (item) => (item.situacaoNoHorario ?? 'aberto') !== 'aberto',
+  ).length;
 
-  return (
-    <ScrollView
-      style={{ backgroundColor: cores.fundo }}
-      contentContainerStyle={{ padding: espaco.lg, gap: espaco.lg, paddingBottom: 60 }}>
-      {/* --------------------------------------------------------- resumo */}
-      <Cartao>
-        <View style={estilos.linhaTopo}>
-          <Texto variante="titulo" peso="forte">
-            {roteiro.cidadeNome}
-          </Texto>
-          <Selo
-            texto={`${roteiro.itens.length} paradas`}
-            icone="location"
-            cor={cores.primaria}
-            fundo={cores.primariaSuave}
-          />
-        </View>
-
-        <View style={estilos.metricas}>
-          <Metrica
-            icone="cash-outline"
-            rotulo="Custo estimado"
-            valor={formatarReais(roteiro.totais.custoTotal.estimado)}
-            detalhe={formatarFaixa(roteiro.totais.custoTotal)}
-          />
-          <Metrica
-            icone="time-outline"
-            rotulo="Duração"
-            valor={formatarDuracao(roteiro.totais.duracaoMin)}
-            detalhe={`de ${formatarDuracao(roteiro.tempoDisponivelMin)} disponíveis`}
-          />
-        </View>
-
-        {uso != null ? (
-          <View style={{ gap: espaco.xs, marginTop: espaco.md }}>
-            <View style={estilos.linhaTopo}>
-              <Texto variante="micro" cor={cores.textoSuave}>
-                Uso do orçamento
-              </Texto>
-              <Texto variante="micro" peso="semi">
-                {uso}%
-              </Texto>
-            </View>
-            <View style={estilos.trilha}>
-              <View
-                style={[
-                  estilos.progresso,
-                  {
-                    width: `${uso}%`,
-                    backgroundColor: uso > 85 ? cores.alerta : cores.sucesso,
-                  },
-                ]}
-              />
-            </View>
-          </View>
-        ) : (
-          <Texto variante="micro" cor={cores.textoSuave} style={{ marginTop: espaco.md }}>
-            Sem teto de gasto: o valor acima é a média prevista, e a faixa vai do mínimo ao
-            máximo.
-          </Texto>
-        )}
-
-        {roteiro.totais.trechosAPe > 0 ? (
-          <View style={[estilos.linhaIcone, { marginTop: espaco.md }]}>
-            <Ionicons name="walk" size={14} color={cores.sucesso} />
-            <Texto variante="micro" cor={cores.sucesso}>
-              {roteiro.totais.trechosAPe}{' '}
-              {roteiro.totais.trechosAPe === 1 ? 'trecho a pé' : 'trechos a pé'}:{' '}
-              {formatarReais(roteiro.totais.economiaCaminhando)} economizados
-            </Texto>
-          </View>
-        ) : null}
-
-        {paradasVisitadas > 0 ? (
-          <View style={[estilos.linhaIcone, { marginTop: espaco.xs }]}>
-            <Ionicons name="checkmark-done" size={14} color={cores.sucesso} />
-            <Texto variante="micro" cor={cores.sucesso}>
-              {paradasVisitadas} de {roteiro.itens.length} paradas visitadas
-              {roteiro.totais.custoRegistrado != null
-                ? ` · ${formatarReais(roteiro.totais.custoRegistrado)} pagos em corridas`
-                : ''}
-            </Texto>
-          </View>
-        ) : null}
-      </Cartao>
-
-      {/* ------------------------------------------ controle de orçamento */}
-      <Cartao>
-        <View style={estilos.linhaTopo}>
-          <Texto variante="pequeno" peso="semi">
-            {semTeto ? 'Quer definir um teto?' : 'E se eu tivesse outro orçamento?'}
-          </Texto>
-          <Texto variante="destaque" peso="forte" cor={cores.primaria}>
-            {orcamentoExibido == null ? 'Sem limite' : formatarReais(orcamentoExibido)}
-          </Texto>
-        </View>
-
-        <Slider
-          style={{ height: 40, marginTop: espaco.sm }}
-          minimumValue={TETO_MINIMO}
-          maximumValue={TETO_MAXIMO}
-          step={5}
-          // Sem teto, o controle começa no fim da escala.
-          value={orcamentoExibido ?? TETO_MAXIMO}
-          minimumTrackTintColor={cores.primaria}
-          maximumTrackTintColor={cores.borda}
-          thumbTintColor={cores.primaria}
-          onValueChange={setOrcamentoVisual}
-          onSlidingComplete={(valor) => ajustarOrcamento.mutate(valor)}
-        />
-
-        <View style={estilos.linhaTopo}>
-          <Texto variante="micro" cor={cores.textoSuave} style={{ flex: 1 }}>
-            {ajustarOrcamento.isPending
-              ? 'Refazendo a seleção de pontos...'
-              : semTeto
-                ? 'Arraste para limitar o gasto e ver o algoritmo refazer o roteiro.'
-                : 'Arraste para ver o algoritmo refazer o roteiro.'}
-          </Texto>
-          {!semTeto ? (
-            <Botao
-              titulo="Tirar o limite"
-              variante="texto"
-              largura="auto"
-              desabilitado={ajustando}
-              onPress={() => {
-                setOrcamentoVisual(null);
-                ajustarOrcamento.mutate(null);
-              }}
-              style={{ height: 32, paddingHorizontal: 0 }}
-            />
-          ) : null}
-        </View>
-      </Cartao>
-
-      {/* ----------------------------------------------------------- mapa */}
-      <MapaRoteiro origem={roteiro.preferencias.origem} paradas={paradasDoMapa} />
-      <Texto variante="micro" cor={cores.textoSuave} style={{ marginTop: -espaco.sm }}>
-        {ORIGEM_DAS_MEDIDAS[roteiro.diagnostico.rotas ?? 'estimada']}
-      </Texto>
-
-      {/* ----------------------------------------------------- percurso */}
-      <View style={{ gap: espaco.md }}>
-        <Texto variante="destaque" peso="forte">
-          Seu percurso
+  const blocoResumo = (
+    <Cartao>
+      <View style={estilos.linhaTopo}>
+        <Texto variante="titulo" peso="forte">
+          {roteiro.cidadeNome}
         </Texto>
+        <Selo
+          texto={`${roteiro.itens.length} paradas`}
+          icone="location"
+          cor={cores.primaria}
+          fundo={cores.primariaSuave}
+        />
+      </View>
 
-        {roteiro.itens.map((item) => (
-          <ParadaDoRoteiro
-            key={item.ponto.id}
-            item={item}
-            ocupado={ajustando}
-            registrando={registrando}
-            onRemover={() => remover.mutate(item.ponto.id)}
-            onTrocar={() => substituir.mutate(item.ponto.id)}
-            onCheckin={(custoRegistrado) =>
-              registrarVisita.mutate({ pontoId: item.ponto.id, custoRegistrado })
-            }
-            onDesfazer={() => desfazerVisita.mutate(item.ponto.id)}
-          />
-        ))}
+      <View style={estilos.metricas}>
+        <Metrica
+          icone="cash-outline"
+          rotulo="Custo estimado"
+          valor={formatarReais(roteiro.totais.custoTotal.estimado)}
+          detalhe={formatarFaixa(roteiro.totais.custoTotal)}
+        />
+        <Metrica
+          icone="time-outline"
+          rotulo="Duração"
+          valor={formatarDuracao(roteiro.totais.duracaoMin)}
+          detalhe={`de ${formatarDuracao(roteiro.tempoDisponivelMin)} disponíveis`}
+        />
+      </View>
 
-        {roteiro.itens.length === 0 ? (
-          <EstadoVazio
-            icone={semTeto ? 'time-outline' : 'wallet-outline'}
-            titulo={semTeto ? 'Nada coube no tempo disponível' : 'Nada coube no orçamento'}
-            descricao={
-              semTeto
-                ? 'Aumente o tempo livre ou escolha outro horário de início para que o algoritmo consiga montar um roteiro.'
-                : 'Aumente o valor disponível ou o tempo livre para que o algoritmo consiga montar um roteiro.'
-            }
+      {uso != null ? (
+        <View style={{ gap: espaco.xs, marginTop: espaco.md }}>
+          <View style={estilos.linhaTopo}>
+            <Texto variante="micro" cor={cores.textoSuave}>
+              Uso do orçamento
+            </Texto>
+            <Texto variante="micro" peso="semi">
+              {uso}%
+            </Texto>
+          </View>
+          <View style={estilos.trilha}>
+            <View
+              style={[
+                estilos.progresso,
+                {
+                  width: `${uso}%`,
+                  backgroundColor: uso > 85 ? cores.alerta : cores.sucesso,
+                },
+              ]}
+            />
+          </View>
+        </View>
+      ) : (
+        <Texto variante="micro" cor={cores.textoSuave} style={{ marginTop: espaco.md }}>
+          Sem teto de gasto: o valor acima é a média prevista, e a faixa vai do mínimo ao
+          máximo.
+        </Texto>
+      )}
+
+      {roteiro.totais.trechosAPe > 0 ? (
+        <View style={[estilos.linhaIcone, { marginTop: espaco.md }]}>
+          <Ionicons name="walk" size={14} color={cores.sucesso} />
+          <Texto variante="micro" cor={cores.sucesso}>
+            {roteiro.totais.trechosAPe}{' '}
+            {roteiro.totais.trechosAPe === 1 ? 'trecho a pé' : 'trechos a pé'}:{' '}
+            {formatarReais(roteiro.totais.economiaCaminhando)} economizados
+          </Texto>
+        </View>
+      ) : null}
+
+      {paradasVisitadas > 0 ? (
+        <View style={[estilos.linhaIcone, { marginTop: espaco.xs }]}>
+          <Ionicons name="checkmark-done" size={14} color={cores.sucesso} />
+          <Texto variante="micro" cor={cores.sucesso}>
+            {paradasVisitadas} de {roteiro.itens.length} paradas visitadas
+            {roteiro.totais.custoRegistrado != null
+              ? ` · ${formatarReais(roteiro.totais.custoRegistrado)} pagos em corridas`
+              : ''}
+          </Texto>
+        </View>
+      ) : null}
+      {foraDoHorario > 0 ? (
+        <View style={[estilos.linhaIcone, { marginTop: espaco.xs }]}>
+          <Ionicons name="moon-outline" size={14} color={cores.alerta} />
+          <Texto variante="micro" cor={cores.alerta} style={{ flex: 1 }}>
+            {foraDoHorario === 1
+              ? '1 parada cai fora do horário de funcionamento'
+              : `${foraDoHorario} paradas caem fora do horário de funcionamento`}
+            : veja os avisos no percurso.
+          </Texto>
+        </View>
+      ) : null}
+    </Cartao>
+  );
+
+  const blocoOrcamento = (
+    <Cartao>
+      <View style={estilos.linhaTopo}>
+        <Texto variante="pequeno" peso="semi">
+          {semTeto ? 'Quer definir um teto?' : 'E se eu tivesse outro orçamento?'}
+        </Texto>
+        <Texto variante="destaque" peso="forte" cor={cores.primaria}>
+          {orcamentoExibido == null ? 'Sem limite' : formatarReais(orcamentoExibido)}
+        </Texto>
+      </View>
+
+      <Slider
+        style={{ height: 40, marginTop: espaco.sm }}
+        minimumValue={TETO_MINIMO}
+        maximumValue={TETO_MAXIMO}
+        step={5}
+        // Sem teto, o controle começa no fim da escala.
+        value={orcamentoExibido ?? TETO_MAXIMO}
+        minimumTrackTintColor={cores.primaria}
+        maximumTrackTintColor={cores.borda}
+        thumbTintColor={cores.primaria}
+        onValueChange={setOrcamentoVisual}
+        onSlidingComplete={(valor) => ajustarOrcamento.mutate(valor)}
+      />
+
+      <View style={estilos.linhaTopo}>
+        <Texto variante="micro" cor={cores.textoSuave} style={{ flex: 1 }}>
+          {ajustarOrcamento.isPending
+            ? 'Refazendo a seleção de pontos...'
+            : semTeto
+              ? 'Arraste para limitar o gasto e ver o algoritmo refazer o roteiro.'
+              : 'Arraste para ver o algoritmo refazer o roteiro.'}
+        </Texto>
+        {!semTeto ? (
+          <Botao
+            titulo="Tirar o limite"
+            variante="texto"
+            largura="auto"
+            desabilitado={ajustando}
+            onPress={() => {
+              setOrcamentoVisual(null);
+              ajustarOrcamento.mutate(null);
+            }}
+            style={{ height: 32, paddingHorizontal: 0 }}
           />
         ) : null}
       </View>
+    </Cartao>
+  );
 
-      {/* --------------------------------------------------- descartados */}
+  const legendaDoMapa = (
+    <Texto variante="micro" cor={cores.textoSuave}>
+      {ORIGEM_DAS_MEDIDAS[roteiro.diagnostico.rotas ?? 'estimada']}
+    </Texto>
+  );
+
+  const blocoPercurso = (
+    <View style={{ gap: espaco.md }}>
+      <Texto variante="destaque" peso="forte">
+        Seu percurso
+      </Texto>
+
+      {roteiro.itens.map((item) => (
+        <ParadaDoRoteiro
+          key={item.ponto.id}
+          item={item}
+          ocupado={ajustando}
+          registrando={registrando}
+          onRemover={() => remover.mutate(item.ponto.id)}
+          onTrocar={() => substituir.mutate(item.ponto.id)}
+          onCheckin={(custoRegistrado) =>
+            registrarVisita.mutate({ pontoId: item.ponto.id, custoRegistrado })
+          }
+          onDesfazer={() => desfazerVisita.mutate(item.ponto.id)}
+        />
+      ))}
+
+      {roteiro.itens.length === 0 ? (
+        <EstadoVazio
+          icone={semTeto ? 'time-outline' : 'wallet-outline'}
+          titulo={semTeto ? 'Nada coube no tempo disponível' : 'Nada coube no orçamento'}
+          descricao={
+            semTeto
+              ? 'Aumente o tempo livre ou escolha outro horário de início para que o algoritmo consiga montar um roteiro.'
+              : 'Aumente o valor disponível ou o tempo livre para que o algoritmo consiga montar um roteiro.'
+          }
+        />
+      ) : null}
+    </View>
+  );
+
+  const blocoDescartados = (
+    <>
       {roteiro.descartados.length > 0 ? (
         <View style={{ gap: espaco.sm }}>
           <Texto variante="destaque" peso="forte">
@@ -289,21 +309,73 @@ export default function TelaRoteiro() {
           ))}
         </View>
       ) : null}
+    </>
+  );
 
-      {/* -------------------------------------------- painel do algoritmo */}
-      <Cartao style={{ backgroundColor: cores.fundoAlt }}>
-        <View style={estilos.linhaIcone}>
-          <Ionicons name="hardware-chip-outline" size={14} color={cores.textoSuave} />
-          <Texto variante="micro" peso="semi" cor={cores.textoSuave}>
-            Processamento
-          </Texto>
-        </View>
-        <Texto variante="micro" cor={cores.textoSuave} style={{ marginTop: 4 }}>
-          {roteiro.diagnostico.candidatosAvaliados} pontos avaliados ·{' '}
-          {roteiro.diagnostico.trechosCalculados} trechos calculados · roteiro montado em{' '}
-          {roteiro.diagnostico.duracaoMs} ms
+  const blocoPainel = (
+    <Cartao style={{ backgroundColor: cores.fundoAlt }}>
+      <View style={estilos.linhaIcone}>
+        <Ionicons name="hardware-chip-outline" size={14} color={cores.textoSuave} />
+        <Texto variante="micro" peso="semi" cor={cores.textoSuave}>
+          Processamento
         </Texto>
-      </Cartao>
+      </View>
+      <Texto variante="micro" cor={cores.textoSuave} style={{ marginTop: 4 }}>
+        {roteiro.diagnostico.candidatosAvaliados} pontos avaliados ·{' '}
+        {roteiro.diagnostico.trechosCalculados} trechos calculados · roteiro montado em{' '}
+        {roteiro.diagnostico.duracaoMs} ms
+      </Texto>
+    </Cartao>
+  );
+
+  if (duasColunas) {
+    return (
+      <View style={{ flex: 1, flexDirection: 'row', backgroundColor: cores.fundo }}>
+        <View
+          style={{
+            width: '46%',
+            maxWidth: 820,
+            padding: espaco.lg,
+            paddingRight: 0,
+            gap: espaco.sm,
+          }}>
+          <MapaRoteiro
+            origem={roteiro.preferencias.origem}
+            paradas={paradasDoMapa}
+            altura="preencher"
+          />
+          {legendaDoMapa}
+        </View>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: espaco.lg, gap: espaco.lg, paddingBottom: 60 }}>
+          {blocoResumo}
+          {blocoOrcamento}
+          {blocoPercurso}
+          {blocoDescartados}
+          {blocoPainel}
+        </ScrollView>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={{ backgroundColor: cores.fundo }}
+      contentContainerStyle={{ padding: espaco.lg, gap: espaco.lg, paddingBottom: 60 }}>
+      {blocoResumo}
+      {blocoOrcamento}
+      <View style={{ gap: espaco.sm }}>
+        <MapaRoteiro
+          origem={roteiro.preferencias.origem}
+          paradas={paradasDoMapa}
+          altura={alturaMapa}
+        />
+        {legendaDoMapa}
+      </View>
+      {blocoPercurso}
+      {blocoDescartados}
+      {blocoPainel}
     </ScrollView>
   );
 }
@@ -427,7 +499,35 @@ function ParadaDoRoteiro({
               {rotuloCategoria[item.ponto.categoria]} ·{' '}
               {formatarDuracao(item.ponto.tempoVisitaMin)} de visita
               {item.custoNoLocal > 0 ? ` · ${formatarReais(item.custoNoLocal)}` : ''}
+              {item.ponto.arLivre ? ' · ao ar livre' : ''}
             </Texto>
+
+            {/* Fechado não sai do roteiro: aparece marcado, e a pessoa decide. */}
+            {(item.situacaoNoHorario ?? 'aberto') !== 'aberto' ? (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  alignSelf: 'flex-start',
+                  gap: 6,
+                  paddingHorizontal: espaco.sm,
+                  paddingVertical: 4,
+                  borderRadius: raio.md,
+                  backgroundColor: cores.alertaSuave,
+                }}>
+                <Ionicons
+                  name={item.situacaoNoHorario === 'fechado' ? 'moon-outline' : 'hourglass-outline'}
+                  size={13}
+                  color={cores.alerta}
+                />
+                <Texto variante="micro" peso="semi" cor={cores.alerta}>
+                  {item.situacaoNoHorario === 'fechado'
+                    ? 'Fechado nesse horário'
+                    : 'Fecha antes do fim da visita'}
+                  {item.ponto.horarioHoje ? ` · funciona das ${item.ponto.horarioHoje}` : ''}
+                </Texto>
+              </View>
+            ) : null}
 
             {/* Ponto vindo só do mapa não tem nota: a linha some, em vez de inventar. */}
             {item.ponto.nota != null ? (

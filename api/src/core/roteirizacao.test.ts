@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 import {
   cabeNaJanela,
   custoNoLocal,
+  situacaoNoHorario,
   beneficio,
   gerarRoteiro,
   pontuar,
@@ -43,6 +44,7 @@ function candidato(parcial: Partial<Candidato> & { id: string }): Candidato {
     faixaPreco: null,
     tempoVisitaMin: 30,
     relevancia: 3,
+    arLivre: false,
     abreMin: null,
     fechaMin: null,
     ...parcial,
@@ -86,6 +88,27 @@ describe('cabeNaJanela', () => {
   it('considera ponto sem horário como sempre aberto', () => {
     const praca = candidato({ id: 'praca' });
     expect(cabeNaJanela(praca, new Date('2026-10-21T03:00:00'), 0)).toBe(true);
+  });
+
+  it('considera lugar ao ar livre sempre aberto, mesmo com horário cadastrado', () => {
+    const parque = candidato({ id: 'parque', arLivre: true, abreMin: 5 * 60, fechaMin: 18 * 60 });
+    expect(cabeNaJanela(parque, new Date('2026-10-21T22:00:00'), 0)).toBe(true);
+  });
+});
+
+describe('situacaoNoHorario', () => {
+  const museu = candidato({ id: 'museu', abreMin: 8 * 60, fechaMin: 17 * 60, tempoVisitaMin: 60 });
+
+  it('distingue aberto, fechado e fechando durante a visita', () => {
+    expect(situacaoNoHorario(museu, new Date('2026-10-21T10:00:00'))).toBe('aberto');
+    expect(situacaoNoHorario(museu, new Date('2026-10-21T07:30:00'))).toBe('fechado');
+    expect(situacaoNoHorario(museu, new Date('2026-10-21T22:00:00'))).toBe('fechado');
+    expect(situacaoNoHorario(museu, new Date('2026-10-21T16:30:00'))).toBe('fecha-durante-a-visita');
+  });
+
+  it('lugar ao ar livre nunca fica fora do horário', () => {
+    const praia = candidato({ id: 'praia', arLivre: true, abreMin: 6 * 60, fechaMin: 18 * 60 });
+    expect(situacaoNoHorario(praia, new Date('2026-10-21T23:30:00'))).toBe('aberto');
   });
 });
 
@@ -219,7 +242,7 @@ describe('gerarRoteiro', () => {
     expect(descartado?.detalhe).toMatch(/faltariam R\$/);
   });
 
-  it('descarta por horário o ponto que já estará fechado', () => {
+  it('não descarta o lugar fechado: ele entra no roteiro marcado como fechado', () => {
     const candidatos = [
       candidato({
         id: 'museu',
@@ -235,8 +258,27 @@ describe('gerarRoteiro', () => {
       TARIFA,
     );
 
-    expect(resultado.itens).toHaveLength(0);
-    expect(resultado.descartados[0]?.motivo).toBe('horario');
+    expect(resultado.itens.map((i) => [i.candidato.id, i.situacaoNoHorario])).toEqual([
+      ['museu', 'fechado'],
+    ]);
+    expect(resultado.descartados).toHaveLength(0);
+  });
+
+  it('prefere o lugar aberto ao fechado quando só cabe um', () => {
+    const candidatos = [
+      candidato({ id: 'fechado', relevancia: 5, coordenada: aNorte(0.3), abreMin: 14 * 60, fechaMin: 18 * 60 }),
+      candidato({ id: 'aberto', relevancia: 3, coordenada: aNorte(0.3) }),
+    ];
+
+    const resultado = gerarRoteiro(
+      candidatos,
+      preferencias({ orcamento: null, tempoDisponivelMin: 45 }),
+      TARIFA,
+    );
+
+    expect(resultado.itens.map((i) => i.candidato.id)).toEqual(['aberto']);
+    // O fechado fica de fora por falta de tempo, não pelo horário.
+    expect(resultado.descartados[0]?.motivo).toBe('tempo');
   });
 
   it('usa caminhada, sem custo, em trechos curtos', () => {
@@ -370,9 +412,22 @@ describe('gerarRoteiro: relevância e ordem das paradas', () => {
     expect(resultado.itens).toHaveLength(4);
   });
 
-  it('respeita o horário de funcionamento ao reordenar', () => {
-    // O ponto do fim da fila só abre às 11h: reordenar para visitá-lo primeiro,
-    // às 9h, seria um erro, mesmo que encurtasse o caminho.
+  it('não reordena para uma visita cair fora do horário, mesmo encurtando o caminho', () => {
+    // O ponto mais perto só abre às 10h, e as visitas longas fazem a fila
+    // chegar a ele já aberto. Visitá-lo primeiro, às 9h, encurtaria o caminho,
+    // mas o deixaria fechado.
+    const candidatos = [
+      candidato({ id: 'abre-tarde', relevancia: 5, coordenada: aNorte(0.2), abreMin: 10 * 60, fechaMin: 18 * 60 }),
+      candidato({ id: 'longe', relevancia: 5, coordenada: aNorte(0.9), tempoVisitaMin: 40 }),
+      candidato({ id: 'meio', relevancia: 5, coordenada: aNorte(0.5), tempoVisitaMin: 40 }),
+    ];
+    const resultado = gerarRoteiro(candidatos, preferencias({ orcamento: null, tempoDisponivelMin: 480 }), TARIFA);
+
+    expect(resultado.itens).toHaveLength(3);
+    expect(resultado.itens.every((i) => i.situacaoNoHorario === 'aberto')).toBe(true);
+  });
+
+  it('marca a situação de cada parada de acordo com a hora prevista de chegada', () => {
     const candidatos = [
       candidato({ id: 'abre-tarde', relevancia: 5, coordenada: aNorte(0.2), abreMin: 11 * 60, fechaMin: 18 * 60 }),
       candidato({ id: 'longe', relevancia: 5, coordenada: aNorte(0.9) }),
@@ -381,9 +436,7 @@ describe('gerarRoteiro: relevância e ordem das paradas', () => {
     const resultado = gerarRoteiro(candidatos, preferencias({ orcamento: null, tempoDisponivelMin: 480 }), TARIFA);
 
     for (const item of resultado.itens) {
-      if (item.candidato.id === 'abre-tarde') {
-        expect(item.chegadaPrevista.getHours()).toBeGreaterThanOrEqual(11);
-      }
+      expect(item.situacaoNoHorario).toBe(situacaoNoHorario(item.candidato, item.chegadaPrevista));
     }
   });
 });

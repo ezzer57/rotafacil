@@ -47,7 +47,7 @@ export default function MapaRoteiro({
   return (
     <View
       style={{
-        height: altura,
+        ...(altura === 'preencher' ? { flex: 1 } : { height: altura }),
         borderRadius: raio.lg,
         overflow: 'hidden',
         borderWidth: 1,

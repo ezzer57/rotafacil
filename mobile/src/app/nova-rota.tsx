@@ -17,6 +17,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Linking, Platform, ScrollView, View } from 'react-native';
 
+import { useAlturaDoMapa } from '@/components/mapa/altura';
 import MapaPartida from '@/components/mapa/partida';
 import { Botao, Cartao, Campo, Chip, Texto } from '@/components/ui';
 import { RAIO_COBERTURA_CIDADE_KM, cidadeMaisProxima, haversine } from '@/domain/geo';
@@ -66,6 +67,8 @@ export default function TelaNovaRota() {
   const gerar = useGerarRoteiro();
   const cores = useCores();
   const localizacao = useLocalizacao();
+  // Alto o bastante para mexer no mapa sem empurrar o formulário para longe.
+  const alturaMapa = useAlturaDoMapa(0.42, 260, 420);
 
   const [cidadeId, setCidadeId] = useState(cidadeParam ?? 'quixada');
   const [escolhaManual, setEscolhaManual] = useState(Boolean(cidadeParam));
@@ -190,7 +193,7 @@ export default function TelaNovaRota() {
                 posicao={gpsNaCidade ? localizacao.coordenada : null}
                 precisaoM={gpsNaCidade ? localizacao.precisaoM : null}
                 partida={origem}
-                altura={200}
+                altura={alturaMapa}
                 onEscolher={setPartidaManual}
               />
               <Texto variante="micro" cor={cores.textoSuave}>
@@ -341,7 +344,7 @@ export default function TelaNovaRota() {
                 Horário de bandeira 2
               </Texto>
               <Texto variante="micro" cor={cores.textoSuave} style={{ marginTop: 2 }}>
-                A tarifa por quilômetro é maior, e pontos que fecham cedo serão descartados.
+                A tarifa por quilômetro é maior, e lugares fechados nesse horário aparecem marcados no roteiro.
               </Texto>
             </Cartao>
           ) : null}

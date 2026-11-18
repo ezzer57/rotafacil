@@ -59,6 +59,8 @@ export interface PontoInteresse {
   tempoVisitaMin: number;
   /** Quanto o lugar é imperdível, de 1 a 5, com o mesmo critério em toda cidade. */
   relevancia: number;
+  /** Parque, praça, praia, mirante ou trilha: nunca fica fora do horário. */
+  arLivre: boolean;
   abertoAgora: boolean | null;
   horarioHoje: string | null;
 }
@@ -115,6 +117,9 @@ export interface VisitaRegistrada {
   custoRegistrado: Reais | null;
 }
 
+/** Como o lugar estará na hora prevista da visita. */
+export type SituacaoNoHorario = 'aberto' | 'fechado' | 'fecha-durante-a-visita';
+
 export interface ItemRoteiro {
   ordem: number;
   ponto: PontoInteresse;
@@ -123,6 +128,11 @@ export interface ItemRoteiro {
   /** Deslocamento da parada anterior até esta. Ausente no primeiro item. */
   trechoAteAqui: Trecho | null;
   custoNoLocal: Reais;
+  /**
+   * Lugar fechado na hora prevista não sai do roteiro: entra marcado, para o
+   * usuário decidir se vai mesmo assim.
+   */
+  situacaoNoHorario: SituacaoNoHorario;
   visitado: boolean;
   /** Check-in feito na parada; null enquanto o usuário não chegou. */
   visita: VisitaRegistrada | null;

@@ -169,6 +169,20 @@ const RELEVANCIA: Record<string, 1 | 2 | 3 | 4 | 5> = {
   'fz-centro-das-tapioqueiras': 3,
 };
 
+/**
+ * Lugares públicos ao ar livre: parques, praças, praias, mirantes e trilhas.
+ * Nunca ficam fora do horário no roteiro, então o horário deles não é
+ * carregado. O Parque do Cocó tem portões (05:30 às 17:45 no OpenStreetMap),
+ * mas por decisão do projeto entra como os demais.
+ */
+const AR_LIVRE = new Set([
+  'qx-acude-cedro',
+  'qx-galinha-choca',
+  'qx-pedra-cruzeiro',
+  'fz-praia-iracema',
+  'fz-parque-coco',
+]);
+
 async function main() {
   const semRelevancia = PONTOS.filter((ponto) => !(ponto.id in RELEVANCIA));
   if (semRelevancia.length > 0) {
@@ -199,10 +213,12 @@ async function main() {
   for (const ponto of PONTOS) {
     // `horarioFonte` documenta a carga e não vai para o banco.
     const { abre, fecha, horarioFonte: _horarioFonte, ...dados } = ponto;
+    const arLivre = AR_LIVRE.has(ponto.id);
     const registro = {
       ...dados,
-      abreMin: abre ? hora(abre) : null,
-      fechaMin: fecha ? hora(fecha) : null,
+      abreMin: abre && !arLivre ? hora(abre) : null,
+      fechaMin: fecha && !arLivre ? hora(fecha) : null,
+      arLivre,
       fotoUrl: `https://picsum.photos/seed/${ponto.id}/800/600`,
       relevancia: RELEVANCIA[ponto.id]!,
       ativo: true,
@@ -232,7 +248,9 @@ async function main() {
     prisma.tarifaTaxi.count(),
     prisma.pontoInteresse.count({ where: { ativo: true } }),
   ]);
-  const horariosSupostos = PONTOS.filter((ponto) => ponto.horarioFonte === 'suposto').length;
+  const horariosSupostos = PONTOS.filter(
+    (ponto) => ponto.horarioFonte === 'suposto' && !AR_LIVRE.has(ponto.id),
+  ).length;
 
   console.log(
     `Carga concluída: ${cidades} cidades, ${tarifas} tarifas e ${pontos} pontos de interesse ativos.`,

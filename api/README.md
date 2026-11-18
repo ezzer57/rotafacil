@@ -146,6 +146,14 @@ de relevância 3.
    incluídos). Isso desfaz o zigue-zague da inserção gulosa. O tempo que
    sobra volta para a etapa 1.
 
+**Horário de funcionamento não tira ninguém do roteiro.** Um lugar fechado na
+hora prevista entra marcado (`situacaoNoHorario`: `fechado` ou
+`fecha-durante-a-visita`) e o aplicativo avisa na parada. Ele vale um quinto de
+um aberto na escolha, as fases dos imperdíveis só aceitam lugares abertos, e o
+2-opt não troca uma visita aberta por uma fechada. Lugares ao ar livre
+(`arLivre`: parques, praças, praias, mirantes e trilhas) nunca ficam fora do
+horário; o Parque do Cocó tem portões no OpenStreetMap, mas entra como os demais.
+
 A relevância é opinião do autor, não dado do OpenStreetMap: está em
 `prisma/seed.ts` e deve ser validada por quem conhece cada cidade.
 

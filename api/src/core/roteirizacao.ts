@@ -32,6 +32,7 @@ export type Categoria =
   | 'religioso';
 
 export type Modal = 'pe' | 'app';
+/** 'horario' só aparece em roteiros antigos: hoje o lugar fechado entra marcado. */
 export type MotivoDescarte = 'orcamento' | 'tempo' | 'horario';
 
 export interface Candidato {
@@ -48,6 +49,11 @@ export interface Candidato {
   /** Janela de funcionamento em minutos desde a meia-noite. */
   abreMin: number | null;
   fechaMin: number | null;
+  /**
+   * Lugar público ao ar livre (parque, praça, praia, mirante, trilha): nunca
+   * fica fora do horário, mesmo que o mapa informe portões.
+   */
+  arLivre: boolean;
 }
 
 export interface Preferencias {
@@ -73,6 +79,9 @@ export interface Trecho {
   calculo: MemoriaDeCalculo | null;
 }
 
+/** Como o lugar estará na hora prevista da visita. */
+export type SituacaoNoHorario = 'aberto' | 'fechado' | 'fecha-durante-a-visita';
+
 export interface ItemRoteiro {
   ordem: number;
   candidato: Candidato;
@@ -80,6 +89,7 @@ export interface ItemRoteiro {
   saidaPrevista: Date;
   trechoAteAqui: Trecho;
   custoNoLocal: number;
+  situacaoNoHorario: SituacaoNoHorario;
 }
 
 export interface Descartado {
@@ -132,18 +142,40 @@ export function custoNoLocal(candidato: Candidato): number {
 
 const minutosDoDia = (data: Date) => data.getHours() * 60 + data.getMinutes();
 
-/** O ponto precisa estar aberto na chegada e permanecer até o fim da visita. */
+/**
+ * Situação do lugar na hora da visita: aberto do começo ao fim, fechado na
+ * chegada, ou aberto na chegada mas fechando antes do fim da visita. Lugar ao
+ * ar livre e lugar sem horário estão sempre abertos.
+ */
+export function situacaoNoHorario(
+  lugar: Pick<Candidato, 'abreMin' | 'fechaMin' | 'arLivre' | 'tempoVisitaMin'>,
+  chegada: Date,
+): SituacaoNoHorario {
+  if (lugar.arLivre || lugar.abreMin == null || lugar.fechaMin == null) return 'aberto';
+  const minuto = minutosDoDia(chegada);
+  if (minuto < lugar.abreMin || minuto >= lugar.fechaMin) return 'fechado';
+  if (minuto + lugar.tempoVisitaMin > lugar.fechaMin) return 'fecha-durante-a-visita';
+  return 'aberto';
+}
+
+/** O ponto está aberto na chegada e permanece aberto até o fim da visita. */
 export function cabeNaJanela(
   candidato: Candidato,
   partida: Date,
   duracaoTrechoMin: number,
 ): boolean {
-  if (candidato.abreMin == null || candidato.fechaMin == null) return true;
-  const chegada = minutosDoDia(partida) + duracaoTrechoMin;
-  return (
-    chegada >= candidato.abreMin && chegada + candidato.tempoVisitaMin <= candidato.fechaMin
-  );
+  const chegada = new Date(partida.getTime() + duracaoTrechoMin * 60_000);
+  return situacaoNoHorario(candidato, chegada) === 'aberto';
 }
+
+/**
+ * Lugar fora do horário não sai do roteiro: entra marcado, para o usuário
+ * decidir. Mas vale menos que um aberto na escolha, e cada visita fora do
+ * horário pesa na comparação de ordens, para o 2-opt não trocar uma visita
+ * aberta por uma fechada só para encurtar o caminho.
+ */
+const FATOR_FORA_DO_HORARIO = 0.2;
+const PENALIDADE_FORA_DO_HORARIO = 1;
 
 /** Valor de todos os pontos quando nenhum candidato tem nota. */
 const NOTA_NEUTRA = 3;
@@ -280,11 +312,14 @@ export function gerarRoteiro(
     relogio: Date;
     gasto: number;
     tempo: number;
+    /** Visitas que caem fora do horário de funcionamento do lugar. */
+    foraDoHorario: number;
   }
 
   /**
-   * Percorre uma sequência de paradas e diz se ela cabe no tempo, no
-   * orçamento e nos horários de funcionamento. Devolve null se não couber.
+   * Percorre uma sequência de paradas e diz se ela cabe no tempo e no
+   * orçamento (null se não couber). O horário de funcionamento não invalida a
+   * sequência: só conta quantas visitas caem fora dele.
    */
   const simular = (sequencia: Candidato[]): Estado | null => {
     let estado: Estado = {
@@ -292,6 +327,7 @@ export function gerarRoteiro(
       relogio: new Date(preferencias.inicioPrevisto),
       gasto: 0,
       tempo: 0,
+      foraDoHorario: 0,
     };
     for (const candidato of sequencia) {
       const trecho = montarTrecho(estado.posicao, candidato.coordenada, estado.relogio, tarifa, medidor);
@@ -301,13 +337,14 @@ export function gerarRoteiro(
 
       if (estado.tempo + deltaTempo > preferencias.tempoDisponivelMin) return null;
       if (teto != null && estado.gasto + deltaCusto > teto) return null;
-      if (!cabeNaJanela(candidato, estado.relogio, trecho.duracaoMin)) return null;
+      const aberto = cabeNaJanela(candidato, estado.relogio, trecho.duracaoMin);
 
       estado = {
         posicao: candidato.coordenada,
         relogio: new Date(estado.relogio.getTime() + deltaTempo * 60_000),
         gasto: estado.gasto + deltaCusto,
         tempo: estado.tempo + deltaTempo,
+        foraDoHorario: estado.foraDoHorario + (aberto ? 0 : 1),
       };
     }
     return estado;
@@ -343,10 +380,14 @@ export function gerarRoteiro(
 
         if (estado.tempo + deltaTempo > preferencias.tempoDisponivelMin) continue;
         if (teto != null && estado.gasto + deltaCusto > teto) continue;
-        if (!cabeNaJanela(candidato, estado.relogio, trecho.duracaoMin)) continue;
+
+        // Nas fases dos imperdíveis só entra lugar aberto na hora; o fechado
+        // fica para a última fase, valendo menos.
+        const aberto = cabeNaJanela(candidato, estado.relogio, trecho.duracaoMin);
+        if (relevanciaMinima > 0 && !aberto) continue;
 
         const razao =
-          beneficio(candidato, candidatos, peso) /
+          (beneficio(candidato, candidatos, peso) * (aberto ? 1 : FATOR_FORA_DO_HORARIO)) /
           (deltaTempo / preferencias.tempoDisponivelMin + deltaCusto / Math.max(1, regua));
 
         if (!melhor || razao > melhor.razao) melhor = { candidato, razao };
@@ -369,7 +410,9 @@ export function gerarRoteiro(
    * melhor do que caminhar na ordem, e o custo sai de graça na conta.
    */
   const custoDaRota = (estado: Estado) =>
-    estado.tempo / preferencias.tempoDisponivelMin + estado.gasto / Math.max(1, regua);
+    estado.tempo / preferencias.tempoDisponivelMin +
+    estado.gasto / Math.max(1, regua) +
+    PENALIDADE_FORA_DO_HORARIO * estado.foraDoHorario;
 
   const desembaracar = (): boolean => {
     let melhorou = false;
@@ -404,8 +447,8 @@ export function gerarRoteiro(
    * (4), por fim o que sobrar. A razão entre benefício e tempo, sozinha,
    * favorece o que está perto e se visita rápido, e um roteiro curto ficaria
    * no centro sem ver o que a pessoa foi conhecer. Aqui cada fase só escolhe
-   * entre os pontos da sua faixa; o que não cabe no tempo, no orçamento ou no
-   * horário continua de fora, como sempre.
+   * entre os pontos da sua faixa que estão abertos na hora; o que não cabe no
+   * tempo ou no orçamento continua de fora, como sempre.
    */
   const FASES_DE_RELEVANCIA = [5, 4, 0];
   const completar = () => FASES_DE_RELEVANCIA.forEach(ampliar);
@@ -441,10 +484,12 @@ export function gerarRoteiro(
         detalhe: `precisaria de mais ${Math.ceil(faltaTempo)} min`,
       };
     }
+    // Não deveria acontecer: a última fase só para quando nada mais cabe no
+    // tempo nem no orçamento. Fica como reserva, com o motivo mais provável.
     return {
       candidato,
-      motivo: 'horario' as const,
-      detalhe: 'fora do horário de funcionamento na hora prevista',
+      motivo: 'tempo' as const,
+      detalhe: 'não coube na sequência do roteiro',
     };
   });
 
@@ -466,6 +511,7 @@ export function gerarRoteiro(
       saidaPrevista: saida,
       trechoAteAqui: trecho,
       custoNoLocal: custoNoLocal(candidato),
+      situacaoNoHorario: situacaoNoHorario(candidato, chegada),
     };
   });
 
