@@ -151,35 +151,6 @@ export default function TelaLogin() {
             />
           </View>
 
-          {/* ------------------------------------------------------- social */}
-          <View style={{ alignItems: 'center', gap: espaco.md }}>
-            <Texto variante="micro" cor={cores.textoSuave}>
-              ou entre com
-            </Texto>
-            <View style={{ flexDirection: 'row', gap: espaco.md }}>
-              {(['logo-google', 'logo-facebook', 'logo-apple'] as const).map((icone) => (
-                <View
-                  key={icone}
-                  style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: raio.md,
-                    borderWidth: 1,
-                    borderColor: cores.borda,
-                    backgroundColor: cores.fundoAlt,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    opacity: 0.5,
-                  }}>
-                  <Ionicons name={icone} size={22} color={cores.textoSuave} />
-                </View>
-              ))}
-            </View>
-            <Texto variante="micro" cor={cores.textoSuave}>
-              Login social entra em versão futura (OAuth 2.0)
-            </Texto>
-          </View>
-
           {/* A credencial de demonstração só existe nos dados simulados. */}
           {usandoApiReal ? null : (
             <Texto variante="micro" cor={cores.textoSuave} style={{ textAlign: 'center' }}>
