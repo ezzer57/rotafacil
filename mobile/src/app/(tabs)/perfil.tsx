@@ -68,6 +68,18 @@ export default function TelaPerfil() {
           </View>
         </Cartao>
 
+        {/* Créditos exigidos pelas licenças dos dados e das fotos. */}
+        <Cartao>
+          <Texto variante="pequeno" peso="semi">
+            Créditos
+          </Texto>
+          <Texto variante="micro" cor={cores.textoSuave} style={{ marginTop: 4 }}>
+            Mapas, pontos turísticos e ruas: © colaboradores do OpenStreetMap (licença ODbL).
+            Rotas calculadas com o OSRM. Fotos dos lugares: Wikimedia Commons, com autor e
+            licença indicados em cada parada do roteiro. Lugar sem foto livre aparece sem imagem.
+          </Texto>
+        </Cartao>
+
         {/* Exigência da LGPD (art. 18, VI): o usuário precisa conseguir apagar os dados. */}
         <Cartao style={{ backgroundColor: cores.erroSuave, borderColor: cores.erroSuave }}>
           <Texto variante="pequeno" peso="semi" cor={cores.erro}>

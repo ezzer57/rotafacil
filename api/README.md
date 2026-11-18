@@ -184,6 +184,15 @@ docker compose -f osrm/docker-compose.yml up -d      # liga carro (5000) e a pé
   10 paradas sai em cerca de 100 ms.
 - `ROTAS_PELAS_RUAS=false` desliga a consulta (os testes já rodam assim).
 
+## Fotos dos pontos
+
+As fotos são do Wikimedia Commons, só com licença livre (domínio público, CC0,
+CC BY ou CC BY-SA), e foram conferidas uma a uma. Cada ponto guarda a URL da
+miniatura (`fotoUrl`), o crédito com autor e licença (`fotoCredito`) e a página
+da foto (`fotoFonte`); o aplicativo mostra o crédito junto da foto. Ponto sem
+foto livre conhecida fica sem imagem: hoje são o Mercado Público de Quixadá,
+os quatro restaurantes de Quixadá e o Centro das Tapioqueiras.
+
 ## Pendências conhecidas
 
 - As tarifas carregadas pelo seed são **provisórias**; precisam ser trocadas

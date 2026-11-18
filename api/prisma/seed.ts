@@ -184,6 +184,95 @@ const AR_LIVRE = new Set([
   'fz-parque-coco',
 ]);
 
+/**
+ * Fotos reais, todas do Wikimedia Commons com licença livre (domínio público,
+ * CC0, CC BY ou CC BY-SA), conferidas uma a uma. O crédito vai junto da foto
+ * no aplicativo, como as licenças pedem. Ponto que não está aqui não tem foto
+ * livre conhecida e aparece sem imagem.
+ */
+const FOTOS: Record<string, { url: string; credito: string; fonte: string }> = {
+  'qx-acude-cedro': {
+    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/a/aa/A%C3%A7ude_Cedro_-_Cart%C3%A3o_postal_do_Cear%C3%A1.jpg/500px-A%C3%A7ude_Cedro_-_Cart%C3%A3o_postal_do_Cear%C3%A1.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    credito: 'Foto: GLandovsky · CC BY-SA 4.0 · Wikimedia Commons',
+    fonte: 'https://commons.wikimedia.org/wiki/File:A%C3%A7ude_Cedro_-_Cart%C3%A3o_postal_do_Cear%C3%A1.jpg',
+  },
+  'qx-galinha-choca': {
+    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2d/Pedra_da_Galinha_Choca.jpg/500px-Pedra_da_Galinha_Choca.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    credito: 'Foto: Krewinkel-Terto de Amorim · domínio público · Wikimedia Commons',
+    fonte: 'https://commons.wikimedia.org/wiki/File:Pedra_da_Galinha_Choca.jpg',
+  },
+  'qx-pedra-cruzeiro': {
+    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d9/Pedra_do_cruzeiro_-_quixada_ce.JPG/500px-Pedra_do_cruzeiro_-_quixada_ce.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    credito: 'Foto: Fábio Barros · CC BY 2.5 · Wikimedia Commons',
+    fonte: 'https://commons.wikimedia.org/wiki/File:Pedra_do_cruzeiro_-_quixada_ce.JPG',
+  },
+  'qx-chale-da-pedra': {
+    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/4/40/Chale_da_pedra_quixada_ce.JPG/500px-Chale_da_pedra_quixada_ce.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    credito: 'Foto: domínio público · Wikimedia Commons',
+    fonte: 'https://commons.wikimedia.org/wiki/File:Chale_da_pedra_quixada_ce.JPG',
+  },
+  'qx-museu-jacinto-sousa': {
+    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/6/69/Museu_historico_jacinto_de_sousa.JPG/500px-Museu_historico_jacinto_de_sousa.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    credito: 'Foto: Fábio Barros · domínio público · Wikimedia Commons',
+    fonte: 'https://commons.wikimedia.org/wiki/File:Museu_historico_jacinto_de_sousa.JPG',
+  },
+  'qx-memorial-cego-aderaldo': {
+    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/5/51/Monumento_cego_aderaldo_quixada_CE.JPG/500px-Monumento_cego_aderaldo_quixada_CE.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    credito: 'Foto: Fábio Barros · CC BY-SA 2.5 · Wikimedia Commons',
+    fonte: 'https://commons.wikimedia.org/wiki/File:Monumento_cego_aderaldo_quixada_CE.JPG',
+  },
+  'qx-catedral': {
+    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/7/79/Catedral_Quixad%C3%A1.jpg/500px-Catedral_Quixad%C3%A1.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    credito: 'Foto: GLandovsky · CC BY 4.0 · Wikimedia Commons',
+    fonte: 'https://commons.wikimedia.org/wiki/File:Catedral_Quixad%C3%A1.jpg',
+  },
+  'qx-santuario-rainha-sertao': {
+    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bb/Quixad%C3%A1_CE_Brasil_-_Santu%C3%A1rio_Rainha_do_Sert%C3%A3o_-_panoramio.jpg/500px-Quixad%C3%A1_CE_Brasil_-_Santu%C3%A1rio_Rainha_do_Sert%C3%A3o_-_panoramio.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    credito: 'Foto: Jorge Colares · CC BY-SA 3.0 · Wikimedia Commons',
+    fonte: 'https://commons.wikimedia.org/wiki/File:Quixad%C3%A1_CE_Brasil_-_Santu%C3%A1rio_Rainha_do_Sert%C3%A3o_-_panoramio.jpg',
+  },
+  'fz-mercado-central': {
+    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/c/cf/Mar2024._Mercado_Central_de_Fortaleza%2C_Cear%C3%A1%2C_Brazil_01.jpg/500px-Mar2024._Mercado_Central_de_Fortaleza%2C_Cear%C3%A1%2C_Brazil_01.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    credito: 'Foto: Ridiculopathy · CC0 · Wikimedia Commons',
+    fonte: 'https://commons.wikimedia.org/wiki/File:Mar2024._Mercado_Central_de_Fortaleza,_Cear%C3%A1,_Brazil_01.jpg',
+  },
+  'fz-dragao-do-mar': {
+    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0b/Centro_Drag%C3%A3o_do_Mar_de_Arte_e_Cultura_%284%29.jpg/500px-Centro_Drag%C3%A3o_do_Mar_de_Arte_e_Cultura_%284%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    credito: 'Foto: Governo Federal Brasileiro · CC BY-SA 3.0 · Wikimedia Commons',
+    fonte: 'https://commons.wikimedia.org/wiki/File:Centro_Drag%C3%A3o_do_Mar_de_Arte_e_Cultura_(4).jpg',
+  },
+  'fz-praia-iracema': {
+    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e3/Praia_de_Iracema_em_Fortaleza_02.jpg/500px-Praia_de_Iracema_em_Fortaleza_02.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    credito: 'Foto: Keijuu · CC BY-SA 4.0 · Wikimedia Commons',
+    fonte: 'https://commons.wikimedia.org/wiki/File:Praia_de_Iracema_em_Fortaleza_02.jpg',
+  },
+  'fz-catedral': {
+    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7d/Mar2024._Catedral_Metropolitana_de_Fortaleza.jpg/500px-Mar2024._Catedral_Metropolitana_de_Fortaleza.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    credito: 'Foto: Ridiculopathy · CC0 · Wikimedia Commons',
+    fonte: 'https://commons.wikimedia.org/wiki/File:Mar2024._Catedral_Metropolitana_de_Fortaleza.jpg',
+  },
+  'fz-theatro-jose-alencar': {
+    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/8/86/Theatro_Jos%C3%A9_de_Alencar_em_Fortaleza_03.jpg/500px-Theatro_Jos%C3%A9_de_Alencar_em_Fortaleza_03.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    credito: 'Foto: GLandovsky · CC BY-SA 4.0 · Wikimedia Commons',
+    fonte: 'https://commons.wikimedia.org/wiki/File:Theatro_Jos%C3%A9_de_Alencar_em_Fortaleza_03.jpg',
+  },
+  'fz-parque-coco': {
+    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1c/Trilha_Principal_Parque_Estadual_do_Coc%C3%B3_1.jpg/500px-Trilha_Principal_Parque_Estadual_do_Coc%C3%B3_1.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    credito: 'Foto: Ruan moreira · CC BY-SA 4.0 · Wikimedia Commons',
+    fonte: 'https://commons.wikimedia.org/wiki/File:Trilha_Principal_Parque_Estadual_do_Coc%C3%B3_1.jpg',
+  },
+  'fz-feirinha-beira-mar': {
+    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a5/JADEQUEIROZ_FEIRINHA_BEIRA_MAR_FORTALEZA_%2827780922188%29.jpg/500px-JADEQUEIROZ_FEIRINHA_BEIRA_MAR_FORTALEZA_%2827780922188%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    credito: 'Foto: MTur Destinos · domínio público · Wikimedia Commons',
+    fonte: 'https://commons.wikimedia.org/wiki/File:JADEQUEIROZ_FEIRINHA_BEIRA_MAR_FORTALEZA_(27780922188).jpg',
+  },
+  'fz-mercado-dos-peixes': {
+    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bb/Mercado_dos_Peixes_de_Fortaleza_03.jpg/500px-Mercado_dos_Peixes_de_Fortaleza_03.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    credito: 'Foto: Joelkaula · CC BY-SA 4.0 · Wikimedia Commons',
+    fonte: 'https://commons.wikimedia.org/wiki/File:Mercado_dos_Peixes_de_Fortaleza_03.jpg',
+  },
+};
+
 async function main() {
   const semRelevancia = PONTOS.filter((ponto) => !(ponto.id in RELEVANCIA));
   if (semRelevancia.length > 0) {
@@ -220,7 +309,9 @@ async function main() {
       abreMin: abre && !arLivre ? hora(abre) : null,
       fechaMin: fecha && !arLivre ? hora(fecha) : null,
       arLivre,
-      fotoUrl: `https://picsum.photos/seed/${ponto.id}/800/600`,
+      fotoUrl: FOTOS[ponto.id]?.url ?? null,
+      fotoCredito: FOTOS[ponto.id]?.credito ?? null,
+      fotoFonte: FOTOS[ponto.id]?.fonte ?? null,
       relevancia: RELEVANCIA[ponto.id]!,
       ativo: true,
       sincronizadoEm: new Date(),
@@ -258,6 +349,8 @@ async function main() {
   );
   if (desativados > 0) console.log(`Pontos que saíram da lista e foram desativados: ${desativados}.`);
   console.log(`Horários ainda supostos, a confirmar: ${horariosSupostos} de ${PONTOS.length}.`);
+  const semFoto = PONTOS.filter((ponto) => !FOTOS[ponto.id]).map((ponto) => ponto.nome);
+  if (semFoto.length > 0) console.log(`Sem foto livre: ${semFoto.join(', ')}.`);
 }
 
 main()
