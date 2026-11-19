@@ -49,11 +49,11 @@ export default function TelaBoasVindas() {
             cor="#FFFFFF"
             accessibilityRole="header"
             style={{ fontSize: 30, lineHeight: 38, marginTop: espaco.md }}>
-            Seu roteiro pela cidade, no seu tempo e no seu bolso.
+            Seu roteiro pela cidade, no seu tempo.
           </Texto>
           <Texto variante="corpo" cor="rgba(255, 255, 255, 0.88)" style={{ lineHeight: 24 }}>
             Diga o que gosta de visitar e quanto tempo tem. O RotaFácil monta o percurso pelas
-            ruas, estima o custo e mostra o caminho no mapa.
+            ruas e mostra o caminho no mapa.
           </Texto>
         </View>
 
