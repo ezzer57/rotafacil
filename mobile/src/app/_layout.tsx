@@ -59,7 +59,8 @@ function useProtecaoDeRota() {
     const emTelaDeAutenticacao = segmentos[0] === '(auth)';
 
     if (!usuario && !emTelaDeAutenticacao) {
-      router.replace('/login');
+      // A entrada de quem não está logado é a tela de boas-vindas.
+      router.replace('/boas-vindas');
     } else if (usuario && emTelaDeAutenticacao) {
       router.replace('/');
     }
