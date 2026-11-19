@@ -14,8 +14,10 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { Linking, Platform, ScrollView, View } from 'react-native';
+import { useHeaderHeight } from 'expo-router/react-navigation';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { KeyboardAvoidingView, Linking, Platform, ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAlturaDoMapa } from '@/components/mapa/altura';
 import MapaPartida from '@/components/mapa/partida';
@@ -31,6 +33,7 @@ import {
 import type { CategoriaPOI, Coordenada } from '@/domain/types';
 import { useCidades, useGerarRoteiro } from '@/hooks/use-rotafacil';
 import { useLocalizacao } from '@/hooks/use-localizacao';
+import { useRolarAteCampo, useTecladoVisivel } from '@/hooks/use-teclado';
 import { useCores } from '@/theme/provider';
 import { espaco } from '@/theme/tokens';
 
@@ -69,6 +72,13 @@ export default function TelaNovaRota() {
   const localizacao = useLocalizacao();
   // Alto o bastante para mexer no mapa sem empurrar o formulário para longe.
   const alturaMapa = useAlturaDoMapa(0.42, 260, 420);
+  const insets = useSafeAreaInsets();
+  const alturaCabecalho = useHeaderHeight();
+  const tecladoAberto = useTecladoVisivel();
+  const rolagem = useRef<ScrollView>(null);
+  const conteudo = useRef<View>(null);
+  const campoTeto = useRef<View>(null);
+  const rolarAteCampo = useRolarAteCampo(rolagem, conteudo);
 
   const [cidadeId, setCidadeId] = useState(cidadeParam ?? 'quixada');
   const [escolhaManual, setEscolhaManual] = useState(Boolean(cidadeParam));
@@ -174,9 +184,20 @@ export default function TelaNovaRota() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: cores.fundo }}>
+    <KeyboardAvoidingView
+      behavior="padding"
+      keyboardVerticalOffset={alturaCabecalho}
+      style={{ flex: 1, backgroundColor: cores.fundo }}>
       <ScrollView
-        contentContainerStyle={{ padding: espaco.lg, gap: espaco.xl, paddingBottom: 140 }}>
+        ref={rolagem}
+        innerViewRef={conteudo as RefObject<View>}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        contentContainerStyle={{
+          padding: espaco.lg,
+          gap: espaco.xl,
+          paddingBottom: (tecladoAberto ? espaco.xl : 140) + insets.bottom,
+        }}>
         {/* --------------------------------------------------- localização */}
         <View style={{ gap: espaco.md }}>
           <CartaoLocalizacao
@@ -290,6 +311,8 @@ export default function TelaNovaRota() {
             ))}
           </View>
           <Campo
+            refContainer={campoTeto}
+            onFocus={() => rolarAteCampo(campoTeto.current)}
             icone="wallet"
             rotulo="Ou defina outro teto (R$)"
             keyboardType="numeric"
@@ -375,13 +398,16 @@ export default function TelaNovaRota() {
         </Cartao>
       </ScrollView>
 
+      {/* Com o teclado aberto, o botão flutuante sai para não cobrir o campo. */}
       <View
+        pointerEvents={tecladoAberto ? 'none' : 'auto'}
         style={{
           position: 'absolute',
           left: espaco.lg,
           right: espaco.lg,
-          bottom: espaco.xl,
+          bottom: espaco.md + Math.max(insets.bottom, espaco.sm),
           gap: espaco.sm,
+          opacity: tecladoAberto ? 0 : 1,
         }}>
         {/* Fica junto do botão para aparecer sem precisar rolar a tela. */}
         {gerar.isError ? (
@@ -404,7 +430,7 @@ export default function TelaNovaRota() {
           onPress={aoGerar}
         />
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -591,7 +617,7 @@ function CartaoLocalizacao({
               variante="texto"
               largura="auto"
               onPress={conteudo.acao.aoTocar}
-              style={{ height: 32, paddingHorizontal: 0, marginTop: espaco.xs }}
+              style={{ minHeight: 32, paddingHorizontal: 0, marginTop: espaco.xs }}
             />
           ) : null}
         </View>

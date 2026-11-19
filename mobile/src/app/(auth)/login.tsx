@@ -9,7 +9,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Botao, Cartao, Campo, Texto } from '@/components/ui';
@@ -48,7 +48,7 @@ export default function TelaLogin() {
     <SafeAreaView style={{ flex: 1, backgroundColor: cores.fundo }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        behavior="padding">
         <ScrollView
           contentContainerStyle={{
             flexGrow: 1,
@@ -56,7 +56,8 @@ export default function TelaLogin() {
             justifyContent: 'center',
             gap: espaco.xl,
           }}
-          keyboardShouldPersistTaps="handled">
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag">
           {/* ------------------------------------------------------- marca */}
           <View style={{ alignItems: 'center', gap: espaco.md }}>
             <View

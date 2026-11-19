@@ -18,8 +18,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useHeaderHeight } from 'expo-router/react-navigation';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import {
+  KeyboardAvoidingView,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FotoDoLugar } from '@/components/foto';
 import MapaRoteiro, { type ParadaMapa } from '@/components/mapa';
@@ -36,6 +46,7 @@ import {
 } from '@/domain/format';
 import type { ItemRoteiro, MotivoDescarte, PontoDescartado, Trecho } from '@/domain/types';
 import { useAjustarRoteiro, useRoteiro } from '@/hooks/use-rotafacil';
+import { useRolarAteCampo } from '@/hooks/use-teclado';
 import { useCores } from '@/theme/provider';
 import { espaco, raio, type Paleta } from '@/theme/tokens';
 
@@ -64,6 +75,12 @@ export default function TelaRoteiro() {
   // Celular e tela estreita: mapa numa caixa vertical, no meio da lista.
   const duasColunas = width >= LARGURA_DUAS_COLUNAS;
   const alturaMapa = useAlturaDoMapa(0.62, 360, 620);
+  const insets = useSafeAreaInsets();
+  const alturaCabecalho = useHeaderHeight();
+  const rolagem = useRef<ScrollView>(null);
+  const conteudo = useRef<View>(null);
+  // O campo do valor pago fica no meio da lista: ao focar, a tela rola até ele.
+  const rolarAteCampo = useRolarAteCampo(rolagem, conteudo);
 
   // Estável entre renderizações: um array novo a cada render recarregaria o
   // mapa inteiro.
@@ -250,7 +267,7 @@ export default function TelaRoteiro() {
               setOrcamentoVisual(null);
               ajustarOrcamento.mutate(null);
             }}
-            style={{ height: 32, paddingHorizontal: 0 }}
+            style={{ minHeight: 32, paddingHorizontal: 0 }}
           />
         ) : null}
       </View>
@@ -284,6 +301,7 @@ export default function TelaRoteiro() {
             registrarVisita.mutate({ pontoId: item.ponto.id, custoRegistrado })
           }
           onDesfazer={() => desfazerVisita.mutate(item.ponto.id)}
+          onFocarCampo={rolarAteCampo}
         />
       ))}
 
@@ -351,8 +369,16 @@ export default function TelaRoteiro() {
           {legendaDoMapa}
         </View>
         <ScrollView
+          ref={rolagem}
+          innerViewRef={conteudo as RefObject<View>}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           style={{ flex: 1 }}
-          contentContainerStyle={{ padding: espaco.lg, gap: espaco.lg, paddingBottom: 60 }}>
+          contentContainerStyle={{
+            padding: espaco.lg,
+            gap: espaco.lg,
+            paddingBottom: 60 + insets.bottom,
+          }}>
           {blocoResumo}
           {blocoOrcamento}
           {blocoPercurso}
@@ -364,9 +390,21 @@ export default function TelaRoteiro() {
   }
 
   return (
+    <KeyboardAvoidingView
+      behavior="padding"
+      keyboardVerticalOffset={alturaCabecalho}
+      style={{ flex: 1, backgroundColor: cores.fundo }}>
     <ScrollView
+      ref={rolagem}
+      innerViewRef={conteudo as RefObject<View>}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
       style={{ backgroundColor: cores.fundo }}
-      contentContainerStyle={{ padding: espaco.lg, gap: espaco.lg, paddingBottom: 60 }}>
+      contentContainerStyle={{
+        padding: espaco.lg,
+        gap: espaco.lg,
+        paddingBottom: 60 + insets.bottom,
+      }}>
       {blocoResumo}
       {blocoOrcamento}
       <View style={{ gap: espaco.sm }}>
@@ -381,6 +419,7 @@ export default function TelaRoteiro() {
       {blocoDescartados}
       {blocoPainel}
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -454,6 +493,7 @@ function ParadaDoRoteiro({
   onTrocar,
   onCheckin,
   onDesfazer,
+  onFocarCampo,
 }: {
   item: ItemRoteiro;
   ocupado: boolean;
@@ -462,6 +502,7 @@ function ParadaDoRoteiro({
   onTrocar: () => void;
   onCheckin: (custoRegistrado?: number) => void;
   onDesfazer: () => void;
+  onFocarCampo?: (campo: View | null) => void;
 }) {
   const cores = useCores();
   const estilos = useEstilos(cores);
@@ -470,6 +511,7 @@ function ParadaDoRoteiro({
   const veioDeCarro = trecho?.modal === 'app';
   const [informandoValor, setInformandoValor] = useState(false);
   const [valorPago, setValorPago] = useState('');
+  const campoValor = useRef<View>(null);
 
   function registrarChegada() {
     const valor = Number(valorPago.replace(',', '.'));
@@ -561,7 +603,7 @@ function ParadaDoRoteiro({
                   largura="auto"
                   desabilitado={ocupado}
                   onPress={onTrocar}
-                  style={{ height: 36, paddingHorizontal: espaco.md }}
+                  style={{ minHeight: 36, paddingHorizontal: espaco.md }}
                 />
                 <Botao
                   titulo="Remover"
@@ -570,7 +612,7 @@ function ParadaDoRoteiro({
                   largura="auto"
                   desabilitado={ocupado}
                   onPress={onRemover}
-                  style={{ height: 36, paddingHorizontal: espaco.sm }}
+                  style={{ minHeight: 36, paddingHorizontal: espaco.sm }}
                 />
               </View>
             )}
@@ -592,12 +634,14 @@ function ParadaDoRoteiro({
               largura="auto"
               desabilitado={registrando}
               onPress={onDesfazer}
-              style={{ height: 28, paddingHorizontal: 0 }}
+              style={{ minHeight: 28, paddingHorizontal: 0 }}
             />
           </View>
         ) : informandoValor ? (
           <View style={{ gap: espaco.sm, marginTop: espaco.md }}>
             <Campo
+              refContainer={campoValor}
+              onFocus={() => onFocarCampo?.(campoValor.current)}
               icone="cash-outline"
               rotulo="Quanto pagou na corrida até aqui? (opcional)"
               keyboardType="numeric"
@@ -617,14 +661,14 @@ function ParadaDoRoteiro({
                 largura="auto"
                 carregando={registrando}
                 onPress={registrarChegada}
-                style={{ height: 40, paddingHorizontal: espaco.md }}
+                style={{ minHeight: 40, paddingHorizontal: espaco.md }}
               />
               <Botao
                 titulo="Cancelar"
                 variante="texto"
                 largura="auto"
                 onPress={() => setInformandoValor(false)}
-                style={{ height: 40, paddingHorizontal: espaco.sm }}
+                style={{ minHeight: 40, paddingHorizontal: espaco.sm }}
               />
             </View>
           </View>
@@ -636,7 +680,7 @@ function ParadaDoRoteiro({
             carregando={registrando}
             desabilitado={ocupado}
             onPress={() => (veioDeCarro ? setInformandoValor(true) : onCheckin())}
-            style={{ height: 40, marginTop: espaco.md }}
+            style={{ minHeight: 40, marginTop: espaco.md }}
           />
         )}
       </Cartao>

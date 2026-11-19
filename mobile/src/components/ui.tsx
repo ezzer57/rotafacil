@@ -6,9 +6,12 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo, type ReactNode } from 'react';
+import { useId, useMemo, type ReactNode, type Ref } from 'react';
 import {
   ActivityIndicator,
+  InputAccessoryView,
+  Keyboard,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -145,15 +148,32 @@ export function Cartao({
 
 /* ------------------------------------------------------------------ campo */
 
+/** Teclados do iPhone que não têm tecla para fechar. */
+const TECLADOS_SEM_RETORNO = new Set(['numeric', 'number-pad', 'decimal-pad', 'phone-pad']);
+
 export function Campo({
   rotulo,
   icone,
+  ref,
+  refContainer,
   ...props
-}: TextInputProps & { rotulo?: string; icone?: keyof typeof Ionicons.glyphMap }) {
+}: TextInputProps & {
+  rotulo?: string;
+  icone?: keyof typeof Ionicons.glyphMap;
+  ref?: Ref<TextInput>;
+  /** Para a tela medir onde o campo está e rolar até ele quando o teclado abre. */
+  refContainer?: Ref<View>;
+}) {
   const cores = useCores();
   const estilos = useEstilos(cores);
+  // No iPhone, o teclado numérico não tem tecla de fechar: sem esta barra com
+  // "Concluir", o teclado ficava preso cobrindo a tela.
+  const precisaBarra =
+    Platform.OS === 'ios' && TECLADOS_SEM_RETORNO.has(props.keyboardType ?? '');
+  const idBarra = `teclado-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
+
   return (
-    <View style={{ gap: espaco.xs }}>
+    <View ref={refContainer} style={{ gap: espaco.xs }}>
       {rotulo ? (
         <Texto variante="pequeno" peso="medio" cor={cores.textoSuave}>
           {rotulo}
@@ -162,11 +182,24 @@ export function Campo({
       <View style={estilos.campo}>
         {icone ? <Ionicons name={icone} size={18} color={cores.textoSuave} /> : null}
         <TextInput
+          ref={ref}
           placeholderTextColor={cores.textoSuave}
           style={{ flex: 1, fontSize: fonte.tamanho.corpo, color: cores.texto }}
+          inputAccessoryViewID={precisaBarra ? idBarra : undefined}
           {...props}
         />
       </View>
+      {precisaBarra ? (
+        <InputAccessoryView nativeID={idBarra}>
+          <View style={estilos.barraTeclado}>
+            <Pressable onPress={Keyboard.dismiss} hitSlop={8}>
+              <Texto variante="corpo" peso="semi" cor={cores.primaria}>
+                Concluir
+              </Texto>
+            </Pressable>
+          </View>
+        </InputAccessoryView>
+      ) : null}
     </View>
   );
 }
@@ -332,7 +365,10 @@ function useEstilos(cores: Paleta) {
           alignItems: 'center',
           justifyContent: 'center',
           gap: espaco.sm,
-          height: 50,
+          // Altura mínima, e não fixa: com a fonte do aparelho aumentada, o
+          // botão cresce em vez de cortar o texto.
+          minHeight: 50,
+          paddingVertical: 6,
           paddingHorizontal: espaco.xl,
           borderRadius: raio.md,
           borderWidth: 1,
@@ -348,12 +384,21 @@ function useEstilos(cores: Paleta) {
           flexDirection: 'row',
           alignItems: 'center',
           gap: espaco.sm,
-          height: 50,
+          minHeight: 50,
           paddingHorizontal: espaco.lg,
           borderRadius: raio.md,
           borderWidth: 1,
           borderColor: cores.borda,
           backgroundColor: cores.fundoAlt,
+        },
+        barraTeclado: {
+          flexDirection: 'row',
+          justifyContent: 'flex-end',
+          paddingHorizontal: espaco.lg,
+          paddingVertical: espaco.sm,
+          backgroundColor: cores.superficie,
+          borderTopWidth: 1,
+          borderTopColor: cores.borda,
         },
         chip: {
           flexDirection: 'row',
