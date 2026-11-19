@@ -47,6 +47,16 @@ export const consentimentoSchema = z.object({
 
 /* ---------------------------------------------------------------- roteiros */
 
+/**
+ * Limites dos valores em reais, os mesmos do aplicativo (mobile/src/domain/limites.ts),
+ * medidos com os pontos cadastrados: nenhum roteiro de um dia passa de R$ 300
+ * (acima disso o teto equivale a "sem limite"), e a corrida mais cara entre
+ * dois pontos de uma cidade fica perto de R$ 90 (R$ 150 dá folga para a tarifa
+ * dinâmica dos aplicativos).
+ */
+export const TETO_MAXIMO_REAIS = 300;
+export const CORRIDA_MAXIMA_REAIS = 150;
+
 export const gerarRoteiroSchema = z.object({
   /** Opcional: quando ausente, a cidade é deduzida da posição informada. */
   cidadeId: z.string().trim().min(1).max(60).optional(),
@@ -56,7 +66,7 @@ export const gerarRoteiroSchema = z.object({
   orcamento: z
     .number()
     .positive('O orçamento precisa ser maior que zero')
-    .max(100_000, 'Orçamento acima do limite aceito')
+    .max(TETO_MAXIMO_REAIS, `O teto de gasto vai até R$ ${TETO_MAXIMO_REAIS}`)
     .nullish()
     .transform((valor) => valor ?? null),
   tempoDisponivelMin: z
@@ -73,14 +83,22 @@ export const ajustarRoteiroSchema = z.discriminatedUnion('operacao', [
   z.object({
     operacao: z.literal('orcamento'),
     /** null tira o teto de gasto. */
-    orcamento: z.number().positive().max(100_000).nullable(),
+    orcamento: z
+      .number()
+      .positive()
+      .max(TETO_MAXIMO_REAIS, `O teto de gasto vai até R$ ${TETO_MAXIMO_REAIS}`)
+      .nullable(),
   }),
 ]);
 
 export const visitaSchema = z.object({
   pontoId: z.string().trim().min(1).max(120),
   /** Quanto o usuário pagou na corrida até este ponto, quando informa. */
-  custoRegistrado: z.number().nonnegative().max(100_000).optional(),
+  custoRegistrado: z
+    .number()
+    .nonnegative()
+    .max(CORRIDA_MAXIMA_REAIS, `O valor da corrida vai até R$ ${CORRIDA_MAXIMA_REAIS}`)
+    .optional(),
 });
 
 /* ------------------------------------------------------------- utilitários */
