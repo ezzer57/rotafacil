@@ -30,6 +30,7 @@ import {
   iconeCategoria,
   rotuloCategoria,
 } from '@/domain/format';
+import { TETO_MAXIMO, limitarValorEmReais } from '@/domain/limites';
 import type { CategoriaPOI, Coordenada } from '@/domain/types';
 import { useCidades, useGerarRoteiro } from '@/hooks/use-rotafacil';
 import { useLocalizacao } from '@/hooks/use-localizacao';
@@ -314,10 +315,12 @@ export default function TelaNovaRota() {
             refContainer={campoTeto}
             onFocus={() => rolarAteCampo(campoTeto.current)}
             icone="wallet"
-            rotulo="Ou defina outro teto (R$)"
-            keyboardType="numeric"
+            rotulo={`Ou defina outro teto (até ${formatarReais(TETO_MAXIMO)})`}
+            keyboardType="decimal-pad"
             value={orcamento}
-            onChangeText={setOrcamento}
+            // Só números e centavos, e nunca acima do teto máximo.
+            onChangeText={(texto) => setOrcamento(limitarValorEmReais(texto, TETO_MAXIMO))}
+            maxLength={6}
             placeholder="Sem limite"
           />
           <Texto variante="micro" cor={cores.textoSuave}>

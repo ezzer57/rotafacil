@@ -19,7 +19,6 @@ import {
   Campo,
   Esqueleto,
   EstadoVazio,
-  Selo,
   Texto,
 } from '@/components/ui';
 import { formatarDataCurta, formatarReais } from '@/domain/format';
@@ -138,16 +137,6 @@ export default function TelaInicio() {
                         </Texto>
                       ) : null}
                     </View>
-                    {cidade.tarifaCalibrada ? (
-                      <View style={estilos.seloDestino}>
-                        <Selo
-                          texto="Tarifa calibrada"
-                          icone="checkmark-circle"
-                          cor={cores.sucesso}
-                          fundo={cores.sucessoSuave}
-                        />
-                      </View>
-                    ) : null}
                   </Pressable>
                 ))}
             </ScrollView>
@@ -266,7 +255,6 @@ function useEstilos(cores: Paleta) {
           bottom: espaco.md,
           gap: 2,
         },
-        seloDestino: { position: 'absolute', top: espaco.md, left: espaco.md },
         linhaRecente: { flexDirection: 'row', alignItems: 'center', gap: espaco.md },
         miniatura: {
           width: 48,

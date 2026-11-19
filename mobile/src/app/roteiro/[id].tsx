@@ -44,6 +44,7 @@ import {
   rotuloCategoria,
   rotuloMotivoDescarte,
 } from '@/domain/format';
+import { CORRIDA_MAXIMA, TETO_MAXIMO, TETO_MINIMO, limitarValorEmReais } from '@/domain/limites';
 import type { ItemRoteiro, MotivoDescarte, PontoDescartado, Trecho } from '@/domain/types';
 import { useAjustarRoteiro, useRoteiro } from '@/hooks/use-rotafacil';
 import { useRolarAteCampo } from '@/hooks/use-teclado';
@@ -59,9 +60,6 @@ const ORIGEM_DAS_MEDIDAS = {
     'Distâncias estimadas em linha reta (× 1,3), sem consulta às ruas. As linhas do mapa são retas entre as paradas.',
 } as const;
 
-/** Escala do controle de teto, em reais. */
-const TETO_MINIMO = 20;
-const TETO_MAXIMO = 300;
 
 export default function TelaRoteiro() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -643,10 +641,11 @@ function ParadaDoRoteiro({
               refContainer={campoValor}
               onFocus={() => onFocarCampo?.(campoValor.current)}
               icone="cash-outline"
-              rotulo="Quanto pagou na corrida até aqui? (opcional)"
-              keyboardType="numeric"
+              rotulo={`Quanto pagou na corrida até aqui? (opcional, até ${formatarReais(CORRIDA_MAXIMA)})`}
+              keyboardType="decimal-pad"
               value={valorPago}
-              onChangeText={setValorPago}
+              onChangeText={(texto) => setValorPago(limitarValorEmReais(texto, CORRIDA_MAXIMA))}
+              maxLength={6}
               placeholder="Valor cobrado pelo aplicativo"
             />
             <Texto variante="micro" cor={cores.textoSuave}>
