@@ -34,6 +34,8 @@ type TextoProps = {
   peso?: 'normal' | 'medio' | 'semi' | 'forte';
   style?: StyleProp<any>;
   numberOfLines?: number;
+  /** "header" em títulos, para o leitor de tela anunciar como cabeçalho. */
+  accessibilityRole?: 'header' | 'text';
 };
 
 export function Texto({
@@ -43,11 +45,13 @@ export function Texto({
   peso = 'normal',
   style,
   numberOfLines,
+  accessibilityRole,
 }: TextoProps) {
   const cores = useCores();
   return (
     <Text
       numberOfLines={numberOfLines}
+      accessibilityRole={accessibilityRole}
       style={[
         {
           fontSize: fonte.tamanho[variante],

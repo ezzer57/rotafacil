@@ -12,12 +12,13 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { MarcaRotaFacil } from '@/components/marca';
 import { Botao, Cartao, Campo, Texto } from '@/components/ui';
 import { usandoApiReal } from '@/data/provider';
 import { errosPorCampo, schemaLogin } from '@/domain/validacao';
 import { useEntrar } from '@/hooks/use-rotafacil';
 import { useCores } from '@/theme/provider';
-import { espaco, raio } from '@/theme/tokens';
+import { espaco } from '@/theme/tokens';
 
 export default function TelaLogin() {
   const router = useRouter();
@@ -60,19 +61,9 @@ export default function TelaLogin() {
           keyboardDismissMode="on-drag">
           {/* ------------------------------------------------------- marca */}
           <View style={{ alignItems: 'center', gap: espaco.md }}>
-            <View
-              style={{
-                width: 64,
-                height: 64,
-                borderRadius: raio.xl,
-                backgroundColor: cores.primaria,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-              <Ionicons name="navigate" size={30} color="#FFFFFF" />
-            </View>
-            <Texto variante="display" peso="forte">
-              Bem-vindo
+            <MarcaRotaFacil tamanho={64} />
+            <Texto variante="display" peso="forte" accessibilityRole="header">
+              Entrar
             </Texto>
             <Texto variante="pequeno" cor={cores.textoSuave} style={{ textAlign: 'center' }}>
               Entre para montar roteiros que cabem no seu tempo e no seu bolso.
