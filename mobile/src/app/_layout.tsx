@@ -1,7 +1,7 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { ProvedorDeServicos } from '@/data/provider';
 import { useUsuario } from '@/hooks/use-rotafacil';
@@ -54,15 +54,28 @@ function useProtecaoDeRota() {
   const { data: usuario, isLoading } = useUsuario();
   const segmentos = useSegments();
   const router = useRouter();
+  // A primeira tela de quem abre o app sem estar logado é sempre a de
+  // boas-vindas, mesmo que o aplicativo tenha voltado aberto no login.
+  const entradaDecidida = useRef(false);
 
   useEffect(() => {
     if (isLoading) return;
     // A politica de privacidade abre antes do cadastro e tambem depois do login.
     if (segmentos[0] === 'privacidade') return;
     const emTelaDeAutenticacao = segmentos[0] === '(auth)';
+    const naBoasVindas = (segmentos as string[]).includes('boas-vindas');
+
+    if (!entradaDecidida.current) {
+      entradaDecidida.current = true;
+      if (!usuario && !naBoasVindas) {
+        router.replace('/boas-vindas');
+        return;
+      }
+    }
 
     if (!usuario && !emTelaDeAutenticacao) {
-      router.replace('/login');
+      // A entrada de quem não está logado é a tela de boas-vindas.
+      router.replace('/boas-vindas');
     } else if (usuario && emTelaDeAutenticacao) {
       router.replace('/');
     }

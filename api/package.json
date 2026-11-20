@@ -9,9 +9,12 @@
   },
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc -p tsconfig.build.json",
-    "start": "node dist/server.js",
+    "build": "tsc -p tsconfig.build.json --noEmit",
+    "start": "tsx src/server.ts",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write \"src/**/*.ts\" \"prisma/**/*.ts\" \"*.{js,ts,json}\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"prisma/**/*.ts\" \"*.{js,ts,json}\"",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:up": "docker compose up -d",
@@ -34,9 +37,11 @@
     "jsonwebtoken": "^9.0.2",
     "pino": "^9.6.0",
     "pino-http": "^10.3.0",
+    "tsx": "^4.23.15",
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@types/bcryptjs": "^2.4.6",
     "@types/compression": "^1.7.5",
     "@types/cors": "^2.8.17",
@@ -44,11 +49,16 @@
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^22.10.5",
     "@types/supertest": "^6.0.2",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.7",
+    "globals": "^17.14.0",
     "pino-pretty": "^13.0.0",
+    "prettier": "^3.10.1",
     "prisma": "^6.1.0",
     "supertest": "^7.0.0",
-    "tsx": "^4.19.2",
     "typescript": "^5.7.2",
+    "typescript-eslint": "^8.73.0",
     "vitest": "^2.1.8"
   }
 }

@@ -5,10 +5,13 @@ declare global {
     interface Request {
       /** Preenchido pelo middleware de autenticação. */
       usuarioId?: string;
-      /** Query string já validada e convertida pelo middleware de validação. */
-      consulta?: any;
-      /** Parâmetros de rota já validados pelo middleware de validação. */
-      parametros?: any;
+      /**
+       * Query string já validada e convertida pelo middleware de validação. A
+       * rota converte para o tipo do esquema que usou na validação.
+       */
+      consulta?: Record<string, unknown>;
+      /** Parâmetros de rota já validados (sempre texto, como vêm da URL). */
+      parametros?: Record<string, string>;
     }
   }
 }

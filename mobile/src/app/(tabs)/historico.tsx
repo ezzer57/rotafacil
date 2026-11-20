@@ -1,10 +1,10 @@
 /** Histórico de roteiros (UI-08): cada viagem com as paradas visitadas e o que foi pago. */
 
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { FotoDoLugar } from '@/components/foto';
 import { Cartao, Esqueleto, EstadoVazio, Texto } from '@/components/ui';
 import { formatarDataCurta, formatarReais } from '@/domain/format';
 import { useHistorico } from '@/hooks/use-rotafacil';
@@ -30,12 +30,14 @@ export default function TelaHistorico() {
           </View>
         ) : data?.length ? (
           data.map((item) => (
-            <Cartao key={item.id} padding={espaco.md} onPress={() => router.push(`/roteiro/${item.id}`)}>
+            <Cartao
+              key={item.id}
+              padding={espaco.md}
+              onPress={() => router.push(`/roteiro/${item.id}`)}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: espaco.md }}>
-                <Image
-                  source={{ uri: item.capaUrl ?? undefined }}
-                  style={{ width: 64, height: 64, borderRadius: raio.md, backgroundColor: cores.fundoAlt }}
-                  contentFit="cover"
+                <FotoDoLugar
+                  uri={item.capaUrl}
+                  style={{ width: 64, height: 64, borderRadius: raio.md }}
                 />
                 <View style={{ flex: 1, gap: 2 }}>
                   <Texto variante="corpo" peso="semi">

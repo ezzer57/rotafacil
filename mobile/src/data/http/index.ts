@@ -150,8 +150,7 @@ export function createServicosHttp(baseUrl: string): ServicosApp {
           method: 'DELETE',
         }),
 
-      excluir: (roteiroId: ID) =>
-        req<void>(`/v1/itineraries/${roteiroId}`, { method: 'DELETE' }),
+      excluir: (roteiroId: ID) => req<void>(`/v1/itineraries/${roteiroId}`, { method: 'DELETE' }),
     },
 
     cidades: {

@@ -63,11 +63,7 @@ export async function buscarPorId(id: string) {
   return usuario;
 }
 
-export async function registrarConsentimento(
-  usuarioId: string,
-  tipo: string,
-  versao: string,
-) {
+export async function registrarConsentimento(usuarioId: string, tipo: string, versao: string) {
   return prisma.consentimento.upsert({
     where: { usuarioId_tipo_versao: { usuarioId, tipo, versao } },
     create: { usuarioId, tipo, versao },

@@ -10,6 +10,8 @@
 
 import type { Prisma } from '@prisma/client';
 
+import { situacaoNoHorario } from '@/core/roteirizacao.js';
+
 const numero = (valor: Prisma.Decimal | number | null | undefined): number =>
   valor == null ? 0 : typeof valor === 'number' ? valor : Number(valor);
 
@@ -43,6 +45,7 @@ type RoteiroCompleto = Prisma.RoteiroGetPayload<{
 
 /** "08:00 às 17:00" a partir dos minutos guardados no banco. */
 function horarioLegivel(ponto: PontoBanco): string | null {
+  if (ponto.arLivre) return 'Ao ar livre, sem horário';
   if (ponto.abreMin == null || ponto.fechaMin == null) return 'Aberto 24 horas';
   const formatar = (minutos: number) =>
     `${String(Math.floor(minutos / 60)).padStart(2, '0')}:${String(minutos % 60).padStart(2, '0')}`;
@@ -50,7 +53,7 @@ function horarioLegivel(ponto: PontoBanco): string | null {
 }
 
 function abertoAgora(ponto: PontoBanco, momento = new Date()): boolean | null {
-  if (ponto.abreMin == null || ponto.fechaMin == null) return true;
+  if (ponto.arLivre || ponto.abreMin == null || ponto.fechaMin == null) return true;
   const agora = momento.getHours() * 60 + momento.getMinutes();
   return agora >= ponto.abreMin && agora <= ponto.fechaMin;
 }
@@ -66,7 +69,11 @@ export function serializarPonto(ponto: PontoBanco) {
     avaliacoes: ponto.avaliacoes,
     faixaPreco: ponto.faixaPreco,
     fotoUrl: ponto.fotoUrl,
+    fotoCredito: ponto.fotoCredito,
+    fotoFonte: ponto.fotoFonte,
     tempoVisitaMin: ponto.tempoVisitaMin,
+    relevancia: ponto.relevancia,
+    arLivre: ponto.arLivre,
     abertoAgora: abertoAgora(ponto),
     horarioHoje: horarioLegivel(ponto),
   };
@@ -114,6 +121,9 @@ export function serializarRoteiro(roteiro: RoteiroCompleto) {
       chegadaPrevista: item.chegadaPrevista.toISOString(),
       saidaPrevista: item.saidaPrevista.toISOString(),
       custoNoLocal: numero(item.custoNoLocal),
+      // Calculada na hora (o servidor roda no fuso da cidade), e não gravada:
+      // vale também para roteiros feitos antes desta regra.
+      situacaoNoHorario: situacaoNoHorario(item.ponto, item.chegadaPrevista),
       visitado: item.visitado || visitaPorPonto.has(item.pontoId),
       visita: serializarVisita(visitaPorPonto.get(item.pontoId)),
       trechoAteAqui: item.modal
@@ -125,6 +135,10 @@ export function serializarRoteiro(roteiro: RoteiroCompleto) {
             distanciaKm: item.distanciaKm ?? 0,
             duracaoMin: item.duracaoMin ?? 0,
             bandeira: item.bandeira,
+            // "ruas" quando a distância veio do mapa; "estimada" quando é
+            // linha reta x fator de circuidade.
+            fonte: item.fonteRota === 'ruas' ? 'ruas' : 'estimada',
+            trajeto: (item.trajeto as [number, number][] | null) ?? null,
             custo: {
               min: numero(item.custoMin),
               estimado: numero(item.custoEst),
@@ -150,9 +164,7 @@ export function serializarRoteiro(roteiro: RoteiroCompleto) {
           ? null
           : Math.min(
               100,
-              Math.round(
-                ((custoTransporte.estimado + custoLocais) / Math.max(1, orcamento)) * 100,
-              ),
+              Math.round(((custoTransporte.estimado + custoLocais) / Math.max(1, orcamento)) * 100),
             ),
       economiaCaminhando: numero(roteiro.economiaCaminhando),
       trechosAPe: roteiro.trechosAPe,
@@ -184,16 +196,17 @@ export function serializarResumo(
     include: { cidade: true; itens: { include: { ponto: true } }; visitas: true };
   }>,
 ) {
-  const primeiro = [...roteiro.itens].sort((a, b) => a.ordem - b.ordem)[0];
+  // Capa: a primeira parada que tem foto (restaurante sem foto livre não serve).
+  const primeiro = [...roteiro.itens]
+    .sort((a, b) => a.ordem - b.ordem)
+    .find((item) => item.ponto.fotoUrl);
   return {
     id: roteiro.id,
     cidadeNome: roteiro.cidade.nome,
     criadoEm: roteiro.criadoEm.toISOString(),
     totalPontos: roteiro.itens.length,
     custoEstimado:
-      Math.round(
-        (numero(roteiro.custoTransporteEst) + numero(roteiro.custoLocais)) * 100,
-      ) / 100,
+      Math.round((numero(roteiro.custoTransporteEst) + numero(roteiro.custoLocais)) * 100) / 100,
     capaUrl: primeiro?.ponto.fotoUrl ?? null,
     pontosVisitados: roteiro.visitas.length,
     custoRegistrado: somaRegistrada(roteiro.visitas),

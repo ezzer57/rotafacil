@@ -23,10 +23,11 @@ import type {
   PontoInteresse,
   PreferenciasRoteiro,
   Roteiro,
+  SituacaoNoHorario,
   TotaisRoteiro,
   Trecho,
 } from '@/domain/types';
-import { CIDADES, TARIFAS, pontosPorCidade, type TarifaTaxi } from './dados';
+import { CIDADES, cidadeDoMock, pontosPorCidade, tarifaDoMock, type TarifaTaxi } from './dados';
 
 /** Acima desta distância o deslocamento deixa de ser a pé. */
 const DISTANCIA_MAX_A_PE_KM = 1;
@@ -80,6 +81,8 @@ export function montarTrecho(
       origemId: origem.id,
       destinoId: destino.id,
       modal: 'pe',
+      fonte: 'estimada',
+      trajeto: null,
       distanciaKm,
       duracaoMin,
       bandeira: null,
@@ -108,6 +111,8 @@ export function montarTrecho(
     origemId: origem.id,
     destinoId: destino.id,
     modal: 'app',
+    fonte: 'estimada',
+    trajeto: null,
     distanciaKm,
     duracaoMin,
     bandeira,
@@ -138,23 +143,55 @@ function janelaDe(ponto: PontoInteresse): { abre: number; fecha: number } | null
 
 const minutosDoDia = (data: Date) => data.getHours() * 60 + data.getMinutes();
 
-/** Pontuação bayesiana ponderada pela preferência (equação 6 do TCC). */
-function pontuacao(ponto: PontoInteresse, candidatos: PontoInteresse[], peso: number): number {
-  const notas = candidatos.map((p) => p.nota ?? 0);
-  const C = notas.reduce((s, n) => s + n, 0) / Math.max(1, notas.length);
-  const m =
-    [...candidatos.map((p) => p.avaliacoes)].sort((a, b) => a - b)[
-      Math.floor(candidatos.length / 2)
-    ] ?? 1;
-  const n = ponto.avaliacoes;
-  const r = ponto.nota ?? C;
-  return peso * ((n * r + m * C) / (n + m));
-}
+/** Valor de todos os pontos quando nenhum candidato tem nota, como na API. */
+const NOTA_NEUTRA = 3;
+
+const temNota = (p: PontoInteresse): p is PontoInteresse & { nota: number } =>
+  p.nota != null && p.avaliacoes > 0;
 
 /**
- * Construção gulosa por inserção: a cada passo acrescenta o ponto com a
- * melhor razão benefício/consumo que ainda cabe no tempo, no horário de
- * funcionamento e, quando há teto, no orçamento.
+ * Pontuação bayesiana ponderada pela preferência (equação 6 do TCC). Ponto
+ * sem nota vale a média dos que têm, e só quem tem nota entra na média.
+ */
+function pontuacao(ponto: PontoInteresse, candidatos: PontoInteresse[], peso: number): number {
+  const avaliados = candidatos.filter(temNota);
+  if (avaliados.length === 0) return peso * NOTA_NEUTRA;
+
+  const C = avaliados.reduce((s, p) => s + p.nota, 0) / avaliados.length;
+  if (!temNota(ponto)) return peso * C;
+
+  const m = avaliados.map((p) => p.avaliacoes).sort((a, b) => a - b)[
+    Math.floor(avaliados.length / 2)
+  ]!;
+  const n = ponto.avaliacoes;
+  return peso * ((n * ponto.nota + m * C) / (n + m));
+}
+
+/** Mesmo cálculo da API (src/core/roteirizacao.ts): relevância pesa 70%, a nota 30%. */
+const PESO_RELEVANCIA = 0.7;
+const EXPOENTE_RELEVANCIA = 3;
+const relevanciaEfetiva = (relevancia: number) => 5 * (relevancia / 5) ** EXPOENTE_RELEVANCIA;
+
+function beneficio(ponto: PontoInteresse, candidatos: PontoInteresse[], peso: number): number {
+  return (
+    peso *
+    (PESO_RELEVANCIA * relevanciaEfetiva(ponto.relevancia) +
+      (1 - PESO_RELEVANCIA) * pontuacao(ponto, candidatos, 1))
+  );
+}
+
+/** Lugar fora do horário entra marcado, valendo menos; e o 2-opt evita criar visitas assim. */
+const FATOR_FORA_DO_HORARIO = 0.2;
+const PENALIDADE_FORA_DO_HORARIO = 1;
+
+/** Primeiro os símbolos da cidade (5), depois os grandes atrativos (4), por fim o resto. */
+const FASES_DE_RELEVANCIA = [5, 4, 0];
+
+/**
+ * Construção gulosa por inserção seguida de 2-opt: a cada passo acrescenta o
+ * ponto com a melhor razão benefício/consumo que ainda cabe no tempo, no
+ * horário de funcionamento e, quando há teto, no orçamento; depois inverte
+ * trechos da rota para desfazer o zigue-zague.
  */
 export function gerarRoteiro(pref: PreferenciasRoteiro): Roteiro {
   const inicio = performance.now();
@@ -163,57 +200,143 @@ export function gerarRoteiro(pref: PreferenciasRoteiro): Roteiro {
   const teto = pref.orcamento;
   const regua = teto ?? ORCAMENTO_DE_REFERENCIA;
 
-  const cidade = CIDADES.find((c) => c.id === pref.cidadeId) ?? CIDADES[0];
-  const tarifa = TARIFAS[cidade.id];
+  const cidade = CIDADES.find((c) => c.id === pref.cidadeId) ?? cidadeDoMock('quixada');
+  const tarifa = tarifaDoMock(cidade.id);
   const candidatos = pontosPorCidade(cidade.id);
 
   const selecionados: PontoInteresse[] = [];
-  let posicao = { id: 'origem', coordenada: pref.origem };
-  let relogio = new Date(pref.inicioPrevisto);
-  let gastoAcumulado = 0;
-  let tempoAcumulado = 0;
+  const origem = { id: 'origem', coordenada: pref.origem };
+  const alvo = (p: PontoInteresse) => ({ id: p.id, coordenada: p.coordenada });
 
-  const restantes = [...candidatos];
+  interface Estado {
+    posicao: { id: string; coordenada: Coordenada };
+    relogio: Date;
+    gasto: number;
+    tempo: number;
+    foraDoHorario: number;
+  }
 
-  while (restantes.length > 0) {
-    let melhor: { ponto: PontoInteresse; trecho: Trecho; razao: number } | null = null;
-
-    for (const ponto of restantes) {
-      const peso =
-        pref.categorias.length === 0 || pref.categorias.includes(ponto.categoria) ? 1 : 0.25;
-      const trecho = montarTrecho(
-        posicao,
-        { id: ponto.id, coordenada: ponto.coordenada },
-        relogio,
-        tarifa,
-      );
+  /**
+   * Percorre a sequência; devolve null se ela não couber no tempo ou no teto.
+   * O horário de funcionamento não invalida: só conta as visitas fora dele.
+   */
+  const simular = (sequencia: PontoInteresse[]): Estado | null => {
+    let estado: Estado = {
+      posicao: origem,
+      relogio: new Date(pref.inicioPrevisto),
+      gasto: 0,
+      tempo: 0,
+      foraDoHorario: 0,
+    };
+    for (const ponto of sequencia) {
+      const trecho = montarTrecho(estado.posicao, alvo(ponto), estado.relogio, tarifa);
       trechosCalculados += 1;
-
       const deltaTempo = trecho.duracaoMin + ponto.tempoVisitaMin;
       const deltaCusto = trecho.custo.estimado + custoNoLocal(ponto);
 
-      if (tempoAcumulado + deltaTempo > pref.tempoDisponivelMin) continue;
-      if (teto != null && gastoAcumulado + deltaCusto > teto) continue;
-      if (!cabeNaJanela(ponto, relogio, trecho.duracaoMin)) continue;
+      if (estado.tempo + deltaTempo > pref.tempoDisponivelMin) return null;
+      if (teto != null && estado.gasto + deltaCusto > teto) return null;
+      const aberto = cabeNaJanela(ponto, estado.relogio, trecho.duracaoMin);
 
-      const razao =
-        pontuacao(ponto, candidatos, peso) /
-        (deltaTempo / pref.tempoDisponivelMin + deltaCusto / Math.max(1, regua));
-
-      if (!melhor || razao > melhor.razao) melhor = { ponto, trecho, razao };
+      estado = {
+        posicao: alvo(ponto),
+        relogio: new Date(estado.relogio.getTime() + deltaTempo * 60000),
+        gasto: estado.gasto + deltaCusto,
+        tempo: estado.tempo + deltaTempo,
+        foraDoHorario: estado.foraDoHorario + (aberto ? 0 : 1),
+      };
     }
+    return estado;
+  };
 
-    if (!melhor) break;
+  const restantes = [...candidatos];
 
-    selecionados.push(melhor.ponto);
-    gastoAcumulado += melhor.trecho.custo.estimado + custoNoLocal(melhor.ponto);
-    tempoAcumulado += melhor.trecho.duracaoMin + melhor.ponto.tempoVisitaMin;
-    relogio = new Date(
-      relogio.getTime() + (melhor.trecho.duracaoMin + melhor.ponto.tempoVisitaMin) * 60000,
-    );
-    posicao = { id: melhor.ponto.id, coordenada: melhor.ponto.coordenada };
-    restantes.splice(restantes.indexOf(melhor.ponto), 1);
+  const ampliar = (relevanciaMinima: number) => {
+    for (;;) {
+      const estado = simular(selecionados)!;
+      let melhor: { ponto: PontoInteresse; razao: number } | null = null;
+
+      for (const ponto of restantes) {
+        const dentroDaPreferencia =
+          pref.categorias.length === 0 || pref.categorias.includes(ponto.categoria);
+        const peso = dentroDaPreferencia ? 1 : 0.25;
+
+        if (relevanciaMinima > 0 && (!dentroDaPreferencia || ponto.relevancia < relevanciaMinima)) {
+          continue;
+        }
+
+        const trecho = montarTrecho(estado.posicao, alvo(ponto), estado.relogio, tarifa);
+        trechosCalculados += 1;
+
+        const deltaTempo = trecho.duracaoMin + ponto.tempoVisitaMin;
+        const deltaCusto = trecho.custo.estimado + custoNoLocal(ponto);
+
+        if (estado.tempo + deltaTempo > pref.tempoDisponivelMin) continue;
+        if (teto != null && estado.gasto + deltaCusto > teto) continue;
+
+        // Imperdíveis só entram abertos; o fechado fica para a última fase, valendo menos.
+        const aberto = cabeNaJanela(ponto, estado.relogio, trecho.duracaoMin);
+        if (relevanciaMinima > 0 && !aberto) continue;
+
+        const razao =
+          (beneficio(ponto, candidatos, peso) * (aberto ? 1 : FATOR_FORA_DO_HORARIO)) /
+          (deltaTempo / pref.tempoDisponivelMin + deltaCusto / Math.max(1, regua));
+
+        if (!melhor || razao > melhor.razao) melhor = { ponto, razao };
+      }
+
+      if (!melhor) return;
+      selecionados.push(melhor.ponto);
+      restantes.splice(restantes.indexOf(melhor.ponto), 1);
+    }
+  };
+
+  const custoDaRota = (estado: Estado) =>
+    estado.tempo / pref.tempoDisponivelMin +
+    estado.gasto / Math.max(1, regua) +
+    PENALIDADE_FORA_DO_HORARIO * estado.foraDoHorario;
+
+  /** 2-opt: inverte um trecho da rota quando isso diminui tempo e custo e ela continua cabendo. */
+  const desembaracar = (): boolean => {
+    let melhorou = false;
+    let atual = simular(selecionados)!;
+
+    for (let rodada = 0; rodada < 20; rodada += 1) {
+      let achou = false;
+      for (let i = 0; i < selecionados.length - 1 && !achou; i += 1) {
+        for (let j = i + 1; j < selecionados.length && !achou; j += 1) {
+          const tentativa = [
+            ...selecionados.slice(0, i),
+            ...selecionados.slice(i, j + 1).reverse(),
+            ...selecionados.slice(j + 1),
+          ];
+          const estado = simular(tentativa);
+          if (estado && custoDaRota(estado) < custoDaRota(atual) - 1e-4) {
+            selecionados.splice(0, selecionados.length, ...tentativa);
+            atual = estado;
+            achou = true;
+            melhorou = true;
+          }
+        }
+      }
+      if (!achou) break;
+    }
+    return melhorou;
+  };
+
+  const completar = () => FASES_DE_RELEVANCIA.forEach((fase) => ampliar(fase));
+
+  completar();
+  for (let rodada = 0; rodada < 5; rodada += 1) {
+    if (!desembaracar()) break;
+    completar();
   }
+
+  const final = simular(selecionados)!;
+  const posicao = final.posicao;
+  const relogio = final.relogio;
+  const gastoAcumulado = final.gasto;
+  const tempoAcumulado = final.tempo;
 
   // Explica, ponto a ponto, por que cada candidato ficou de fora.
   const descartados: PontoDescartado[] = restantes.map((ponto) => {
@@ -237,9 +360,6 @@ export function gerarRoteiro(pref: PreferenciasRoteiro): Roteiro {
     } else if (faltaTempo > 0) {
       motivo = 'tempo';
       detalhe = `precisaria de mais ${formatarDuracao(faltaTempo)}`;
-    } else if (!cabeNaJanela(ponto, relogio, trecho.duracaoMin)) {
-      motivo = 'horario';
-      detalhe = `fecha às ${(ponto.horarioHoje ?? '').split(/às|as/).pop()?.trim() ?? 'horário'}`;
     }
 
     return { ponto, motivo, detalhe };
@@ -266,6 +386,7 @@ export function gerarRoteiro(pref: PreferenciasRoteiro): Roteiro {
       saidaPrevista: saida.toISOString(),
       trechoAteAqui: trecho,
       custoNoLocal: custoNoLocal(ponto),
+      situacaoNoHorario: situacaoNoHorario(ponto, chegada),
       visitado: false,
       visita: null,
     };
@@ -330,6 +451,8 @@ export function gerarRoteiro(pref: PreferenciasRoteiro): Roteiro {
     totais,
     descartados,
     diagnostico: {
+      // O modo de demonstração não tem servidor de rotas.
+      rotas: 'estimada',
       candidatosAvaliados: candidatos.length,
       trechosCalculados,
       duracaoMs: Number((performance.now() - inicio).toFixed(1)),
@@ -339,9 +462,17 @@ export function gerarRoteiro(pref: PreferenciasRoteiro): Roteiro {
 }
 
 /** O ponto precisa estar aberto na chegada e até o fim da visita. */
-function cabeNaJanela(ponto: PontoInteresse, partida: Date, duracaoTrechoMin: number): boolean {
+/** Mesma regra da API: lugar ao ar livre ou sem horário está sempre aberto. */
+function situacaoNoHorario(ponto: PontoInteresse, chegada: Date): SituacaoNoHorario {
   const janela = janelaDe(ponto);
-  if (!janela) return true;
-  const chegada = minutosDoDia(partida) + duracaoTrechoMin;
-  return chegada >= janela.abre && chegada + ponto.tempoVisitaMin <= janela.fecha;
+  if (ponto.arLivre || !janela) return 'aberto';
+  const minuto = minutosDoDia(chegada);
+  if (minuto < janela.abre || minuto >= janela.fecha) return 'fechado';
+  if (minuto + ponto.tempoVisitaMin > janela.fecha) return 'fecha-durante-a-visita';
+  return 'aberto';
+}
+
+function cabeNaJanela(ponto: PontoInteresse, partida: Date, duracaoTrechoMin: number): boolean {
+  const chegada = new Date(partida.getTime() + duracaoTrechoMin * 60000);
+  return situacaoNoHorario(ponto, chegada) === 'aberto';
 }

@@ -6,12 +6,12 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { FotoDoLugar } from '@/components/foto';
 import {
   Botao,
   CabecalhoSecao,
@@ -19,7 +19,6 @@ import {
   Campo,
   Esqueleto,
   EstadoVazio,
-  Selo,
   Texto,
 } from '@/components/ui';
 import { formatarDataCurta, formatarReais } from '@/domain/format';
@@ -27,9 +26,16 @@ import { useCidades, useHistorico, useUsuario } from '@/hooks/use-rotafacil';
 import { useTema } from '@/theme/provider';
 import { espaco, raio, sombra, type Paleta } from '@/theme/tokens';
 
-const capaCidade: Record<string, string> = {
-  quixada: 'https://picsum.photos/seed/quixada-cidade/800/600',
-  fortaleza: 'https://picsum.photos/seed/fortaleza-cidade/800/600',
+/** Capas das cidades: fotos do Wikimedia Commons, com licença livre e crédito. */
+const capaCidade: Record<string, { url: string; credito: string }> = {
+  quixada: {
+    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/a/aa/A%C3%A7ude_Cedro_-_Cart%C3%A3o_postal_do_Cear%C3%A1.jpg/500px-A%C3%A7ude_Cedro_-_Cart%C3%A3o_postal_do_Cear%C3%A1.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    credito: 'Foto: GLandovsky · CC BY-SA 4.0 · Wikimedia Commons',
+  },
+  fortaleza: {
+    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e3/Praia_de_Iracema_em_Fortaleza_02.jpg/500px-Praia_de_Iracema_em_Fortaleza_02.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    credito: 'Foto: Keijuu · CC BY-SA 4.0 · Wikimedia Commons',
+  },
 };
 
 export default function TelaInicio() {
@@ -108,11 +114,10 @@ export default function TelaInicio() {
                       router.push({ pathname: '/nova-rota', params: { cidadeId: cidade.id } })
                     }
                     style={estilos.cardDestino}>
-                    <Image
-                      source={{ uri: capaCidade[cidade.id] }}
+                    <FotoDoLugar
+                      uri={capaCidade[cidade.id]?.url}
                       style={estilos.imagemDestino}
-                      contentFit="cover"
-                      transition={200}
+                      tamanhoIcone={32}
                     />
                     <View style={estilos.sombraTexto} />
                     <View style={estilos.infoDestino}>
@@ -122,17 +127,16 @@ export default function TelaInicio() {
                       <Texto variante="micro" cor={cores.textoSobreImagem}>
                         {cidade.uf} · {cidade.pais}
                       </Texto>
+                      {capaCidade[cidade.id] ? (
+                        <Texto
+                          variante="micro"
+                          cor={cores.textoSobreImagem}
+                          numberOfLines={1}
+                          style={{ opacity: 0.8, fontSize: 9 }}>
+                          {capaCidade[cidade.id]!.credito}
+                        </Texto>
+                      ) : null}
                     </View>
-                    {cidade.tarifaCalibrada ? (
-                      <View style={estilos.seloDestino}>
-                        <Selo
-                          texto="Tarifa calibrada"
-                          icone="checkmark-circle"
-                          cor={cores.sucesso}
-                          fundo={cores.sucessoSuave}
-                        />
-                      </View>
-                    ) : null}
                   </Pressable>
                 ))}
             </ScrollView>
@@ -159,11 +163,7 @@ export default function TelaInicio() {
                   padding={espaco.md}
                   onPress={() => router.push(`/roteiro/${item.id}`)}>
                   <View style={estilos.linhaRecente}>
-                    <Image
-                      source={{ uri: item.capaUrl ?? undefined }}
-                      style={estilos.miniatura}
-                      contentFit="cover"
-                    />
+                    <FotoDoLugar uri={item.capaUrl} style={estilos.miniatura} tamanhoIcone={18} />
                     <View style={{ flex: 1, gap: 2 }}>
                       <Texto variante="corpo" peso="semi">
                         {item.cidadeNome}
@@ -255,7 +255,6 @@ function useEstilos(cores: Paleta) {
           bottom: espaco.md,
           gap: 2,
         },
-        seloDestino: { position: 'absolute', top: espaco.md, left: espaco.md },
         linhaRecente: { flexDirection: 'row', alignItems: 'center', gap: espaco.md },
         miniatura: {
           width: 48,

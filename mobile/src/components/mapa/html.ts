@@ -8,6 +8,9 @@
  * Usa Leaflet com tiles do OpenStreetMap, que não exige chave de API. Para
  * uso além de protótipo, a política de uso do OSM pede servidor próprio ou
  * um provedor de tiles contratado.
+ *
+ * O crédito do mapa é texto, sem link: dentro do WebView, tocar num link
+ * trocaria o mapa pela página de destino, sem botão de voltar.
  */
 
 import type { ParadaMapa } from './tipos';
@@ -49,6 +52,12 @@ export function construirHtmlMapa({
     font-size: 13px; font-weight: 700;
     border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.35);
   }
+  /* Parada em que o usuário já chegou: visto no lugar do número. */
+  .marcador-visitado {
+    background: #fff; color: ${corSucesso};
+    border: 2px solid ${corSucesso};
+    font-size: 15px;
+  }
   .marcador-origem {
     width: 14px; height: 14px; border-radius: 999px;
     background: #fff; border: 4px solid ${corSucesso};
@@ -63,14 +72,15 @@ export function construirHtmlMapa({
 <script>
   var dados = ${dados};
 
-  var mapa = L.map('mapa', { zoomControl: false, attributionControl: true });
+  var mapa = L.map('mapa', { zoomControl: false, attributionControl: false });
   L.control.zoom({ position: 'bottomright' }).addTo(mapa);
+  L.control.attribution({ prefix: false }).addTo(mapa);
 
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
-    // Crédito exigido pela licença ODbL dos dados do OpenStreetMap.
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
+    // Crédito exigido pela licença ODbL dos dados do OpenStreetMap; as rotas
+    // também vêm desses dados.
+    attribution: '&copy; OpenStreetMap contributors'
   }).addTo(mapa);
 
   function avisarSelecao(id) {
@@ -97,31 +107,46 @@ export function construirHtmlMapa({
     L.marker(posicao, {
       icon: L.divIcon({
         className: '',
-        html: '<div class="marcador">' + parada.ordem + '</div>',
+        html: parada.visitada
+          ? '<div class="marcador marcador-visitado">&#10003;</div>'
+          : '<div class="marcador">' + parada.ordem + '</div>',
         iconSize: [28, 28],
         iconAnchor: [14, 14]
-      })
+      }),
+      // Parada já visitada fica atrás das que ainda faltam.
+      zIndexOffset: parada.visitada ? -100 : 0
     })
       .addTo(mapa)
-      .bindPopup(parada.ordem + '. ' + parada.nome)
+      .bindPopup(parada.ordem + '. ' + parada.nome + (parada.visitada ? ' (você já chegou)' : ''))
       .on('click', function () { avisarSelecao(parada.id); });
   });
 
-  // Um segmento por trecho, para diferenciar o que é feito a pé.
+  // Tudo o que precisa caber na tela, inclusive as curvas das ruas.
+  var limites = pontos.slice();
+
+  // Um segmento por trecho, para diferenciar o que é feito a pé. Quando há
+  // traçado, a linha segue as ruas; sem ele, é a reta entre os dois pontos,
+  // mais clara para não se passar por caminho de verdade. O trecho até uma
+  // parada em que o usuário já chegou sai do mapa: fica só o que falta fazer.
   for (var i = 1; i < pontos.length; i++) {
     var parada = dados.paradas[dados.origem ? i - 1 : i];
+    if (parada && parada.visitada) continue;
     var aPe = parada && parada.modalAteAqui === 'pe';
-    L.polyline([pontos[i - 1], pontos[i]], {
+    var ruas = parada && parada.trajetoAteAqui && parada.trajetoAteAqui.length > 1;
+    var linha = ruas ? parada.trajetoAteAqui : [pontos[i - 1], pontos[i]];
+    L.polyline(linha, {
       color: aPe ? '${corSucesso}' : '${corPrimaria}',
-      weight: 4,
-      opacity: 0.85,
+      weight: ruas ? 5 : 3,
+      opacity: ruas ? 0.9 : 0.45,
       dashArray: aPe ? '2 8' : null,
-      lineCap: 'round'
+      lineCap: 'round',
+      lineJoin: 'round'
     }).addTo(mapa);
+    if (ruas) linha.forEach(function (p) { limites.push(p); });
   }
 
   if (pontos.length > 1) {
-    mapa.fitBounds(L.latLngBounds(pontos), { padding: [34, 34] });
+    mapa.fitBounds(L.latLngBounds(limites), { padding: [34, 34] });
   } else if (pontos.length === 1) {
     mapa.setView(pontos[0], 15);
   } else {

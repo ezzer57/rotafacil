@@ -42,7 +42,7 @@ export default function MapaRoteiro({
   return (
     <View
       style={{
-        height: altura,
+        ...(altura === 'preencher' ? { flex: 1 } : { height: altura }),
         borderRadius: raio.lg,
         overflow: 'hidden',
         borderWidth: 1,
@@ -54,6 +54,7 @@ export default function MapaRoteiro({
         source={{ html }}
         style={{ flex: 1, backgroundColor: 'transparent' }}
         scrollEnabled={false}
+        nestedScrollEnabled
         onMessage={(evento) => onSelecionarParada?.(evento.nativeEvent.data)}
       />
     </View>

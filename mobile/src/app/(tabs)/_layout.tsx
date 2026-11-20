@@ -1,10 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useCores } from '@/theme/provider';
 
 export default function LayoutAbas() {
   const cores = useCores();
+  // Espaço da barra de gestos (Android) e do indicador de início (iPhone).
+  // Com altura fixa, os rótulos das abas ficavam embaixo deles.
+  const { bottom } = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -15,10 +19,12 @@ export default function LayoutAbas() {
         tabBarStyle: {
           backgroundColor: cores.superficie,
           borderTopColor: cores.borda,
-          height: 62,
-          paddingBottom: 8,
-          paddingTop: 8,
+          height: 56 + bottom,
+          paddingBottom: Math.max(bottom, 8),
+          paddingTop: 6,
         },
+        // Com o teclado aberto, a barra de abas some e não empurra o campo.
+        tabBarHideOnKeyboard: true,
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
         sceneStyle: { backgroundColor: cores.fundo },
       }}>

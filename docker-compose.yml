@@ -1,0 +1,97 @@
+# RotaFácil completo em um comando: banco, API e o aplicativo como site.
+#
+#   docker compose up --build
+#
+# Depois abra http://localhost:8080 no navegador. Na primeira vez o Docker
+# baixa as imagens e monta o site, o que leva alguns minutos.
+#
+# Portas e opções podem ser trocadas por variáveis de ambiente ou por um
+# arquivo .env nesta pasta (veja .env.example). Este arquivo é independente
+# de api/docker-compose.yml, que sobe só o banco para o desenvolvimento.
+
+name: rotafacil
+
+services:
+  banco:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rotafacil
+      POSTGRES_PASSWORD: rotafacil
+      POSTGRES_DB: rotafacil
+    volumes:
+      - banco:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U rotafacil -d rotafacil']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: ./api
+    restart: unless-stopped
+    depends_on:
+      banco:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://rotafacil:rotafacil@banco:5432/rotafacil?schema=public
+      # Segredo só para uso local. Numa API publicada, troque por um valor
+      # longo e aleatório (variável JWT_SECRET).
+      JWT_SECRET: ${JWT_SECRET:-segredo-local-de-demonstracao-do-rotafacil-troque-ao-publicar}
+      CORS_ORIGENS: http://localhost:${WEB_PORTA:-8080},http://127.0.0.1:${WEB_PORTA:-8080}
+      FUSO_HORARIO: America/Fortaleza
+      ROTAS_PELAS_RUAS: ${ROTAS_PELAS_RUAS:-true}
+      # Servidores públicos de demonstração. Com o perfil "osrm" (abaixo),
+      # use http://osrm-carro:5000 e http://osrm-a-pe:5000.
+      OSRM_URL_CARRO: ${OSRM_URL_CARRO:-https://router.project-osrm.org}
+      OSRM_URL_A_PE: ${OSRM_URL_A_PE:-https://routing.openstreetmap.de/routed-foot}
+    ports:
+      - '${API_PORTA:-3333}:3333'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:3333/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  web:
+    build:
+      context: ./mobile
+      args:
+        # O navegador de quem usa o site chama a API por este endereço.
+        EXPO_PUBLIC_API_URL: http://localhost:${API_PORTA:-3333}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - '${WEB_PORTA:-8080}:80'
+
+  # Opcional: servidores de rotas próprios, mais rápidos que os públicos.
+  # Exigem rodar antes `bash osrm/preparar.sh` (baixa ~450 MB) e ligar com
+  #   OSRM_URL_CARRO=http://osrm-carro:5000 OSRM_URL_A_PE=http://osrm-a-pe:5000 \
+  #     docker compose --profile osrm up --build
+  osrm-carro:
+    profiles: [osrm]
+    image: ghcr.io/project-osrm/osrm-backend:latest
+    restart: unless-stopped
+    command: osrm-routed --algorithm mld /dados/carro.osrm
+    volumes:
+      - ./osrm/dados:/dados:ro
+
+  osrm-a-pe:
+    profiles: [osrm]
+    image: ghcr.io/project-osrm/osrm-backend:latest
+    restart: unless-stopped
+    command: osrm-routed --algorithm mld /dados/a-pe.osrm
+    volumes:
+      - ./osrm/dados:/dados:ro
+
+volumes:
+  banco:

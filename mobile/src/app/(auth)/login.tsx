@@ -9,15 +9,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { MarcaRotaFacil } from '@/components/marca';
 import { Botao, Cartao, Campo, Texto } from '@/components/ui';
 import { usandoApiReal } from '@/data/provider';
 import { errosPorCampo, schemaLogin } from '@/domain/validacao';
 import { useEntrar } from '@/hooks/use-rotafacil';
 import { useCores } from '@/theme/provider';
-import { espaco, raio } from '@/theme/tokens';
+import { espaco } from '@/theme/tokens';
 
 export default function TelaLogin() {
   const router = useRouter();
@@ -46,9 +47,7 @@ export default function TelaLogin() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: cores.fundo }}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <ScrollView
           contentContainerStyle={{
             flexGrow: 1,
@@ -56,22 +55,13 @@ export default function TelaLogin() {
             justifyContent: 'center',
             gap: espaco.xl,
           }}
-          keyboardShouldPersistTaps="handled">
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag">
           {/* ------------------------------------------------------- marca */}
           <View style={{ alignItems: 'center', gap: espaco.md }}>
-            <View
-              style={{
-                width: 64,
-                height: 64,
-                borderRadius: raio.xl,
-                backgroundColor: cores.primaria,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-              <Ionicons name="navigate" size={30} color="#FFFFFF" />
-            </View>
-            <Texto variante="display" peso="forte">
-              Bem-vindo
+            <MarcaRotaFacil tamanho={64} />
+            <Texto variante="display" peso="forte" accessibilityRole="header">
+              Entrar
             </Texto>
             <Texto variante="pequeno" cor={cores.textoSuave} style={{ textAlign: 'center' }}>
               Entre para montar roteiros que cabem no seu tempo e no seu bolso.
@@ -149,35 +139,6 @@ export default function TelaLogin() {
               variante="contorno"
               onPress={() => router.push('/cadastro')}
             />
-          </View>
-
-          {/* ------------------------------------------------------- social */}
-          <View style={{ alignItems: 'center', gap: espaco.md }}>
-            <Texto variante="micro" cor={cores.textoSuave}>
-              ou entre com
-            </Texto>
-            <View style={{ flexDirection: 'row', gap: espaco.md }}>
-              {(['logo-google', 'logo-facebook', 'logo-apple'] as const).map((icone) => (
-                <View
-                  key={icone}
-                  style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: raio.md,
-                    borderWidth: 1,
-                    borderColor: cores.borda,
-                    backgroundColor: cores.fundoAlt,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    opacity: 0.5,
-                  }}>
-                  <Ionicons name={icone} size={22} color={cores.textoSuave} />
-                </View>
-              ))}
-            </View>
-            <Texto variante="micro" cor={cores.textoSuave}>
-              Login social entra em versão futura (OAuth 2.0)
-            </Texto>
           </View>
 
           {/* A credencial de demonstração só existe nos dados simulados. */}

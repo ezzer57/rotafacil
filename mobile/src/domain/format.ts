@@ -3,6 +3,7 @@
  * o mesmo valor seja exibido do mesmo jeito em todo o aplicativo.
  */
 
+import type { Ionicons } from '@expo/vector-icons';
 import type { CategoriaPOI, FaixaCusto, Modal, MotivoDescarte, Reais } from './types';
 
 export function formatarReais(valor: Reais): string {
@@ -55,7 +56,10 @@ export const rotuloCategoria: Record<CategoriaPOI, string> = {
   religioso: 'Religioso',
 };
 
-export const iconeCategoria: Record<CategoriaPOI, string> = {
+/** Nome de um ícone da biblioteca Ionicons (a mesma dos botões e chips). */
+export type NomeIcone = keyof typeof Ionicons.glyphMap;
+
+export const iconeCategoria: Record<CategoriaPOI, NomeIcone> = {
   cultura: 'color-palette',
   natureza: 'leaf',
   gastronomia: 'restaurant',

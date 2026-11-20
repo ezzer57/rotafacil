@@ -16,12 +16,7 @@ export type DataISO = string;
 export type Reais = number;
 
 export type CategoriaPOI =
-  | 'cultura'
-  | 'natureza'
-  | 'gastronomia'
-  | 'compras'
-  | 'vidaNoturna'
-  | 'religioso';
+  'cultura' | 'natureza' | 'gastronomia' | 'compras' | 'vidaNoturna' | 'religioso';
 
 /** Modal de deslocamento escolhido pelo algoritmo para um trecho. */
 export type Modal = 'pe' | 'app';
@@ -56,7 +51,15 @@ export interface PontoInteresse {
   /** Faixa de preço de 0 a 4, quando informada pelo provedor. */
   faixaPreco: number | null;
   fotoUrl: string | null;
+  /** Autor e licença da foto, para exibir junto dela. */
+  fotoCredito: string | null;
+  /** Página da foto no Wikimedia Commons. */
+  fotoFonte: string | null;
   tempoVisitaMin: number;
+  /** Quanto o lugar é imperdível, de 1 a 5, com o mesmo critério em toda cidade. */
+  relevancia: number;
+  /** Parque, praça, praia, mirante ou trilha: nunca fica fora do horário. */
+  arLivre: boolean;
   abertoAgora: boolean | null;
   horarioHoje: string | null;
 }
@@ -89,10 +92,16 @@ export interface DetalheCalculoTarifa {
   norma: string;
 }
 
+/** Origem da distância: medida pelas ruas ou estimada em linha reta x 1,3. */
+export type FonteDaMedida = 'ruas' | 'estimada';
+
 export interface Trecho {
   origemId: ID;
   destinoId: ID;
   modal: Modal;
+  fonte: FonteDaMedida;
+  /** Ruas do trecho, como [lat, lng]; null quando não foi possível traçar. */
+  trajeto: [number, number][] | null;
   distanciaKm: number;
   duracaoMin: number;
   bandeira: Bandeira | null;
@@ -107,6 +116,9 @@ export interface VisitaRegistrada {
   custoRegistrado: Reais | null;
 }
 
+/** Como o lugar estará na hora prevista da visita. */
+export type SituacaoNoHorario = 'aberto' | 'fechado' | 'fecha-durante-a-visita';
+
 export interface ItemRoteiro {
   ordem: number;
   ponto: PontoInteresse;
@@ -115,6 +127,11 @@ export interface ItemRoteiro {
   /** Deslocamento da parada anterior até esta. Ausente no primeiro item. */
   trechoAteAqui: Trecho | null;
   custoNoLocal: Reais;
+  /**
+   * Lugar fechado na hora prevista não sai do roteiro: entra marcado, para o
+   * usuário decidir se vai mesmo assim.
+   */
+  situacaoNoHorario: SituacaoNoHorario;
   visitado: boolean;
   /** Check-in feito na parada; null enquanto o usuário não chegou. */
   visita: VisitaRegistrada | null;
@@ -151,6 +168,8 @@ export interface PontoDescartado {
  * no capítulo de resultados.
  */
 export interface DiagnosticoRoteiro {
+  /** Quantos trechos foram medidos pelas ruas: todos, alguns ou nenhum. */
+  rotas: 'ruas' | 'parcial' | 'estimada';
   candidatosAvaliados: number;
   trechosCalculados: number;
   duracaoMs: number;

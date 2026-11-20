@@ -24,5 +24,8 @@ export const logger = pino({
     censor: '[removido]',
   },
   // Em desenvolvimento, log legível; em produção, JSON puro para a máquina.
-  transport: emProducao || emTeste ? undefined : { target: 'pino-pretty', options: { translateTime: 'HH:MM:ss', ignore: 'pid,hostname' } },
+  transport:
+    emProducao || emTeste
+      ? undefined
+      : { target: 'pino-pretty', options: { translateTime: 'HH:MM:ss', ignore: 'pid,hostname' } },
 });

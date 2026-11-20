@@ -57,8 +57,7 @@ export function useEntrar() {
   const { auth } = useServicos();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ email, senha }: { email: string; senha: string }) =>
-      auth.entrar(email, senha),
+    mutationFn: ({ email, senha }: { email: string; senha: string }) => auth.entrar(email, senha),
     onSuccess: (usuario) => qc.setQueryData(chaves.usuario, usuario),
   });
 }

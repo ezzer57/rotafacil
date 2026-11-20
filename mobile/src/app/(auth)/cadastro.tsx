@@ -13,7 +13,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Botao, CaixaMarcacao, Cartao, Campo, Texto } from '@/components/ui';
@@ -78,12 +78,11 @@ export default function TelaCadastro() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: cores.fundo }}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <ScrollView
           contentContainerStyle={{ flexGrow: 1, padding: espaco.xl, gap: espaco.xl }}
-          keyboardShouldPersistTaps="handled">
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag">
           <View style={{ gap: espaco.sm, marginTop: espaco.lg }}>
             <Texto variante="display" peso="forte">
               Criar conta
@@ -128,7 +127,7 @@ export default function TelaCadastro() {
                 icone="document-text-outline"
                 largura="auto"
                 onPress={() => router.push('/privacidade')}
-                style={{ height: 32, paddingHorizontal: 0, alignSelf: 'flex-start' }}
+                style={{ minHeight: 32, paddingHorizontal: 0, alignSelf: 'flex-start' }}
               />
             </View>
 
