@@ -105,7 +105,16 @@ describe('criarClienteDeRotas', () => {
     const fetchFn = vi.fn(async () =>
       resposta({
         code: 'Ok',
-        routes: [{ geometry: { coordinates: [[-39.0156123, -4.9712987], [-39.01, -5.03]] } }],
+        routes: [
+          {
+            geometry: {
+              coordinates: [
+                [-39.0156123, -4.9712987],
+                [-39.01, -5.03],
+              ],
+            },
+          },
+        ],
       }),
     );
     const linha = await cliente(fetchFn as unknown as typeof fetch).tracar('carro', A, B);
@@ -123,7 +132,10 @@ describe('criarClienteDeRotas', () => {
 
 describe('simplificarTracado', () => {
   it('mantém o traçado curto como está', () => {
-    const curto: [number, number][] = [[0, 0], [1, 1]];
+    const curto: [number, number][] = [
+      [0, 0],
+      [1, 1],
+    ];
     expect(simplificarTracado(curto)).toBe(curto);
   });
 

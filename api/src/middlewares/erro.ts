@@ -26,12 +26,7 @@ export function rotaNaoEncontrada(req: Request, res: Response) {
   });
 }
 
-export function tratadorDeErros(
-  erro: unknown,
-  req: Request,
-  res: Response,
-  _next: NextFunction,
-) {
+export function tratadorDeErros(erro: unknown, req: Request, res: Response, _next: NextFunction) {
   if (erro instanceof ErroApp) {
     res.status(erro.status).json({
       erro: { codigo: erro.codigo, mensagem: erro.message, detalhes: erro.detalhes },
@@ -60,7 +55,12 @@ export function tratadorDeErros(
 
   // Erros do express.json e do CORS chegam como Error comum, mas carregam
   // status e tipo. Sem este tratamento, um corpo grande demais viraria 500.
-  const comStatus = erro as { status?: number; statusCode?: number; type?: string; message?: string };
+  const comStatus = erro as {
+    status?: number;
+    statusCode?: number;
+    type?: string;
+    message?: string;
+  };
   const status = comStatus.status ?? comStatus.statusCode;
 
   if (comStatus.type === 'entity.too.large') {

@@ -24,12 +24,7 @@ import {
 } from './tarifa.js';
 
 export type Categoria =
-  | 'cultura'
-  | 'natureza'
-  | 'gastronomia'
-  | 'compras'
-  | 'vidaNoturna'
-  | 'religioso';
+  'cultura' | 'natureza' | 'gastronomia' | 'compras' | 'vidaNoturna' | 'religioso';
 
 export type Modal = 'pe' | 'app';
 /** 'horario' só aparece em roteiros antigos: hoje o lugar fechado entra marcado. */
@@ -234,7 +229,10 @@ const relevanciaEfetiva = (relevancia: number) => 5 * (relevancia / 5) ** EXPOEN
  */
 export function beneficio(candidato: Candidato, universo: Candidato[], peso: number): number {
   const nota = pontuar(candidato, universo, 1);
-  return peso * (PESO_RELEVANCIA * relevanciaEfetiva(candidato.relevancia) + (1 - PESO_RELEVANCIA) * nota);
+  return (
+    peso *
+    (PESO_RELEVANCIA * relevanciaEfetiva(candidato.relevancia) + (1 - PESO_RELEVANCIA) * nota)
+  );
 }
 
 function montarTrecho(
@@ -249,7 +247,8 @@ function montarTrecho(
   const deCarroPelasRuas = medidor?.deCarro(origem, destino) ?? null;
 
   // O modal sai da distância mais confiável que houver.
-  const aPe = (aPePelasRuas?.distanciaKm ?? deCarroPelasRuas?.distanciaKm ?? estimada) <=
+  const aPe =
+    (aPePelasRuas?.distanciaKm ?? deCarroPelasRuas?.distanciaKm ?? estimada) <=
     DISTANCIA_MAX_A_PE_KM;
 
   const medida = aPe ? aPePelasRuas : deCarroPelasRuas;
@@ -259,8 +258,7 @@ function montarTrecho(
   const duracaoMin = Math.max(
     1,
     Math.round(
-      medida?.duracaoMin ??
-        (estimada / (aPe ? VELOCIDADE_A_PE_KMH : VELOCIDADE_CARRO_KMH)) * 60,
+      medida?.duracaoMin ?? (estimada / (aPe ? VELOCIDADE_A_PE_KMH : VELOCIDADE_CARRO_KMH)) * 60,
     ),
   );
 
@@ -330,7 +328,13 @@ export function gerarRoteiro(
       foraDoHorario: 0,
     };
     for (const candidato of sequencia) {
-      const trecho = montarTrecho(estado.posicao, candidato.coordenada, estado.relogio, tarifa, medidor);
+      const trecho = montarTrecho(
+        estado.posicao,
+        candidato.coordenada,
+        estado.relogio,
+        tarifa,
+        medidor,
+      );
       trechosCalculados += 1;
       const deltaTempo = trecho.duracaoMin + candidato.tempoVisitaMin;
       const deltaCusto = trecho.custo.estimado + custoNoLocal(candidato);
@@ -368,11 +372,20 @@ export function gerarRoteiro(
         const peso = dentroDaPreferencia ? 1 : PESO_FORA_DA_PREFERENCIA;
 
         // Nas fases dos imperdíveis só entra o que o usuário disse querer.
-        if (relevanciaMinima > 0 && (!dentroDaPreferencia || candidato.relevancia < relevanciaMinima)) {
+        if (
+          relevanciaMinima > 0 &&
+          (!dentroDaPreferencia || candidato.relevancia < relevanciaMinima)
+        ) {
           continue;
         }
 
-        const trecho = montarTrecho(estado.posicao, candidato.coordenada, estado.relogio, tarifa, medidor);
+        const trecho = montarTrecho(
+          estado.posicao,
+          candidato.coordenada,
+          estado.relogio,
+          tarifa,
+          medidor,
+        );
         trechosCalculados += 1;
 
         const deltaTempo = trecho.duracaoMin + candidato.tempoVisitaMin;
@@ -530,8 +543,7 @@ export function gerarRoteiro(
     trechosAPe.reduce(
       (soma, item) =>
         soma +
-        faixaAplicativo(custoTaxi(item.trechoAteAqui.distanciaKm, 0, 1, tarifa), tarifa)
-          .estimado,
+        faixaAplicativo(custoTaxi(item.trechoAteAqui.distanciaKm, 0, 1, tarifa), tarifa).estimado,
       0,
     ),
   );

@@ -28,7 +28,9 @@ export function limitarValorEmReais(texto: string, maximo: number): string {
   const [inteiro = '', ...resto] = limpo.split(',');
   const semZerosAEsquerda = inteiro.replace(/^0+(?=\d)/, '');
   const valorDigitado =
-    resto.length > 0 ? `${semZerosAEsquerda || '0'},${resto.join('').slice(0, 2)}` : semZerosAEsquerda;
+    resto.length > 0
+      ? `${semZerosAEsquerda || '0'},${resto.join('').slice(0, 2)}`
+      : semZerosAEsquerda;
 
   return Number(valorDigitado.replace(',', '.')) > maximo ? String(maximo) : valorDigitado;
 }

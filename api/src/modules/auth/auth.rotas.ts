@@ -25,25 +25,15 @@ const limiteCredencial = rateLimit({
 
 export const rotasAuth = Router();
 
-rotasAuth.post(
-  '/users',
-  limiteCredencial,
-  validar({ body: cadastroSchema }),
-  async (req, res) => {
-    const usuario = await servico.cadastrar(req.body);
-    res.status(201).json({ usuario, token: assinarToken(usuario.id) });
-  },
-);
+rotasAuth.post('/users', limiteCredencial, validar({ body: cadastroSchema }), async (req, res) => {
+  const usuario = await servico.cadastrar(req.body);
+  res.status(201).json({ usuario, token: assinarToken(usuario.id) });
+});
 
-rotasAuth.post(
-  '/sessions',
-  limiteCredencial,
-  validar({ body: loginSchema }),
-  async (req, res) => {
-    const usuario = await servico.autenticarCredencial(req.body);
-    res.json({ usuario, token: assinarToken(usuario.id) });
-  },
-);
+rotasAuth.post('/sessions', limiteCredencial, validar({ body: loginSchema }), async (req, res) => {
+  const usuario = await servico.autenticarCredencial(req.body);
+  res.json({ usuario, token: assinarToken(usuario.id) });
+});
 
 rotasAuth.get('/me', autenticar, async (req, res) => {
   res.json(await servico.buscarPorId(req.usuarioId!));

@@ -172,8 +172,7 @@ export function Campo({
   const estilos = useEstilos(cores);
   // No iPhone, o teclado numérico não tem tecla de fechar: sem esta barra com
   // "Concluir", o teclado ficava preso cobrindo a tela.
-  const precisaBarra =
-    Platform.OS === 'ios' && TECLADOS_SEM_RETORNO.has(props.keyboardType ?? '');
+  const precisaBarra = Platform.OS === 'ios' && TECLADOS_SEM_RETORNO.has(props.keyboardType ?? '');
   const idBarra = `teclado-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
 
   return (

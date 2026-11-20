@@ -13,10 +13,7 @@ import { z } from 'zod';
 export const SENHA_MINIMA = 8;
 
 export const schemaLogin = z.object({
-  email: z
-    .string()
-    .min(1, 'Informe seu e-mail')
-    .email('E-mail inválido'),
+  email: z.string().min(1, 'Informe seu e-mail').email('E-mail inválido'),
   senha: z
     .string()
     .min(1, 'Informe sua senha')
@@ -27,9 +24,7 @@ export const schemaCadastro = z
   .object({
     nome: z.string().min(2, 'Informe seu nome'),
     email: z.string().min(1, 'Informe seu e-mail').email('E-mail inválido'),
-    senha: z
-      .string()
-      .min(SENHA_MINIMA, `A senha precisa de pelo menos ${SENHA_MINIMA} caracteres`),
+    senha: z.string().min(SENHA_MINIMA, `A senha precisa de pelo menos ${SENHA_MINIMA} caracteres`),
     confirmacao: z.string(),
   })
   .refine((dados) => dados.senha === dados.confirmacao, {

@@ -167,19 +167,20 @@ async function calcularEGravar(dados: DadosPersistencia) {
   const resultado = gerarRoteiro(candidatos, dados.entrada, tarifa, medidor);
 
   // Ruas de cada trecho medido, para desenhar no mapa.
-  const tracados = await tracarTrechos(resultado.itens.map((item, i) => ({
-    de: i === 0 ? dados.entrada.origem : resultado.itens[i - 1]!.candidato.coordenada,
-    para: item.candidato.coordenada,
-    modal: item.trechoAteAqui.modal,
-    pelasRuas: item.trechoAteAqui.fonte === 'ruas',
-  })));
+  const tracados = await tracarTrechos(
+    resultado.itens.map((item, i) => ({
+      de: i === 0 ? dados.entrada.origem : resultado.itens[i - 1]!.candidato.coordenada,
+      para: item.candidato.coordenada,
+      modal: item.trechoAteAqui.modal,
+      pelasRuas: item.trechoAteAqui.fonte === 'ruas',
+    })),
+  );
 
   const dadosRoteiro = {
     usuarioId: dados.usuarioId,
     cidadeId: dados.cidadeId,
     inicioPrevisto: dados.entrada.inicioPrevisto,
-    orcamento:
-      dados.entrada.orcamento == null ? null : new Prisma.Decimal(dados.entrada.orcamento),
+    orcamento: dados.entrada.orcamento == null ? null : new Prisma.Decimal(dados.entrada.orcamento),
     tempoDisponivelMin: dados.entrada.tempoDisponivelMin,
     origemLat: dados.entrada.origem.lat,
     origemLng: dados.entrada.origem.lng,
@@ -366,12 +367,10 @@ export async function registrarVisita(
       create: {
         roteiroId,
         pontoId,
-        custoRegistrado:
-          custoRegistrado == null ? null : new Prisma.Decimal(custoRegistrado),
+        custoRegistrado: custoRegistrado == null ? null : new Prisma.Decimal(custoRegistrado),
       },
       update: {
-        custoRegistrado:
-          custoRegistrado == null ? null : new Prisma.Decimal(custoRegistrado),
+        custoRegistrado: custoRegistrado == null ? null : new Prisma.Decimal(custoRegistrado),
       },
     }),
     prisma.roteiroItem.updateMany({

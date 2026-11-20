@@ -30,7 +30,10 @@ export default function TelaHistorico() {
           </View>
         ) : data?.length ? (
           data.map((item) => (
-            <Cartao key={item.id} padding={espaco.md} onPress={() => router.push(`/roteiro/${item.id}`)}>
+            <Cartao
+              key={item.id}
+              padding={espaco.md}
+              onPress={() => router.push(`/roteiro/${item.id}`)}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: espaco.md }}>
                 <FotoDoLugar
                   uri={item.capaUrl}

@@ -95,9 +95,7 @@ export default function TelaNovaRota() {
   /** Em qual cidade atendida o GPS indica que o usuário está. */
   const detectada = useMemo(
     () =>
-      localizacao.coordenada && cidades
-        ? cidadeMaisProxima(localizacao.coordenada, cidades)
-        : null,
+      localizacao.coordenada && cidades ? cidadeMaisProxima(localizacao.coordenada, cidades) : null,
     [localizacao.coordenada, cidades],
   );
 
@@ -130,14 +128,11 @@ export default function TelaNovaRota() {
       ? 'gps'
       : 'centro';
 
-  const origem =
-    partidaManual ?? (modo === 'gps' ? localizacao.coordenada! : cidade?.centro);
+  const origem = partidaManual ?? (modo === 'gps' ? localizacao.coordenada! : cidade?.centro);
 
   // A API recusa partida a mais de 60 km do centro; a tela avisa antes.
   const partidaLonge =
-    cidade != null &&
-    origem != null &&
-    haversine(origem, cidade.centro) > RAIO_COBERTURA_CIDADE_KM;
+    cidade != null && origem != null && haversine(origem, cidade.centro) > RAIO_COBERTURA_CIDADE_KM;
 
   /** Ponto marcado no mapa pertence à cidade em que foi marcado. */
   function trocarCidade(id: string) {
@@ -370,7 +365,8 @@ export default function TelaNovaRota() {
                 Horário de bandeira 2
               </Texto>
               <Texto variante="micro" cor={cores.textoSuave} style={{ marginTop: 2 }}>
-                A tarifa por quilômetro é maior, e lugares fechados nesse horário aparecem marcados no roteiro.
+                A tarifa por quilômetro é maior, e lugares fechados nesse horário aparecem marcados
+                no roteiro.
               </Texto>
             </Cartao>
           ) : null}
@@ -383,7 +379,9 @@ export default function TelaNovaRota() {
           </Texto>
           <Texto variante="corpo" style={{ marginTop: espaco.xs }}>
             {cidade?.nome ?? '-'} ·{' '}
-            {valorOrcamento == null ? 'sem limite de gasto' : `até ${formatarReais(valorOrcamento)}`}{' '}
+            {valorOrcamento == null
+              ? 'sem limite de gasto'
+              : `até ${formatarReais(valorOrcamento)}`}{' '}
             em {formatarDuracao(tempoMin)}, a partir das{' '}
             {inicioPrevisto().toLocaleTimeString('pt-BR', {
               hour: '2-digit',
