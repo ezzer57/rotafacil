@@ -1,6 +1,7 @@
 /** Perfil e configurações (UI-09). */
 
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,6 +22,7 @@ const OPCOES_TEMA: {
 ];
 
 export default function TelaPerfil() {
+  const router = useRouter();
   const { data: usuario } = useUsuario();
   const sair = useSair();
   const excluirConta = useExcluirConta();
@@ -92,6 +94,14 @@ export default function TelaPerfil() {
           <Texto variante="pequeno" peso="semi" cor={cores.erro}>
             Privacidade
           </Texto>
+          <Botao
+            titulo="Ler a Política de Privacidade"
+            variante="texto"
+            icone="document-text-outline"
+            largura="auto"
+            onPress={() => router.push('/privacidade')}
+            style={{ minHeight: 32, paddingHorizontal: 0, alignSelf: 'flex-start' }}
+          />
           <Texto
             variante="micro"
             cor={cores.textoSuave}
