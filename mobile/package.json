@@ -37,6 +37,11 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "~57.0.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.7",
+    "prettier": "^3.10.1",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -45,7 +50,10 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"*.{js,json}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"*.{js,json}\""
   },
   "private": true
 }
