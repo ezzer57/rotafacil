@@ -48,13 +48,11 @@ export interface CidadeDetectada {
  * distância até o centro de cada uma.
  */
 export function cidadeMaisProxima(posicao: Coordenada, cidades: Cidade[]): CidadeDetectada | null {
-  if (cidades.length === 0) return null;
-
-  const ordenadas = cidades
+  const [maisProxima] = cidades
     .map((cidade) => ({ cidade, distanciaKm: haversine(posicao, cidade.centro) }))
     .sort((a, b) => a.distanciaKm - b.distanciaKm);
 
-  const maisProxima = ordenadas[0];
+  if (!maisProxima) return null;
   return {
     ...maisProxima,
     dentroDaCobertura: maisProxima.distanciaKm <= RAIO_COBERTURA_CIDADE_KM,

@@ -19,7 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { useLocalSearchParams } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useMemo, useRef, useState, type RefObject } from 'react';
 import {
   KeyboardAvoidingView,
   Linking,
@@ -96,12 +96,13 @@ export default function TelaRoteiro() {
     [roteiro?.itens],
   );
 
-  // Valor mostrado enquanto o controle é arrastado, antes do recálculo.
-  const [orcamentoVisual, setOrcamentoVisual] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (roteiro) setOrcamentoVisual(roteiro.orcamento);
-  }, [roteiro?.id, roteiro?.orcamento]);
+  // Valor mostrado enquanto o controle é arrastado, antes do recálculo. Vale
+  // só para o roteiro e o teto em que foi arrastado: quando o roteiro volta
+  // recalculado, a tela passa a mostrar o teto dele.
+  const chaveDoTeto = `${roteiro?.id}:${roteiro?.orcamento}`;
+  const [arrastado, setArrastado] = useState<{ chave: string; valor: number | null } | null>(null);
+  const orcamentoVisual = arrastado?.chave === chaveDoTeto ? arrastado.valor : undefined;
+  const setOrcamentoVisual = (valor: number | null) => setArrastado({ chave: chaveDoTeto, valor });
 
   if (isLoading) {
     return (
@@ -118,7 +119,7 @@ export default function TelaRoteiro() {
   }
 
   const ajustando = remover.isPending || substituir.isPending || ajustarOrcamento.isPending;
-  const orcamentoExibido = orcamentoVisual ?? roteiro.orcamento;
+  const orcamentoExibido = orcamentoVisual === undefined ? roteiro.orcamento : orcamentoVisual;
   const semTeto = roteiro.orcamento == null;
   const uso = roteiro.totais.usoOrcamento;
   const registrando = registrarVisita.isPending || desfazerVisita.isPending;

@@ -48,6 +48,20 @@ export const CIDADES: Cidade[] = [
   },
 ];
 
+/** Cidade do modo de demonstração; um id que não existe é erro de programação. */
+export function cidadeDoMock(id: string): Cidade {
+  const cidade = CIDADES.find((c) => c.id === id);
+  if (!cidade) throw new Error(`Cidade "${id}" não existe nos dados simulados`);
+  return cidade;
+}
+
+/** Tarifa da cidade no modo de demonstração. */
+export function tarifaDoMock(cidadeId: string): TarifaTaxi {
+  const tarifa = TARIFAS[cidadeId];
+  if (!tarifa) throw new Error(`Cidade "${cidadeId}" sem tarifa nos dados simulados`);
+  return tarifa;
+}
+
 export const TARIFAS: Record<string, TarifaTaxi> = {
   quixada: {
     cidadeId: 'quixada',

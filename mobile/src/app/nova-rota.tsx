@@ -15,7 +15,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useMemo, useRef, useState, type RefObject } from 'react';
 import { KeyboardAvoidingView, Linking, Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -81,8 +81,8 @@ export default function TelaNovaRota() {
   const campoTeto = useRef<View>(null);
   const rolarAteCampo = useRolarAteCampo(rolagem, conteudo);
 
-  const [cidadeId, setCidadeId] = useState(cidadeParam ?? 'quixada');
-  const [escolhaManual, setEscolhaManual] = useState(Boolean(cidadeParam));
+  /** Cidade escolhida pelo usuário; null enquanto ele não escolhe. */
+  const [cidadeEscolhida, setCidadeEscolhida] = useState<string | null>(cidadeParam ?? null);
   const [categorias, setCategorias] = useState<CategoriaPOI[]>(['natureza', 'gastronomia']);
   // Vazio é "sem limite", o padrão: o usuário só define um teto se quiser.
   const [orcamento, setOrcamento] = useState('');
@@ -99,11 +99,9 @@ export default function TelaNovaRota() {
     [localizacao.coordenada, cidades],
   );
 
-  // Seleciona a cidade sozinho, a menos que o usuário já tenha escolhido.
-  useEffect(() => {
-    if (escolhaManual) return;
-    if (detectada?.dentroDaCobertura) setCidadeId(detectada.cidade.id);
-  }, [detectada, escolhaManual]);
+  // Sem escolha do usuário, vale a cidade onde o GPS diz que ele está.
+  const cidadeId =
+    cidadeEscolhida ?? (detectada?.dentroDaCobertura ? detectada.cidade.id : 'quixada');
 
   const cidade = useMemo(
     () => cidades?.find((c) => c.id === cidadeId) ?? cidades?.[0],
@@ -136,8 +134,7 @@ export default function TelaNovaRota() {
 
   /** Ponto marcado no mapa pertence à cidade em que foi marcado. */
   function trocarCidade(id: string) {
-    setCidadeId(id);
-    setEscolhaManual(true);
+    setCidadeEscolhida(id);
     setPartidaManual(null);
     setPreferirCentro(false);
   }
@@ -277,7 +274,7 @@ export default function TelaNovaRota() {
               <Chip
                 key={c}
                 rotulo={rotuloCategoria[c]}
-                icone={iconeCategoria[c] as any}
+                icone={iconeCategoria[c]}
                 ativo={categorias.includes(c)}
                 onPress={() => alternarCategoria(c)}
               />
