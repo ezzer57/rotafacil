@@ -52,9 +52,13 @@ export const SECOES_POLITICA: SecaoPolitica[] = [
   {
     titulo: 'Com quem os dados são compartilhados',
     itens: [
-      'Ninguém compra nem recebe os seus dados do RotaFácil.',
-      'Para desenhar o mapa, o app busca as imagens no servidor do OpenStreetMap, que recebe a região do mapa exibida.',
+      'Ninguém compra nem recebe os seus dados do RotaFácil. Para funcionar, o app usa os serviços abaixo, e nenhum deles recebe o seu nome, o seu e-mail ou a sua senha.',
+      'Rotas (OSRM): para medir o caminho pelas ruas, o servidor do RotaFácil envia ao serviço de rotas a sua posição de partida e as coordenadas dos pontos do roteiro. Hoje são servidores públicos de demonstração do projeto OSRM e da comunidade do OpenStreetMap, na Europa. Quando o RotaFácil usa um servidor de rotas próprio, essas coordenadas não saem dele.',
+      'Mapa (OpenStreetMap): para desenhar o mapa, o celular baixa as imagens do servidor do OpenStreetMap, que recebe o endereço de internet (IP) do aparelho e a área do mapa exibida, que costuma ser perto de onde você está.',
+      'Fotos (Wikimedia Commons): as fotos dos lugares vêm do Wikimedia Commons, que recebe o IP do aparelho e quais fotos foram abertas.',
+      'Biblioteca do mapa (unpkg): o programa que desenha o mapa (Leaflet) é baixado do unpkg, que recebe o IP do aparelho.',
       'O nome do bairro mostrado na nova rota vem do serviço de localização do próprio celular (Google no Android, Apple no iPhone), que recebe a sua coordenada.',
+      'Esses serviços ficam fora do Brasil: o de rotas na Europa, e os demais em redes de servidores espalhadas por vários países. Ao aceitar esta política, você consente com esse envio (LGPD, art. 33, VIII).',
     ],
   },
   {

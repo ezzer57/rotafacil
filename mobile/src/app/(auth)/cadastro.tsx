@@ -118,7 +118,8 @@ export default function TelaCadastro() {
                 onPress={() => setAceitouPolitica((marcada) => !marcada)}>
                 <Texto variante="pequeno" cor={cores.textoSuave}>
                   Li e aceito a Política de Privacidade, inclusive o uso da minha localização para
-                  montar os roteiros e o uso anônimo dos dados na pesquisa do TCC.
+                  montar os roteiros, o envio dela a serviços de rotas fora do Brasil e o uso
+                  anônimo dos dados na pesquisa do TCC.
                 </Texto>
               </CaixaMarcacao>
               <Botao
