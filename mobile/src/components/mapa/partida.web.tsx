@@ -41,7 +41,11 @@ export default function MapaPartida({
   useEffect(() => {
     function aoReceber(evento: MessageEvent) {
       const dado = evento.data;
-      if (dado?.tipo === 'partida' && typeof dado.lat === 'number' && typeof dado.lng === 'number') {
+      if (
+        dado?.tipo === 'partida' &&
+        typeof dado.lat === 'number' &&
+        typeof dado.lng === 'number'
+      ) {
         aoTocar({ lat: dado.lat, lng: dado.lng });
       }
     }

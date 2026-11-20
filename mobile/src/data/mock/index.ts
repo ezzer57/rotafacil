@@ -18,7 +18,7 @@ import type {
   VisitaRegistrada,
 } from '@/domain/types';
 import type { ServicosApp } from '@/data/services';
-import { CIDADES, PONTOS, pontosPorCidade } from './dados';
+import { CIDADES, PONTOS, cidadeDoMock, pontosPorCidade } from './dados';
 import { gerarRoteiro } from './motor';
 
 const atraso = (ms = 700) => new Promise((r) => setTimeout(r, ms));
@@ -72,7 +72,7 @@ function semearExemplo() {
 
   const roteiro = gerarRoteiro({
     cidadeId: 'fortaleza',
-    origem: CIDADES[1].centro,
+    origem: cidadeDoMock('fortaleza').centro,
     categorias: ['cultura', 'gastronomia'],
     orcamento: 120,
     tempoDisponivelMin: 300,

@@ -73,9 +73,7 @@ export default function TelaCadastro() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: cores.fundo }}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior="padding">
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <ScrollView
           contentContainerStyle={{ flexGrow: 1, padding: espaco.xl, gap: espaco.xl }}
           keyboardShouldPersistTaps="handled"
@@ -133,8 +131,8 @@ export default function TelaCadastro() {
 
           {/* Transparência exigida pela LGPD, art. 9º. */}
           <Texto variante="micro" cor={cores.textoSuave} style={{ textAlign: 'center' }}>
-            Ao criar a conta você concorda com o uso da sua localização apenas para gerar
-            roteiros, conforme a Política de Privacidade.
+            Ao criar a conta você concorda com o uso da sua localização apenas para gerar roteiros,
+            conforme a Política de Privacidade.
           </Texto>
         </ScrollView>
       </KeyboardAvoidingView>

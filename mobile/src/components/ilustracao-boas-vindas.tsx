@@ -21,7 +21,10 @@ function pontoNaCurva(
   b: [number, number],
 ): [number, number] {
   const u = 1 - t;
-  return [u * u * a[0] + 2 * u * t * c[0] + t * t * b[0], u * u * a[1] + 2 * u * t * c[1] + t * t * b[1]];
+  return [
+    u * u * a[0] + 2 * u * t * c[0] + t * t * b[0],
+    u * u * a[1] + 2 * u * t * c[1] + t * t * b[1],
+  ];
 }
 
 export function IlustracaoBoasVindas() {
@@ -139,7 +142,12 @@ export function IlustracaoBoasVindas() {
             borderColor: '#FFFFFF',
           }}
         />
-        <View style={{ position: 'absolute', left: destino[0] - pino / 2, top: destino[1] - pino * 0.92 }}>
+        <View
+          style={{
+            position: 'absolute',
+            left: destino[0] - pino / 2,
+            top: destino[1] - pino * 0.92,
+          }}>
           <Ionicons name="location" size={pino} color="#FFFFFF" />
         </View>
       </>

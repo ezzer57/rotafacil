@@ -56,7 +56,7 @@ const prazoEsgotado = () =>
   new Promise<null>((resolver) => setTimeout(() => resolver(null), PRAZO_GPS_MS));
 
 export function useLocalizacao(automatico = true): Localizacao {
-  const [estado, setEstado] = useState<EstadoLocalizacao>('inicial');
+  const [estado, setEstado] = useState<EstadoLocalizacao>(automatico ? 'solicitando' : 'inicial');
   const [coordenada, setCoordenada] = useState<Coordenada | null>(null);
   const [precisaoM, setPrecisaoM] = useState<number | null>(null);
   const [descricao, setDescricao] = useState<string | null>(null);
@@ -68,7 +68,11 @@ export function useLocalizacao(automatico = true): Localizacao {
   // Cada pedido ganha um número: resposta de pedido antigo é ignorada.
   const pedidoAtual = useRef(0);
 
-  const solicitar = useCallback(async () => {
+  /**
+   * Lê a posição. Só muda o estado depois de cada espera (permissão, GPS):
+   * assim pode ser chamada de dentro de um efeito sem renderizações em cascata.
+   */
+  const buscar = useCallback(async () => {
     const pedido = ++pedidoAtual.current;
     const vigente = () => pedido === pedidoAtual.current;
 
@@ -77,11 +81,6 @@ export function useLocalizacao(automatico = true): Localizacao {
       setPrecisaoM(posicao.coords.accuracy ?? null);
       setEstado('obtida');
     };
-
-    setEstado('solicitando');
-    setErro(null);
-    setRefinando(false);
-    setPrecisaAbrirAjustes(false);
 
     try {
       if (!(await Location.hasServicesEnabledAsync())) {
@@ -156,9 +155,21 @@ export function useLocalizacao(automatico = true): Localizacao {
     }
   }, []);
 
+  /** Pedido do usuário (ex.: "Tentar novamente"): mostra "obtendo" na hora e busca. */
+  const solicitar = useCallback(async () => {
+    setEstado('solicitando');
+    setErro(null);
+    setRefinando(false);
+    setPrecisaAbrirAjustes(false);
+    await buscar();
+  }, [buscar]);
+
   useEffect(() => {
-    if (automatico) void solicitar();
-  }, [automatico, solicitar]);
+    // A regra não enxerga que `buscar` só muda o estado depois de cada `await`
+    // (permissão e GPS), então não há renderização em cascata aqui.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (automatico) void buscar();
+  }, [automatico, buscar]);
 
   return {
     estado,

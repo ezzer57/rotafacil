@@ -57,7 +57,11 @@ function consultar(
   if (metros == null || segundos == null) return null;
 
   const distanciaKm = metros / 1000;
-  if (i !== j && distanciaKm < DISTANCIA_MINIMA_CONFIAVEL_KM && haversine(a, b) > LINHA_RETA_SUSPEITA_KM) {
+  if (
+    i !== j &&
+    distanciaKm < DISTANCIA_MINIMA_CONFIAVEL_KM &&
+    haversine(a, b) > LINHA_RETA_SUSPEITA_KM
+  ) {
     return null;
   }
 

@@ -16,12 +16,7 @@ export type DataISO = string;
 export type Reais = number;
 
 export type CategoriaPOI =
-  | 'cultura'
-  | 'natureza'
-  | 'gastronomia'
-  | 'compras'
-  | 'vidaNoturna'
-  | 'religioso';
+  'cultura' | 'natureza' | 'gastronomia' | 'compras' | 'vidaNoturna' | 'religioso';
 
 /** Modal de deslocamento escolhido pelo algoritmo para um trecho. */
 export type Modal = 'pe' | 'app';

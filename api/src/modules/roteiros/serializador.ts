@@ -164,9 +164,7 @@ export function serializarRoteiro(roteiro: RoteiroCompleto) {
           ? null
           : Math.min(
               100,
-              Math.round(
-                ((custoTransporte.estimado + custoLocais) / Math.max(1, orcamento)) * 100,
-              ),
+              Math.round(((custoTransporte.estimado + custoLocais) / Math.max(1, orcamento)) * 100),
             ),
       economiaCaminhando: numero(roteiro.economiaCaminhando),
       trechosAPe: roteiro.trechosAPe,
@@ -208,9 +206,7 @@ export function serializarResumo(
     criadoEm: roteiro.criadoEm.toISOString(),
     totalPontos: roteiro.itens.length,
     custoEstimado:
-      Math.round(
-        (numero(roteiro.custoTransporteEst) + numero(roteiro.custoLocais)) * 100,
-      ) / 100,
+      Math.round((numero(roteiro.custoTransporteEst) + numero(roteiro.custoLocais)) * 100) / 100,
     capaUrl: primeiro?.ponto.fotoUrl ?? null,
     pontosVisitados: roteiro.visitas.length,
     custoRegistrado: somaRegistrada(roteiro.visitas),

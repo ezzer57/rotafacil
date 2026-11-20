@@ -48,6 +48,20 @@ export const CIDADES: Cidade[] = [
   },
 ];
 
+/** Cidade do modo de demonstração; um id que não existe é erro de programação. */
+export function cidadeDoMock(id: string): Cidade {
+  const cidade = CIDADES.find((c) => c.id === id);
+  if (!cidade) throw new Error(`Cidade "${id}" não existe nos dados simulados`);
+  return cidade;
+}
+
+/** Tarifa da cidade no modo de demonstração. */
+export function tarifaDoMock(cidadeId: string): TarifaTaxi {
+  const tarifa = TARIFAS[cidadeId];
+  if (!tarifa) throw new Error(`Cidade "${cidadeId}" sem tarifa nos dados simulados`);
+  return tarifa;
+}
+
 export const TARIFAS: Record<string, TarifaTaxi> = {
   quixada: {
     cidadeId: 'quixada',
@@ -78,7 +92,8 @@ const FOTOS: Record<string, { url: string; credito: string; fonte: string }> = {
   'qx-acude-cedro': {
     url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/a/aa/A%C3%A7ude_Cedro_-_Cart%C3%A3o_postal_do_Cear%C3%A1.jpg/500px-A%C3%A7ude_Cedro_-_Cart%C3%A3o_postal_do_Cear%C3%A1.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
     credito: 'Foto: GLandovsky · CC BY-SA 4.0 · Wikimedia Commons',
-    fonte: 'https://commons.wikimedia.org/wiki/File:A%C3%A7ude_Cedro_-_Cart%C3%A3o_postal_do_Cear%C3%A1.jpg',
+    fonte:
+      'https://commons.wikimedia.org/wiki/File:A%C3%A7ude_Cedro_-_Cart%C3%A3o_postal_do_Cear%C3%A1.jpg',
   },
   'qx-galinha-choca': {
     url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2d/Pedra_da_Galinha_Choca.jpg/500px-Pedra_da_Galinha_Choca.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
@@ -113,17 +128,20 @@ const FOTOS: Record<string, { url: string; credito: string; fonte: string }> = {
   'qx-santuario-rainha-sertao': {
     url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bb/Quixad%C3%A1_CE_Brasil_-_Santu%C3%A1rio_Rainha_do_Sert%C3%A3o_-_panoramio.jpg/500px-Quixad%C3%A1_CE_Brasil_-_Santu%C3%A1rio_Rainha_do_Sert%C3%A3o_-_panoramio.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
     credito: 'Foto: Jorge Colares · CC BY-SA 3.0 · Wikimedia Commons',
-    fonte: 'https://commons.wikimedia.org/wiki/File:Quixad%C3%A1_CE_Brasil_-_Santu%C3%A1rio_Rainha_do_Sert%C3%A3o_-_panoramio.jpg',
+    fonte:
+      'https://commons.wikimedia.org/wiki/File:Quixad%C3%A1_CE_Brasil_-_Santu%C3%A1rio_Rainha_do_Sert%C3%A3o_-_panoramio.jpg',
   },
   'fz-mercado-central': {
     url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/c/cf/Mar2024._Mercado_Central_de_Fortaleza%2C_Cear%C3%A1%2C_Brazil_01.jpg/500px-Mar2024._Mercado_Central_de_Fortaleza%2C_Cear%C3%A1%2C_Brazil_01.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
     credito: 'Foto: Ridiculopathy · CC0 · Wikimedia Commons',
-    fonte: 'https://commons.wikimedia.org/wiki/File:Mar2024._Mercado_Central_de_Fortaleza,_Cear%C3%A1,_Brazil_01.jpg',
+    fonte:
+      'https://commons.wikimedia.org/wiki/File:Mar2024._Mercado_Central_de_Fortaleza,_Cear%C3%A1,_Brazil_01.jpg',
   },
   'fz-dragao-do-mar': {
     url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0b/Centro_Drag%C3%A3o_do_Mar_de_Arte_e_Cultura_%284%29.jpg/500px-Centro_Drag%C3%A3o_do_Mar_de_Arte_e_Cultura_%284%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
     credito: 'Foto: Governo Federal Brasileiro · CC BY-SA 3.0 · Wikimedia Commons',
-    fonte: 'https://commons.wikimedia.org/wiki/File:Centro_Drag%C3%A3o_do_Mar_de_Arte_e_Cultura_(4).jpg',
+    fonte:
+      'https://commons.wikimedia.org/wiki/File:Centro_Drag%C3%A3o_do_Mar_de_Arte_e_Cultura_(4).jpg',
   },
   'fz-praia-iracema': {
     url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e3/Praia_de_Iracema_em_Fortaleza_02.jpg/500px-Praia_de_Iracema_em_Fortaleza_02.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
@@ -133,22 +151,26 @@ const FOTOS: Record<string, { url: string; credito: string; fonte: string }> = {
   'fz-catedral': {
     url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7d/Mar2024._Catedral_Metropolitana_de_Fortaleza.jpg/500px-Mar2024._Catedral_Metropolitana_de_Fortaleza.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
     credito: 'Foto: Ridiculopathy · CC0 · Wikimedia Commons',
-    fonte: 'https://commons.wikimedia.org/wiki/File:Mar2024._Catedral_Metropolitana_de_Fortaleza.jpg',
+    fonte:
+      'https://commons.wikimedia.org/wiki/File:Mar2024._Catedral_Metropolitana_de_Fortaleza.jpg',
   },
   'fz-theatro-jose-alencar': {
     url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/8/86/Theatro_Jos%C3%A9_de_Alencar_em_Fortaleza_03.jpg/500px-Theatro_Jos%C3%A9_de_Alencar_em_Fortaleza_03.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
     credito: 'Foto: GLandovsky · CC BY-SA 4.0 · Wikimedia Commons',
-    fonte: 'https://commons.wikimedia.org/wiki/File:Theatro_Jos%C3%A9_de_Alencar_em_Fortaleza_03.jpg',
+    fonte:
+      'https://commons.wikimedia.org/wiki/File:Theatro_Jos%C3%A9_de_Alencar_em_Fortaleza_03.jpg',
   },
   'fz-parque-coco': {
     url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1c/Trilha_Principal_Parque_Estadual_do_Coc%C3%B3_1.jpg/500px-Trilha_Principal_Parque_Estadual_do_Coc%C3%B3_1.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
     credito: 'Foto: Ruan moreira · CC BY-SA 4.0 · Wikimedia Commons',
-    fonte: 'https://commons.wikimedia.org/wiki/File:Trilha_Principal_Parque_Estadual_do_Coc%C3%B3_1.jpg',
+    fonte:
+      'https://commons.wikimedia.org/wiki/File:Trilha_Principal_Parque_Estadual_do_Coc%C3%B3_1.jpg',
   },
   'fz-feirinha-beira-mar': {
     url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a5/JADEQUEIROZ_FEIRINHA_BEIRA_MAR_FORTALEZA_%2827780922188%29.jpg/500px-JADEQUEIROZ_FEIRINHA_BEIRA_MAR_FORTALEZA_%2827780922188%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
     credito: 'Foto: MTur Destinos · domínio público · Wikimedia Commons',
-    fonte: 'https://commons.wikimedia.org/wiki/File:JADEQUEIROZ_FEIRINHA_BEIRA_MAR_FORTALEZA_(27780922188).jpg',
+    fonte:
+      'https://commons.wikimedia.org/wiki/File:JADEQUEIROZ_FEIRINHA_BEIRA_MAR_FORTALEZA_(27780922188).jpg',
   },
   'fz-mercado-dos-peixes': {
     url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bb/Mercado_dos_Peixes_de_Fortaleza_03.jpg/500px-Mercado_dos_Peixes_de_Fortaleza_03.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',

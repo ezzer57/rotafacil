@@ -96,8 +96,7 @@ export function criarClienteDeRotas(opcoes: OpcoesCliente) {
     }
   }
 
-  const coordenadas = (pontos: Coordenada[]) =>
-    pontos.map((p) => `${p.lng},${p.lat}`).join(';');
+  const coordenadas = (pontos: Coordenada[]) => pontos.map((p) => `${p.lng},${p.lat}`).join(';');
 
   async function matriz(perfil: PerfilDeRota, pontos: Coordenada[]): Promise<MatrizDeRotas | null> {
     const corpo = (await buscar(
@@ -106,7 +105,10 @@ export function criarClienteDeRotas(opcoes: OpcoesCliente) {
     )) as { distances?: unknown; durations?: unknown } | null;
     if (!corpo) return null;
 
-    if (!matrizValida(corpo.distances, pontos.length) || !matrizValida(corpo.durations, pontos.length)) {
+    if (
+      !matrizValida(corpo.distances, pontos.length) ||
+      !matrizValida(corpo.durations, pontos.length)
+    ) {
       logger.warn({ perfil }, 'matriz de rotas em formato inesperado');
       return null;
     }

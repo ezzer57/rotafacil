@@ -15,7 +15,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useMemo, useRef, useState, type RefObject } from 'react';
 import { KeyboardAvoidingView, Linking, Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -81,8 +81,8 @@ export default function TelaNovaRota() {
   const campoTeto = useRef<View>(null);
   const rolarAteCampo = useRolarAteCampo(rolagem, conteudo);
 
-  const [cidadeId, setCidadeId] = useState(cidadeParam ?? 'quixada');
-  const [escolhaManual, setEscolhaManual] = useState(Boolean(cidadeParam));
+  /** Cidade escolhida pelo usuário; null enquanto ele não escolhe. */
+  const [cidadeEscolhida, setCidadeEscolhida] = useState<string | null>(cidadeParam ?? null);
   const [categorias, setCategorias] = useState<CategoriaPOI[]>(['natureza', 'gastronomia']);
   // Vazio é "sem limite", o padrão: o usuário só define um teto se quiser.
   const [orcamento, setOrcamento] = useState('');
@@ -95,17 +95,13 @@ export default function TelaNovaRota() {
   /** Em qual cidade atendida o GPS indica que o usuário está. */
   const detectada = useMemo(
     () =>
-      localizacao.coordenada && cidades
-        ? cidadeMaisProxima(localizacao.coordenada, cidades)
-        : null,
+      localizacao.coordenada && cidades ? cidadeMaisProxima(localizacao.coordenada, cidades) : null,
     [localizacao.coordenada, cidades],
   );
 
-  // Seleciona a cidade sozinho, a menos que o usuário já tenha escolhido.
-  useEffect(() => {
-    if (escolhaManual) return;
-    if (detectada?.dentroDaCobertura) setCidadeId(detectada.cidade.id);
-  }, [detectada, escolhaManual]);
+  // Sem escolha do usuário, vale a cidade onde o GPS diz que ele está.
+  const cidadeId =
+    cidadeEscolhida ?? (detectada?.dentroDaCobertura ? detectada.cidade.id : 'quixada');
 
   const cidade = useMemo(
     () => cidades?.find((c) => c.id === cidadeId) ?? cidades?.[0],
@@ -130,19 +126,15 @@ export default function TelaNovaRota() {
       ? 'gps'
       : 'centro';
 
-  const origem =
-    partidaManual ?? (modo === 'gps' ? localizacao.coordenada! : cidade?.centro);
+  const origem = partidaManual ?? (modo === 'gps' ? localizacao.coordenada! : cidade?.centro);
 
   // A API recusa partida a mais de 60 km do centro; a tela avisa antes.
   const partidaLonge =
-    cidade != null &&
-    origem != null &&
-    haversine(origem, cidade.centro) > RAIO_COBERTURA_CIDADE_KM;
+    cidade != null && origem != null && haversine(origem, cidade.centro) > RAIO_COBERTURA_CIDADE_KM;
 
   /** Ponto marcado no mapa pertence à cidade em que foi marcado. */
   function trocarCidade(id: string) {
-    setCidadeId(id);
-    setEscolhaManual(true);
+    setCidadeEscolhida(id);
     setPartidaManual(null);
     setPreferirCentro(false);
   }
@@ -282,7 +274,7 @@ export default function TelaNovaRota() {
               <Chip
                 key={c}
                 rotulo={rotuloCategoria[c]}
-                icone={iconeCategoria[c] as any}
+                icone={iconeCategoria[c]}
                 ativo={categorias.includes(c)}
                 onPress={() => alternarCategoria(c)}
               />
@@ -370,7 +362,8 @@ export default function TelaNovaRota() {
                 Horário de bandeira 2
               </Texto>
               <Texto variante="micro" cor={cores.textoSuave} style={{ marginTop: 2 }}>
-                A tarifa por quilômetro é maior, e lugares fechados nesse horário aparecem marcados no roteiro.
+                A tarifa por quilômetro é maior, e lugares fechados nesse horário aparecem marcados
+                no roteiro.
               </Texto>
             </Cartao>
           ) : null}
@@ -383,7 +376,9 @@ export default function TelaNovaRota() {
           </Texto>
           <Texto variante="corpo" style={{ marginTop: espaco.xs }}>
             {cidade?.nome ?? '-'} ·{' '}
-            {valorOrcamento == null ? 'sem limite de gasto' : `até ${formatarReais(valorOrcamento)}`}{' '}
+            {valorOrcamento == null
+              ? 'sem limite de gasto'
+              : `até ${formatarReais(valorOrcamento)}`}{' '}
             em {formatarDuracao(tempoMin)}, a partir das{' '}
             {inicioPrevisto().toLocaleTimeString('pt-BR', {
               hour: '2-digit',

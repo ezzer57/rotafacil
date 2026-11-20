@@ -10,7 +10,11 @@ import { useExcluirConta, useSair, useUsuario } from '@/hooks/use-rotafacil';
 import { useTema, type ModoTema } from '@/theme/provider';
 import { espaco, raio } from '@/theme/tokens';
 
-const OPCOES_TEMA: { modo: ModoTema; rotulo: string; icone: 'sunny' | 'moon' | 'phone-portrait' }[] = [
+const OPCOES_TEMA: {
+  modo: ModoTema;
+  rotulo: string;
+  icone: 'sunny' | 'moon' | 'phone-portrait';
+}[] = [
   { modo: 'claro', rotulo: 'Claro', icone: 'sunny' },
   { modo: 'escuro', rotulo: 'Escuro', icone: 'moon' },
   { modo: 'sistema', rotulo: 'Sistema', icone: 'phone-portrait' },
@@ -52,7 +56,10 @@ export default function TelaPerfil() {
           <Texto variante="pequeno" peso="semi">
             Aparência
           </Texto>
-          <Texto variante="micro" cor={cores.textoSuave} style={{ marginTop: 4, marginBottom: espaco.md }}>
+          <Texto
+            variante="micro"
+            cor={cores.textoSuave}
+            style={{ marginTop: 4, marginBottom: espaco.md }}>
             Escolha o tema do aplicativo. A opção Sistema acompanha a configuração do aparelho.
           </Texto>
           <View style={{ flexDirection: 'row', gap: espaco.sm }}>
@@ -74,9 +81,9 @@ export default function TelaPerfil() {
             Créditos
           </Texto>
           <Texto variante="micro" cor={cores.textoSuave} style={{ marginTop: 4 }}>
-            Mapas, pontos turísticos e ruas: © colaboradores do OpenStreetMap (licença ODbL).
-            Rotas calculadas com o OSRM. Fotos dos lugares: Wikimedia Commons, com autor e
-            licença indicados em cada parada do roteiro. Lugar sem foto livre aparece sem imagem.
+            Mapas, pontos turísticos e ruas: © colaboradores do OpenStreetMap (licença ODbL). Rotas
+            calculadas com o OSRM. Fotos dos lugares: Wikimedia Commons, com autor e licença
+            indicados em cada parada do roteiro. Lugar sem foto livre aparece sem imagem.
           </Texto>
         </Cartao>
 
@@ -85,7 +92,10 @@ export default function TelaPerfil() {
           <Texto variante="pequeno" peso="semi" cor={cores.erro}>
             Privacidade
           </Texto>
-          <Texto variante="micro" cor={cores.textoSuave} style={{ marginTop: 4, marginBottom: espaco.md }}>
+          <Texto
+            variante="micro"
+            cor={cores.textoSuave}
+            style={{ marginTop: 4, marginBottom: espaco.md }}>
             {confirmandoExclusao
               ? 'Tem certeza? A conta, os roteiros, as visitas e os pontos de partida serão apagados de vez. Não dá para desfazer.'
               : 'Você pode apagar sua conta e todos os seus dados (roteiros, visitas e pontos de partida) a qualquer momento.'}

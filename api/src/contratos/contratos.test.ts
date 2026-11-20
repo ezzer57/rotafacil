@@ -36,15 +36,26 @@ describe('teto de gasto', () => {
   });
 
   it('vale também para o ajuste de teto de um roteiro pronto', () => {
-    expect(ajustarRoteiroSchema.safeParse({ operacao: 'orcamento', orcamento: TETO_MAXIMO_REAIS + 1 }).success).toBe(false);
-    expect(ajustarRoteiroSchema.safeParse({ operacao: 'orcamento', orcamento: 80 }).success).toBe(true);
+    expect(
+      ajustarRoteiroSchema.safeParse({ operacao: 'orcamento', orcamento: TETO_MAXIMO_REAIS + 1 })
+        .success,
+    ).toBe(false);
+    expect(ajustarRoteiroSchema.safeParse({ operacao: 'orcamento', orcamento: 80 }).success).toBe(
+      true,
+    );
   });
 });
 
 describe('valor pago na corrida', () => {
   it('aceita até o limite e recusa acima dele', () => {
-    expect(visitaSchema.safeParse({ pontoId: 'qx-catedral', custoRegistrado: CORRIDA_MAXIMA_REAIS }).success).toBe(true);
-    expect(visitaSchema.safeParse({ pontoId: 'qx-catedral', custoRegistrado: CORRIDA_MAXIMA_REAIS + 1 }).success).toBe(false);
+    expect(
+      visitaSchema.safeParse({ pontoId: 'qx-catedral', custoRegistrado: CORRIDA_MAXIMA_REAIS })
+        .success,
+    ).toBe(true);
+    expect(
+      visitaSchema.safeParse({ pontoId: 'qx-catedral', custoRegistrado: CORRIDA_MAXIMA_REAIS + 1 })
+        .success,
+    ).toBe(false);
   });
 
   it('continua opcional', () => {

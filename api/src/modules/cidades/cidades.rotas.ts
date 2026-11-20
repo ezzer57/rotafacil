@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import { prisma } from '@/lib/prisma.js';
-import { validar } from '@/middlewares/validacao.js';
+import { consulta, validar } from '@/middlewares/validacao.js';
 import { serializarCidade } from '@/modules/roteiros/serializador.js';
 
 export const rotasCidades = Router();
@@ -14,7 +14,7 @@ const buscaSchema = z.object({ q: z.string().trim().max(120).optional() });
  * Só traz cidades ativas, e informa quais já têm tarifa calibrada.
  */
 rotasCidades.get('/', validar({ query: buscaSchema }), async (req, res) => {
-  const termo = req.consulta?.q as string | undefined;
+  const termo = consulta<{ q?: string }>(req).q;
   const agora = new Date();
 
   const cidades = await prisma.cidade.findMany({

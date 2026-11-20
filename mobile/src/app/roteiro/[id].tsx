@@ -19,7 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { useLocalSearchParams } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useMemo, useRef, useState, type RefObject } from 'react';
 import {
   KeyboardAvoidingView,
   Linking,
@@ -60,7 +60,6 @@ const ORIGEM_DAS_MEDIDAS = {
     'Distâncias estimadas em linha reta (× 1,3), sem consulta às ruas. As linhas do mapa são retas entre as paradas.',
 } as const;
 
-
 export default function TelaRoteiro() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: roteiro, isLoading } = useRoteiro(id);
@@ -97,12 +96,13 @@ export default function TelaRoteiro() {
     [roteiro?.itens],
   );
 
-  // Valor mostrado enquanto o controle é arrastado, antes do recálculo.
-  const [orcamentoVisual, setOrcamentoVisual] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (roteiro) setOrcamentoVisual(roteiro.orcamento);
-  }, [roteiro?.id, roteiro?.orcamento]);
+  // Valor mostrado enquanto o controle é arrastado, antes do recálculo. Vale
+  // só para o roteiro e o teto em que foi arrastado: quando o roteiro volta
+  // recalculado, a tela passa a mostrar o teto dele.
+  const chaveDoTeto = `${roteiro?.id}:${roteiro?.orcamento}`;
+  const [arrastado, setArrastado] = useState<{ chave: string; valor: number | null } | null>(null);
+  const orcamentoVisual = arrastado?.chave === chaveDoTeto ? arrastado.valor : undefined;
+  const setOrcamentoVisual = (valor: number | null) => setArrastado({ chave: chaveDoTeto, valor });
 
   if (isLoading) {
     return (
@@ -119,7 +119,7 @@ export default function TelaRoteiro() {
   }
 
   const ajustando = remover.isPending || substituir.isPending || ajustarOrcamento.isPending;
-  const orcamentoExibido = orcamentoVisual ?? roteiro.orcamento;
+  const orcamentoExibido = orcamentoVisual === undefined ? roteiro.orcamento : orcamentoVisual;
   const semTeto = roteiro.orcamento == null;
   const uso = roteiro.totais.usoOrcamento;
   const registrando = registrarVisita.isPending || desfazerVisita.isPending;
@@ -181,8 +181,7 @@ export default function TelaRoteiro() {
         </View>
       ) : (
         <Texto variante="micro" cor={cores.textoSuave} style={{ marginTop: espaco.md }}>
-          Sem teto de gasto: o valor acima é a média prevista, e a faixa vai do mínimo ao
-          máximo.
+          Sem teto de gasto: o valor acima é a média prevista, e a faixa vai do mínimo ao máximo.
         </Texto>
       )}
 
@@ -275,9 +274,7 @@ export default function TelaRoteiro() {
   const legendaDoMapa = (
     <Texto variante="micro" cor={cores.textoSuave}>
       {ORIGEM_DAS_MEDIDAS[roteiro.diagnostico.rotas ?? 'estimada']}
-      {paradasVisitadas > 0
-        ? ' O trecho até cada parada em que você chegou sai do mapa.'
-        : ''}
+      {paradasVisitadas > 0 ? ' O trecho até cada parada em que você chegou sai do mapa.' : ''}
     </Texto>
   );
 
@@ -392,31 +389,31 @@ export default function TelaRoteiro() {
       behavior="padding"
       keyboardVerticalOffset={alturaCabecalho}
       style={{ flex: 1, backgroundColor: cores.fundo }}>
-    <ScrollView
-      ref={rolagem}
-      innerViewRef={conteudo as RefObject<View>}
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="on-drag"
-      style={{ backgroundColor: cores.fundo }}
-      contentContainerStyle={{
-        padding: espaco.lg,
-        gap: espaco.lg,
-        paddingBottom: 60 + insets.bottom,
-      }}>
-      {blocoResumo}
-      {blocoOrcamento}
-      <View style={{ gap: espaco.sm }}>
-        <MapaRoteiro
-          origem={roteiro.preferencias.origem}
-          paradas={paradasDoMapa}
-          altura={alturaMapa}
-        />
-        {legendaDoMapa}
-      </View>
-      {blocoPercurso}
-      {blocoDescartados}
-      {blocoPainel}
-    </ScrollView>
+      <ScrollView
+        ref={rolagem}
+        innerViewRef={conteudo as RefObject<View>}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        style={{ backgroundColor: cores.fundo }}
+        contentContainerStyle={{
+          padding: espaco.lg,
+          gap: espaco.lg,
+          paddingBottom: 60 + insets.bottom,
+        }}>
+        {blocoResumo}
+        {blocoOrcamento}
+        <View style={{ gap: espaco.sm }}>
+          <MapaRoteiro
+            origem={roteiro.preferencias.origem}
+            paradas={paradasDoMapa}
+            altura={alturaMapa}
+          />
+          {legendaDoMapa}
+        </View>
+        {blocoPercurso}
+        {blocoDescartados}
+        {blocoPainel}
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -457,7 +454,10 @@ function LinhaDescartada({ descartado }: { descartado: PontoDescartado }) {
   const cores = useCores();
   const estilos = useEstilos(cores);
 
-  const paleta: Record<MotivoDescarte, { cor: string; fundo: string; icone: keyof typeof Ionicons.glyphMap }> = {
+  const paleta: Record<
+    MotivoDescarte,
+    { cor: string; fundo: string; icone: keyof typeof Ionicons.glyphMap }
+  > = {
     orcamento: { cor: cores.erro, fundo: cores.erroSuave, icone: 'wallet-outline' },
     tempo: { cor: cores.alerta, fundo: cores.alertaSuave, icone: 'time-outline' },
     horario: { cor: cores.alerta, fundo: cores.alertaSuave, icone: 'lock-closed-outline' },
@@ -536,8 +536,8 @@ function ParadaDoRoteiro({
             </View>
 
             <Texto variante="micro" cor={cores.textoSuave}>
-              {rotuloCategoria[item.ponto.categoria]} ·{' '}
-              {formatarDuracao(item.ponto.tempoVisitaMin)} de visita
+              {rotuloCategoria[item.ponto.categoria]} · {formatarDuracao(item.ponto.tempoVisitaMin)}{' '}
+              de visita
               {item.custoNoLocal > 0 ? ` · ${formatarReais(item.custoNoLocal)}` : ''}
               {item.ponto.arLivre ? ' · ao ar livre' : ''}
             </Texto>

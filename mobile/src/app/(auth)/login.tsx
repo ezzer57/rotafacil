@@ -47,9 +47,7 @@ export default function TelaLogin() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: cores.fundo }}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior="padding">
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <ScrollView
           contentContainerStyle={{
             flexGrow: 1,

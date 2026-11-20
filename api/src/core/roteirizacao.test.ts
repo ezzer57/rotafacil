@@ -103,7 +103,9 @@ describe('situacaoNoHorario', () => {
     expect(situacaoNoHorario(museu, new Date('2026-10-21T10:00:00'))).toBe('aberto');
     expect(situacaoNoHorario(museu, new Date('2026-10-21T07:30:00'))).toBe('fechado');
     expect(situacaoNoHorario(museu, new Date('2026-10-21T22:00:00'))).toBe('fechado');
-    expect(situacaoNoHorario(museu, new Date('2026-10-21T16:30:00'))).toBe('fecha-durante-a-visita');
+    expect(situacaoNoHorario(museu, new Date('2026-10-21T16:30:00'))).toBe(
+      'fecha-durante-a-visita',
+    );
   });
 
   it('lugar ao ar livre nunca fica fora do horário', () => {
@@ -167,8 +169,7 @@ describe('gerarRoteiro', () => {
     );
 
     const resultado = gerarRoteiro(candidatos, preferencias({ orcamento: 30 }), TARIFA);
-    const total =
-      resultado.totais.custoTransporte.estimado + resultado.totais.custoLocais;
+    const total = resultado.totais.custoTransporte.estimado + resultado.totais.custoLocais;
 
     expect(total).toBeLessThanOrEqual(30);
   });
@@ -178,11 +179,7 @@ describe('gerarRoteiro', () => {
       candidato({ id: `p${i}`, coordenada: aNorte(km), tempoVisitaMin: 60 }),
     );
 
-    const resultado = gerarRoteiro(
-      candidatos,
-      preferencias({ tempoDisponivelMin: 120 }),
-      TARIFA,
-    );
+    const resultado = gerarRoteiro(candidatos, preferencias({ tempoDisponivelMin: 120 }), TARIFA);
 
     expect(resultado.totais.duracaoMin).toBeLessThanOrEqual(120);
   });
@@ -266,7 +263,13 @@ describe('gerarRoteiro', () => {
 
   it('prefere o lugar aberto ao fechado quando só cabe um', () => {
     const candidatos = [
-      candidato({ id: 'fechado', relevancia: 5, coordenada: aNorte(0.3), abreMin: 14 * 60, fechaMin: 18 * 60 }),
+      candidato({
+        id: 'fechado',
+        relevancia: 5,
+        coordenada: aNorte(0.3),
+        abreMin: 14 * 60,
+        fechaMin: 18 * 60,
+      }),
       candidato({ id: 'aberto', relevancia: 3, coordenada: aNorte(0.3) }),
     ];
 
@@ -335,9 +338,7 @@ describe('gerarRoteiro', () => {
   });
 
   it('informa as métricas de processamento', () => {
-    const candidatos = [1, 2, 3].map((km, i) =>
-      candidato({ id: `p${i}`, coordenada: aNorte(km) }),
-    );
+    const candidatos = [1, 2, 3].map((km, i) => candidato({ id: `p${i}`, coordenada: aNorte(km) }));
 
     const resultado = gerarRoteiro(candidatos, preferencias(), TARIFA);
 
@@ -353,7 +354,9 @@ describe('beneficio', () => {
       candidato({ id: 'postal', relevancia: 5, nota: null, avaliacoes: 0 }),
       candidato({ id: 'cafe', relevancia: 2, nota: null, avaliacoes: 0 }),
     ];
-    expect(beneficio(universo[0]!, universo, 1)).toBeGreaterThan(beneficio(universo[1]!, universo, 1));
+    expect(beneficio(universo[0]!, universo, 1)).toBeGreaterThan(
+      beneficio(universo[1]!, universo, 1),
+    );
   });
 
   it('a nota desempata pontos de mesma relevância', () => {
@@ -361,20 +364,36 @@ describe('beneficio', () => {
       candidato({ id: 'bom', relevancia: 3, nota: 4.8, avaliacoes: 900 }),
       candidato({ id: 'ruim', relevancia: 3, nota: 3.2, avaliacoes: 900 }),
     ];
-    expect(beneficio(universo[0]!, universo, 1)).toBeGreaterThan(beneficio(universo[1]!, universo, 1));
+    expect(beneficio(universo[0]!, universo, 1)).toBeGreaterThan(
+      beneficio(universo[1]!, universo, 1),
+    );
   });
 
   it('a preferência de categoria multiplica o benefício', () => {
     const universo = [candidato({ id: 'a', relevancia: 4 })];
-    expect(beneficio(universo[0]!, universo, 0.25)).toBeCloseTo(beneficio(universo[0]!, universo, 1) / 4);
+    expect(beneficio(universo[0]!, universo, 0.25)).toBeCloseTo(
+      beneficio(universo[0]!, universo, 1) / 4,
+    );
   });
 });
 
 describe('gerarRoteiro: relevância e ordem das paradas', () => {
   it('com tempo para só um ponto, escolhe o mais relevante mesmo estando mais longe', () => {
     const candidatos = [
-      candidato({ id: 'complementar', relevancia: 2, coordenada: aNorte(0.3), nota: null, avaliacoes: 0 }),
-      candidato({ id: 'simbolo', relevancia: 5, coordenada: aNorte(0.9), nota: null, avaliacoes: 0 }),
+      candidato({
+        id: 'complementar',
+        relevancia: 2,
+        coordenada: aNorte(0.3),
+        nota: null,
+        avaliacoes: 0,
+      }),
+      candidato({
+        id: 'simbolo',
+        relevancia: 5,
+        coordenada: aNorte(0.9),
+        nota: null,
+        avaliacoes: 0,
+      }),
     ];
     const resultado = gerarRoteiro(
       candidatos,
@@ -400,11 +419,23 @@ describe('gerarRoteiro: relevância e ordem das paradas', () => {
   it('a ordem final nunca é mais demorada que a da inserção gulosa', () => {
     const candidatos = [
       candidato({ id: 'a', relevancia: 5, coordenada: aNorte(0.8) }),
-      candidato({ id: 'b', relevancia: 4, coordenada: { lat: CENTRO.lat, lng: CENTRO.lng + 0.008 } }),
+      candidato({
+        id: 'b',
+        relevancia: 4,
+        coordenada: { lat: CENTRO.lat, lng: CENTRO.lng + 0.008 },
+      }),
       candidato({ id: 'c', relevancia: 3, coordenada: aNorte(0.4) }),
-      candidato({ id: 'd', relevancia: 3, coordenada: { lat: CENTRO.lat, lng: CENTRO.lng - 0.006 } }),
+      candidato({
+        id: 'd',
+        relevancia: 3,
+        coordenada: { lat: CENTRO.lat, lng: CENTRO.lng - 0.006 },
+      }),
     ];
-    const resultado = gerarRoteiro(candidatos, preferencias({ orcamento: null, tempoDisponivelMin: 480 }), TARIFA);
+    const resultado = gerarRoteiro(
+      candidatos,
+      preferencias({ orcamento: null, tempoDisponivelMin: 480 }),
+      TARIFA,
+    );
 
     const deslocamento = resultado.itens.reduce((s, i) => s + i.trechoAteAqui.duracaoMin, 0);
     // Cota simples: nenhum percurso razoável de 4 pontos a menos de 1 km um do outro passa de 1 h.
@@ -417,11 +448,21 @@ describe('gerarRoteiro: relevância e ordem das paradas', () => {
     // chegar a ele já aberto. Visitá-lo primeiro, às 9h, encurtaria o caminho,
     // mas o deixaria fechado.
     const candidatos = [
-      candidato({ id: 'abre-tarde', relevancia: 5, coordenada: aNorte(0.2), abreMin: 10 * 60, fechaMin: 18 * 60 }),
+      candidato({
+        id: 'abre-tarde',
+        relevancia: 5,
+        coordenada: aNorte(0.2),
+        abreMin: 10 * 60,
+        fechaMin: 18 * 60,
+      }),
       candidato({ id: 'longe', relevancia: 5, coordenada: aNorte(0.9), tempoVisitaMin: 40 }),
       candidato({ id: 'meio', relevancia: 5, coordenada: aNorte(0.5), tempoVisitaMin: 40 }),
     ];
-    const resultado = gerarRoteiro(candidatos, preferencias({ orcamento: null, tempoDisponivelMin: 480 }), TARIFA);
+    const resultado = gerarRoteiro(
+      candidatos,
+      preferencias({ orcamento: null, tempoDisponivelMin: 480 }),
+      TARIFA,
+    );
 
     expect(resultado.itens).toHaveLength(3);
     expect(resultado.itens.every((i) => i.situacaoNoHorario === 'aberto')).toBe(true);
@@ -429,11 +470,21 @@ describe('gerarRoteiro: relevância e ordem das paradas', () => {
 
   it('marca a situação de cada parada de acordo com a hora prevista de chegada', () => {
     const candidatos = [
-      candidato({ id: 'abre-tarde', relevancia: 5, coordenada: aNorte(0.2), abreMin: 11 * 60, fechaMin: 18 * 60 }),
+      candidato({
+        id: 'abre-tarde',
+        relevancia: 5,
+        coordenada: aNorte(0.2),
+        abreMin: 11 * 60,
+        fechaMin: 18 * 60,
+      }),
       candidato({ id: 'longe', relevancia: 5, coordenada: aNorte(0.9) }),
       candidato({ id: 'meio', relevancia: 5, coordenada: aNorte(0.5) }),
     ];
-    const resultado = gerarRoteiro(candidatos, preferencias({ orcamento: null, tempoDisponivelMin: 480 }), TARIFA);
+    const resultado = gerarRoteiro(
+      candidatos,
+      preferencias({ orcamento: null, tempoDisponivelMin: 480 }),
+      TARIFA,
+    );
 
     for (const item of resultado.itens) {
       expect(item.situacaoNoHorario).toBe(situacaoNoHorario(item.candidato, item.chegadaPrevista));

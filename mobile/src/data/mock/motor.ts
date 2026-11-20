@@ -27,7 +27,7 @@ import type {
   TotaisRoteiro,
   Trecho,
 } from '@/domain/types';
-import { CIDADES, TARIFAS, pontosPorCidade, type TarifaTaxi } from './dados';
+import { CIDADES, cidadeDoMock, pontosPorCidade, tarifaDoMock, type TarifaTaxi } from './dados';
 
 /** Acima desta distância o deslocamento deixa de ser a pé. */
 const DISTANCIA_MAX_A_PE_KM = 1;
@@ -200,8 +200,8 @@ export function gerarRoteiro(pref: PreferenciasRoteiro): Roteiro {
   const teto = pref.orcamento;
   const regua = teto ?? ORCAMENTO_DE_REFERENCIA;
 
-  const cidade = CIDADES.find((c) => c.id === pref.cidadeId) ?? CIDADES[0];
-  const tarifa = TARIFAS[cidade.id];
+  const cidade = CIDADES.find((c) => c.id === pref.cidadeId) ?? cidadeDoMock('quixada');
+  const tarifa = tarifaDoMock(cidade.id);
   const candidatos = pontosPorCidade(cidade.id);
 
   const selecionados: PontoInteresse[] = [];

@@ -87,12 +87,7 @@ describe('faixaAplicativo', () => {
 
 describe('estimarTrechoPorAplicativo', () => {
   it('devolve a memória de cálculo completa, para exibição na interface', () => {
-    const resultado = estimarTrechoPorAplicativo(
-      4,
-      3,
-      new Date('2026-10-21T14:00:00'),
-      TARIFA,
-    );
+    const resultado = estimarTrechoPorAplicativo(4, 3, new Date('2026-10-21T14:00:00'), TARIFA);
 
     expect(resultado.bandeira).toBe(1);
     // 5,50 + (4 × 3,20) + (0,5 × 3) = 5,50 + 12,80 + 1,50 = 19,80

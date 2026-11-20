@@ -31,9 +31,7 @@ const esquema = z.object({
     ),
 
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
-  LOG_LEVEL: z
-    .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
-    .default('info'),
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 
   // Fuso das contas de horário: bandeira do táxi e horário de funcionamento.
   // Sem ele valeria o relógio do servidor, que em hospedagem costuma estar em

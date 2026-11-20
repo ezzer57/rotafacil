@@ -52,13 +52,20 @@ export default function TelaBoasVindas() {
             Seu roteiro pela cidade, no seu tempo e no seu bolso.
           </Texto>
           <Texto variante="corpo" cor="rgba(255, 255, 255, 0.88)" style={{ lineHeight: 24 }}>
-            Diga o que gosta de visitar e quanto tempo tem. O RotaFácil monta o percurso pelas
-            ruas e mostra o caminho no mapa.
+            Diga o que gosta de visitar e quanto tempo tem. O RotaFácil monta o percurso pelas ruas
+            e mostra o caminho no mapa.
           </Texto>
         </View>
 
         {/* Ocupa o espaço que sobra; some se não couber. */}
-        <View style={{ flex: 1, minHeight: 0, width: '100%', maxWidth: LARGURA_MAXIMA, alignSelf: 'center' }}>
+        <View
+          style={{
+            flex: 1,
+            minHeight: 0,
+            width: '100%',
+            maxWidth: LARGURA_MAXIMA,
+            alignSelf: 'center',
+          }}>
           <IlustracaoBoasVindas />
         </View>
       </SafeAreaView>
