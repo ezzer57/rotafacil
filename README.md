@@ -136,6 +136,13 @@ abrir no navegador do computador em vez do celular, aperte `w` no terminal.
 
 Não rode este modo e o do Docker ao mesmo tempo: os dois usam a porta 3333.
 
+Testes do aplicativo (componentes da tela do roteiro), sem celular nem servidor:
+
+```bash
+cd mobile
+npm test
+```
+
 ### 3. Só o aplicativo, sem servidor (modo de demonstração)
 
 Deixe `EXPO_PUBLIC_API_URL` vazio no `mobile/.env` (ou não crie o arquivo) e
@@ -162,7 +169,7 @@ são sempre estimadas em linha reta, e nada fica salvo.
 | API | Node.js, Express 5, TypeScript (executado com tsx), Zod, JWT, bcrypt, pino |
 | Banco | PostgreSQL 16 com Prisma 6 (migrações e carga inicial) |
 | Rotas | OSRM com dados do OpenStreetMap (servidores públicos ou próprio, em Docker) |
-| Testes | Vitest (motor, cliente de rotas e HTTP) e Postman CLI (contrato da API) |
+| Testes | Vitest na API (motor, cliente de rotas, HTTP e integração com PostgreSQL), Jest com Testing Library no aplicativo (componentes) e Postman CLI (contrato da API) |
 | Entrega | Docker Compose, nginx (site), GitHub Actions (integração contínua) |
 
 Dados de mapa e de pontos: © colaboradores do OpenStreetMap, licença ODbL.
@@ -184,6 +191,7 @@ mobile/
 └─ src/
    ├─ app/        telas (expo-router)
    ├─ components/ biblioteca de componentes visuais
+   │  ├─ roteiro/ partes da tela do roteiro (resumo, teto, parada, trecho, descartados), com testes
    │  └─ mapa/    mapas do percurso e do ponto de partida (WebView no celular, iframe no navegador)
    ├─ domain/     tipos, validação e formatação (contrato com a API)
    ├─ data/
