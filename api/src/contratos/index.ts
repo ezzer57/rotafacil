@@ -9,6 +9,12 @@
 import { z } from 'zod';
 
 export const SENHA_MINIMA = 8;
+/**
+ * O bcrypt só lê os primeiros 72 bytes da senha: o resto seria ignorado sem
+ * aviso, e duas senhas longas com o mesmo começo valeriam igual.
+ */
+export const SENHA_MAXIMA_BYTES = 72;
+const bytes = (texto: string) => new TextEncoder().encode(texto).length;
 
 export const categoriaSchema = z.enum([
   'cultura',
@@ -32,7 +38,7 @@ export const cadastroSchema = z.object({
   senha: z
     .string()
     .min(SENHA_MINIMA, `A senha precisa de pelo menos ${SENHA_MINIMA} caracteres`)
-    .max(200, 'Senha longa demais'),
+    .refine((senha) => bytes(senha) <= SENHA_MAXIMA_BYTES, 'A senha pode ter até 72 caracteres'),
 });
 
 export const loginSchema = z.object({

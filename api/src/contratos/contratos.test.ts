@@ -11,6 +11,7 @@ import {
   CORRIDA_MAXIMA_REAIS,
   TETO_MAXIMO_REAIS,
   ajustarRoteiroSchema,
+  cadastroSchema,
   gerarRoteiroSchema,
   visitaSchema,
 } from './index.js';
@@ -60,5 +61,19 @@ describe('valor pago na corrida', () => {
 
   it('continua opcional', () => {
     expect(visitaSchema.safeParse({ pontoId: 'qx-catedral' }).success).toBe(true);
+  });
+});
+
+describe('senha do cadastro', () => {
+  const cadastro = (senha: string) => ({ nome: 'Ana', email: 'ana@teste.com', senha });
+
+  it('aceita até 72 bytes, o que o bcrypt consegue ler', () => {
+    expect(cadastroSchema.safeParse(cadastro('a'.repeat(72))).success).toBe(true);
+  });
+
+  it('recusa o que passa de 72 bytes, contando acento como dois', () => {
+    expect(cadastroSchema.safeParse(cadastro('a'.repeat(73))).success).toBe(false);
+    // 40 letras com acento ocupam 80 bytes.
+    expect(cadastroSchema.safeParse(cadastro('ã'.repeat(40))).success).toBe(false);
   });
 });

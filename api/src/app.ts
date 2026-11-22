@@ -25,12 +25,15 @@ import { rotasPontos } from '@/modules/pontos/pontos.rotas.js';
 import { rotasRoteiros } from '@/modules/roteiros/roteiros.rotas.js';
 import { rotasSaude } from '@/modules/saude.rotas.js';
 
+const ID_DE_REQUISICAO = /^[\w.-]{1,64}$/;
+
 export function criarApp() {
   const app = express();
 
-  // Atrás do proxy do Render, o IP real vem em X-Forwarded-For. Sem isto, o
-  // limite por IP enxergaria todos os clientes como um só.
-  app.set('trust proxy', 1);
+  // Só atrás de um proxy (hospedagem) o IP real vem em X-Forwarded-For. Confiar
+  // nesse cabeçalho sem proxy deixaria qualquer um trocar de IP a cada pedido
+  // e escapar do limite de tentativas de login.
+  app.set('trust proxy', env.TRUST_PROXY);
   app.disable('x-powered-by');
 
   app.use(helmet());
@@ -44,7 +47,9 @@ export function criarApp() {
         if (env.CORS_ORIGENS.includes(origem)) return retorno(null, true);
         return retorno(new Error('Origem não autorizada pelo CORS'));
       },
-      credentials: true,
+      // O token vai no cabeçalho Authorization, nunca em cookie: o navegador
+      // não precisa mandar credenciais de outro site.
+      credentials: false,
     }),
   );
 
@@ -57,7 +62,11 @@ export function criarApp() {
     pinoHttp({
       logger,
       genReqId: (req, res) => {
-        const id = (req.headers['x-request-id'] as string) ?? randomUUID();
+        // Aproveita o identificador do cliente só se for curto e simples: o
+        // valor vai para o log e para a resposta.
+        const recebido = req.headers['x-request-id'];
+        const id =
+          typeof recebido === 'string' && ID_DE_REQUISICAO.test(recebido) ? recebido : randomUUID();
         res.setHeader('x-request-id', id);
         return id;
       },

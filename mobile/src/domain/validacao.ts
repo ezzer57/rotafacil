@@ -9,8 +9,11 @@
 
 import { z } from 'zod';
 
-/** Precisa acompanhar o valor exigido pela API (api/src/contratos). */
+/** Precisam acompanhar os valores exigidos pela API (api/src/contratos). */
 export const SENHA_MINIMA = 8;
+/** O bcrypt da API só lê os primeiros 72 bytes da senha. */
+export const SENHA_MAXIMA_BYTES = 72;
+const bytes = (texto: string) => new TextEncoder().encode(texto).length;
 
 export const schemaLogin = z.object({
   email: z.string().min(1, 'Informe seu e-mail').email('E-mail inválido'),
@@ -24,7 +27,10 @@ export const schemaCadastro = z
   .object({
     nome: z.string().min(2, 'Informe seu nome'),
     email: z.string().min(1, 'Informe seu e-mail').email('E-mail inválido'),
-    senha: z.string().min(SENHA_MINIMA, `A senha precisa de pelo menos ${SENHA_MINIMA} caracteres`),
+    senha: z
+      .string()
+      .min(SENHA_MINIMA, `A senha precisa de pelo menos ${SENHA_MINIMA} caracteres`)
+      .refine((senha) => bytes(senha) <= SENHA_MAXIMA_BYTES, 'A senha pode ter até 72 caracteres'),
     confirmacao: z.string(),
   })
   .refine((dados) => dados.senha === dados.confirmacao, {

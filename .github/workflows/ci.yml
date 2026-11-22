@@ -51,6 +51,10 @@ jobs:
         run: npm run format:check
       - name: Testes automatizados
         run: npm test
+      # A API inteira contra o PostgreSQL do serviço acima, num banco à parte
+      # (rotafacil_test), criado pelo próprio teste.
+      - name: Testes de integração (API e banco)
+        run: npm run test:integracao
       - name: Aplicar migrações no banco limpo
         run: npx prisma migrate deploy
       - name: Carga inicial

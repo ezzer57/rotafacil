@@ -4,11 +4,11 @@
  * No aparelho usa o SecureStore, que grava em area protegida do sistema
  * (Keychain no iOS, Keystore no Android) - e onde um token deve ficar, nunca
  * no AsyncStorage. Na versao web o SecureStore nao existe, entao cai para o
- * armazenamento comum, usado apenas em desenvolvimento.
+ * armazenamento local do navegador, ao alcance de um script malicioso na
+ * pagina (risco aceito no prototipo; ver "Seguranca e LGPD" no README da API).
  *
- * Hoje nada escreve aqui, porque a autenticacao esta simulada. Quando a API
- * entrar, o fluxo passa a ser: entrar() -> salvarToken() -> o cliente HTTP
- * le o token em cada requisicao.
+ * Fluxo: entrar() -> salvarToken() -> o cliente HTTP le o token em cada
+ * requisicao. No modo de demonstracao nada e gravado aqui.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';

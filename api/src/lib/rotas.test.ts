@@ -128,6 +128,78 @@ describe('criarClienteDeRotas', () => {
     const fetchFn = vi.fn(async () => resposta({ code: 'Ok', routes: [] }));
     expect(await cliente(fetchFn as unknown as typeof fetch).tracar('pe', A, B)).toBeNull();
   });
+
+  it('"sem caminho" vale só para aquele trecho: o servidor não entra em pausa', async () => {
+    const rota = {
+      code: 'Ok',
+      routes: [
+        {
+          geometry: {
+            coordinates: [
+              [-39.0156, -4.9712],
+              [-39.0156, -5.0312],
+            ],
+          },
+        },
+      ],
+    };
+    let primeira = true;
+    const fetchFn = vi.fn(async () => {
+      if (primeira) {
+        primeira = false;
+        // Como o OSRM responde a um ponto longe de qualquer rua.
+        return { ok: false, status: 400, json: async () => ({ code: 'NoRoute' }) } as Response;
+      }
+      return resposta(rota);
+    });
+    const rotas = cliente(fetchFn as unknown as typeof fetch);
+
+    expect(await rotas.tracar('pe', A, B)).toBeNull();
+    expect(await rotas.tracar('pe', A, B)).not.toBeNull();
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it('traça vários trechos na ordem pedida, no máximo três ao mesmo tempo', async () => {
+    let emAndamento = 0;
+    let maximo = 0;
+    const fetchFn = vi.fn(async (url: string) => {
+      emAndamento += 1;
+      maximo = Math.max(maximo, emAndamento);
+      await new Promise((r) => setTimeout(r, 5));
+      emAndamento -= 1;
+      // A longitude de destino identifica o pedido.
+      const destino = Number(url.split(';')[1]!.split(',')[0]);
+      return resposta({
+        code: 'Ok',
+        routes: [
+          {
+            geometry: {
+              coordinates: [
+                [0, 0],
+                [destino, 0],
+              ],
+            },
+          },
+        ],
+      });
+    });
+    const pedidos = [1, 2, 3, 4, 5, 6, 7].map((n) => ({
+      perfil: 'carro' as const,
+      de: A,
+      para: { lat: 0, lng: n },
+    }));
+
+    const tracados = await cliente(fetchFn as unknown as typeof fetch).tracarVarios([
+      ...pedidos.slice(0, 3),
+      null,
+      ...pedidos.slice(3),
+    ]);
+
+    expect(maximo).toBeLessThanOrEqual(3);
+    expect(fetchFn).toHaveBeenCalledTimes(7);
+    expect(tracados[3]).toBeNull();
+    expect(tracados.map((t) => t?.[1]?.[1] ?? null)).toEqual([1, 2, 3, null, 4, 5, 6, 7]);
+  });
 });
 
 describe('simplificarTracado', () => {

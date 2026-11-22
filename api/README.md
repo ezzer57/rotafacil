@@ -28,10 +28,15 @@ modos. `npm run build` só confere os tipos do código de produção.
 Verificações:
 
 ```bash
-npm run typecheck   # tipos
-npm test            # testes automatizados
-npm run contrato    # teste de contrato da API com a Postman CLI (servidor no ar)
+npm run typecheck          # tipos
+npm test                   # testes de unidade (motor, cliente de rotas, HTTP sem banco)
+npm run test:integracao    # API inteira contra o PostgreSQL (precisa do npm run db:up)
+npm run contrato           # teste de contrato da API com a Postman CLI (servidor no ar)
 ```
+
+Os testes de integração usam um banco à parte, `rotafacil_test`, criado na
+primeira execução no mesmo PostgreSQL do Docker, e apagam os dados dele antes
+de cada teste. Por segurança, só rodam em banco com "test" no nome.
 
 ## Estrutura
 
@@ -42,6 +47,8 @@ src/
 ├─ lib/              logger, cliente do banco e erros da aplicação
 ├─ middlewares/      autenticação, validação e tratamento de erros
 ├─ modules/          auth, cidades, pontos, roteiros e saúde
+│  └─ roteiros/      serviço (regras), repositório (banco) e gravação (motor → tabelas)
+├─ testes/           apoio dos testes de integração
 ├─ contratos/        schemas Zod de entrada
 ├─ app.ts            montagem do Express
 └─ server.ts         ciclo de vida do processo
@@ -116,6 +123,33 @@ espera as requisições em andamento e fecha o banco antes de sair.
 
 **Exclusão em cascata.** Apagar a conta apaga roteiros, itens, visitas e as
 coordenadas de origem (LGPD, art. 18).
+
+## Segurança e LGPD
+
+Riscos considerados e como cada um está tratado. O que diz "aceito" é uma
+limitação conhecida do protótipo, justificada.
+
+| Risco | Como está tratado |
+|---|---|
+| Senha vazada do banco | Hash bcrypt com custo 12; o hash nunca sai da API. A senha vai até 72 bytes, o que o bcrypt de fato lê |
+| Adivinhar senha | 10 tentativas de cadastro e login por IP a cada 15 minutos; mensagem igual para senha errada e e-mail inexistente, com o mesmo tempo de resposta |
+| Escapar do limite trocando de IP | O cabeçalho `X-Forwarded-For` só vale com `TRUST_PROXY` configurado para a hospedagem (0 por padrão) |
+| Token forjado ou adulterado | JWT HS256 com segredo de 32 caracteres ou mais, conferido na partida. Só HS256 é aceito (nem `none`, nem outro algoritmo), e o emissor e o usuário são conferidos |
+| Token de conta apagada | Toda requisição autenticada confere se a conta ainda existe |
+| Token roubado do aparelho | No celular, fica no SecureStore (Keychain no iPhone, Keystore no Android) e expira em 7 dias. No navegador fica no armazenamento local, ao alcance de um script malicioso na página: aceito no protótipo, que não carrega script de terceiros além do Leaflet |
+| Ver ou mexer no roteiro de outra pessoa | Toda consulta filtra pelo dono. Roteiro alheio responde 404, sem confirmar que existe |
+| Pedido vindo de outro site, pelo navegador | Lista de origens autorizadas (`CORS_ORIGENS`), sem credenciais de navegador: o token vai no cabeçalho, nunca em cookie |
+| Dado pessoal no log | Senha, token e cabeçalho `Authorization` são removidos; o corpo das requisições, com a posição do usuário, não vai para o log; o identificador de requisição vindo do cliente só é aceito se for curto e simples |
+| Corpo gigante ou JSON malformado | Limite de 100 KB e erro no formato padrão |
+| Erro interno revelando detalhes | Em produção, 500 genérico; o detalhe fica só no log |
+| Injeção de SQL | Prisma com consultas parametrizadas; nenhuma SQL é montada com dado do usuário |
+| Dados enviados a terceiros | O OSRM recebe a partida e as coordenadas dos pontos; mapa, fotos e Leaflet recebem o IP. Tudo declarado na Política de Privacidade, com a transferência internacional (art. 33, VIII). Com servidor de rotas próprio, as coordenadas não saem |
+| Direito de eliminação (art. 18) | `DELETE /v1/me` apaga conta, roteiros, paradas, visitas e aceites, em cascata; um teste de integração confere |
+| Prova do consentimento (art. 8º) | O aceite fica gravado com tipo, versão da política e data |
+| Cadastro revela se o e-mail existe | Inevitável num cadastro ("e-mail já cadastrado"); contido pelo limite de tentativas. Aceito |
+| Tráfego sem criptografia | Local, em HTTP. Pendente: exigir HTTPS na hospedagem, quando ela for escolhida |
+| Segredos de demonstração | O `JWT_SECRET` e a senha do banco do `docker-compose.yml` são de demonstração e precisam ser trocados ao publicar |
+| Dependências com falha conhecida | Pendente: `npm audit` e atualização na etapa 9 da revisão |
 
 ## Dados dos pontos
 

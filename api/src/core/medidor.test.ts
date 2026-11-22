@@ -200,6 +200,25 @@ describe('gerarRoteiro com medidas pelas ruas', () => {
     expect(diagnostico.rotas).toBe('estimada');
   });
 
+  it('com o servidor de rotas fora do ar, sai o mesmo roteiro da estimativa por linha reta', () => {
+    const candidatos = [candidato('perto', PERTO), candidato('longe', LONGE)];
+    const semResposta: MatrizDeRotas = {
+      distanciasM: PONTOS.map(() => PONTOS.map(() => null)),
+      duracoesS: PONTOS.map(() => PONTOS.map(() => null)),
+    };
+    const semMedidor = gerarRoteiro(candidatos, preferencias, TARIFA);
+
+    for (const medidor of [
+      criarMedidor(PONTOS, null, null),
+      criarMedidor(PONTOS, semResposta, semResposta),
+    ]) {
+      const resultado = gerarRoteiro(candidatos, preferencias, TARIFA, medidor);
+      expect(resultado.diagnostico.rotas).toBe('estimada');
+      expect(resultado.itens).toEqual(semMedidor.itens);
+      expect(resultado.totais).toEqual(semMedidor.totais);
+    }
+  });
+
   it('com medida só para o carro, o trecho a pé continua estimado e o roteiro sai "parcial"', () => {
     const medidor = criarMedidor(PONTOS, null, deCarro);
     const { itens, diagnostico } = gerarRoteiro(

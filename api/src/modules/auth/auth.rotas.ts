@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 
+import { env } from '@/config/env.js';
 import { cadastroSchema, consentimentoSchema, loginSchema } from '@/contratos/index.js';
 import { assinarToken, autenticar } from '@/middlewares/autenticacao.js';
 import { validar } from '@/middlewares/validacao.js';
@@ -12,7 +13,7 @@ import * as servico from './auth.service.js';
  */
 const limiteCredencial = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 10,
+  limit: env.RATE_LIMIT_CREDENCIAL_MAX,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: {
