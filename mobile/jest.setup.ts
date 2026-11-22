@@ -1,8 +1,6 @@
 // Preparo dos testes do aplicativo (Jest com o preset jest-expo).
 
-// Os horários das paradas aparecem no fuso de Quixadá, como no aparelho de
-// quem usa o app; assim o teste dá o mesmo resultado em qualquer máquina.
-process.env.TZ = 'America/Fortaleza';
+// O fuso dos testes é fixado em jest.fuso.js.
 
 // O tema guarda a preferência no armazenamento do aparelho, que não existe
 // no teste: usa a versão em memória que a própria biblioteca oferece.
