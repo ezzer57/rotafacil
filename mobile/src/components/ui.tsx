@@ -76,6 +76,11 @@ type BotaoProps = {
   desabilitado?: boolean;
   largura?: 'total' | 'auto';
   style?: StyleProp<ViewStyle>;
+  /**
+   * O que o leitor de tela diz, quando o título sozinho não basta: numa lista
+   * de paradas, "Remover" precisa dizer qual parada.
+   */
+  rotuloAcessivel?: string;
 };
 
 export function Botao({
@@ -87,6 +92,7 @@ export function Botao({
   desabilitado,
   largura = 'total',
   style,
+  rotuloAcessivel,
 }: BotaoProps) {
   const cores = useCores();
   const estilos = useEstilos(cores);
@@ -103,6 +109,10 @@ export function Botao({
   return (
     <Pressable
       onPress={inativo ? undefined : onPress}
+      role="button"
+      aria-label={rotuloAcessivel ?? titulo}
+      aria-disabled={inativo}
+      aria-busy={carregando}
       style={({ pressed }) => [
         estilos.botao,
         {

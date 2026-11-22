@@ -61,7 +61,7 @@ jobs:
         run: npm run db:seed
 
   mobile:
-    name: Aplicativo (tipos)
+    name: Aplicativo (tipos e testes)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -80,6 +80,8 @@ jobs:
         run: npm run lint
       - name: Formatação (Prettier)
         run: npm run format:check
+      - name: Testes dos componentes
+        run: npm test -- --ci
 
   docker:
     name: Docker (sobe tudo e responde)

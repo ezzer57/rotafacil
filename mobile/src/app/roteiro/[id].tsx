@@ -5,9 +5,10 @@
  * bandeira tarifária aplicada e, quando há teto de gasto, o consumo do
  * orçamento. É a tela que materializa as hipóteses 1 e 2 do trabalho.
  *
- * Cada parada tem o check-in ("Cheguei"), que registra a hora de chegada e,
- * quando o trecho foi de carro, o valor pago na corrida: é o dado do
- * histórico (hipótese 3) e o preço real que mede a estimativa (hipótese 1).
+ * Esta tela cuida dos dados (carregar, ajustar, check-in), dos estados de
+ * carregamento e de erro e da disposição: no navegador largo, o mapa numa
+ * coluna ao lado da lista; no celular, numa caixa vertical no meio dela. As
+ * partes estão em src/components/roteiro.
  *
  * Três recursos existem especificamente para a defesa:
  *  - o controle de orçamento, que põe ou tira o teto e refaz a seleção ao vivo;
@@ -15,41 +16,26 @@
  *  - o painel de processamento, com as métricas do algoritmo.
  */
 
-import { Ionicons } from '@expo/vector-icons';
-import Slider from '@react-native-community/slider';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
-import { useMemo, useRef, useState, type RefObject } from 'react';
-import {
-  KeyboardAvoidingView,
-  Linking,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { useMemo, useRef, type ReactNode, type RefObject } from 'react';
+import { KeyboardAvoidingView, ScrollView, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { FotoDoLugar } from '@/components/foto';
+import { AvisoDeErro } from '@/components/aviso-de-erro';
 import MapaRoteiro, { type ParadaMapa } from '@/components/mapa';
 import { LARGURA_DUAS_COLUNAS, useAlturaDoMapa } from '@/components/mapa/altura';
-import { Botao, Campo, Cartao, Esqueleto, EstadoVazio, Selo, Texto } from '@/components/ui';
-import {
-  formatarDistancia,
-  formatarDuracao,
-  formatarFaixa,
-  formatarHora,
-  formatarReais,
-  rotuloCategoria,
-  rotuloMotivoDescarte,
-} from '@/domain/format';
-import { CORRIDA_MAXIMA, TETO_MAXIMO, TETO_MINIMO, limitarValorEmReais } from '@/domain/limites';
-import type { ItemRoteiro, MotivoDescarte, PontoDescartado, Trecho } from '@/domain/types';
+import { ControleDoTeto } from '@/components/roteiro/controle-do-teto';
+import { PainelDeProcessamento, PontosDescartados } from '@/components/roteiro/descartados';
+import { FalhaAoCarregar } from '@/components/roteiro/falha-ao-carregar';
+import { ParadaDoRoteiro } from '@/components/roteiro/parada';
+import { ResumoDoRoteiro } from '@/components/roteiro/resumo';
+import { EstadoVazio, Esqueleto, Texto } from '@/components/ui';
+import type { Roteiro } from '@/domain/types';
 import { useAjustarRoteiro, useRoteiro } from '@/hooks/use-rotafacil';
 import { useRolarAteCampo } from '@/hooks/use-teclado';
 import { useCores } from '@/theme/provider';
-import { espaco, raio, type Paleta } from '@/theme/tokens';
+import { espaco, raio } from '@/theme/tokens';
 
 /** O que a legenda sob o mapa diz sobre a origem das distâncias. */
 const ORIGEM_DAS_MEDIDAS = {
@@ -62,14 +48,41 @@ const ORIGEM_DAS_MEDIDAS = {
 
 export default function TelaRoteiro() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: roteiro, isLoading } = useRoteiro(id);
+  const { data: roteiro, isLoading, error, refetch } = useRoteiro(id);
+
+  if (isLoading) {
+    return (
+      <View
+        style={{ padding: espaco.lg, gap: espaco.md }}
+        aria-busy
+        aria-label="Carregando o roteiro">
+        <Esqueleto altura={120} arredondado={raio.lg} />
+        <Esqueleto altura={90} arredondado={raio.lg} />
+        <Esqueleto altura={90} arredondado={raio.lg} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <FalhaAoCarregar
+        erro={error}
+        onTentarDeNovo={() => void refetch()}
+        onVoltar={() => router.replace('/')}
+      />
+    );
+  }
+
+  if (!roteiro) return <EstadoVazio titulo="Roteiro não encontrado" icone="alert-circle-outline" />;
+
+  return <ConteudoDoRoteiro roteiro={roteiro} />;
+}
+
+function ConteudoDoRoteiro({ roteiro }: { roteiro: Roteiro }) {
   const { remover, substituir, ajustarOrcamento, registrarVisita, desfazerVisita } =
-    useAjustarRoteiro(id);
+    useAjustarRoteiro(roteiro.id);
   const cores = useCores();
-  const estilos = useEstilos(cores);
   const { width } = useWindowDimensions();
-  // Navegador largo: mapa numa coluna ao lado da lista, da altura da janela.
-  // Celular e tela estreita: mapa numa caixa vertical, no meio da lista.
   const duasColunas = width >= LARGURA_DUAS_COLUNAS;
   const alturaMapa = useAlturaDoMapa(0.62, 360, 620);
   const insets = useSafeAreaInsets();
@@ -83,7 +96,7 @@ export default function TelaRoteiro() {
   // mapa inteiro.
   const paradasDoMapa = useMemo(
     () =>
-      (roteiro?.itens ?? []).map<ParadaMapa>((item) => ({
+      roteiro.itens.map<ParadaMapa>((item) => ({
         id: item.ponto.id,
         nome: item.ponto.nome,
         ordem: item.ordem,
@@ -93,256 +106,100 @@ export default function TelaRoteiro() {
         trajetoAteAqui: item.trechoAteAqui?.trajeto ?? null,
         visitada: item.visitado || item.visita != null,
       })),
-    [roteiro?.itens],
+    [roteiro.itens],
   );
-
-  // Valor mostrado enquanto o controle é arrastado, antes do recálculo. Vale
-  // só para o roteiro e o teto em que foi arrastado: quando o roteiro volta
-  // recalculado, a tela passa a mostrar o teto dele.
-  const chaveDoTeto = `${roteiro?.id}:${roteiro?.orcamento}`;
-  const [arrastado, setArrastado] = useState<{ chave: string; valor: number | null } | null>(null);
-  const orcamentoVisual = arrastado?.chave === chaveDoTeto ? arrastado.valor : undefined;
-  const setOrcamentoVisual = (valor: number | null) => setArrastado({ chave: chaveDoTeto, valor });
-
-  if (isLoading) {
-    return (
-      <View style={{ padding: espaco.lg, gap: espaco.md }}>
-        <Esqueleto altura={120} arredondado={raio.lg} />
-        <Esqueleto altura={90} arredondado={raio.lg} />
-        <Esqueleto altura={90} arredondado={raio.lg} />
-      </View>
-    );
-  }
-
-  if (!roteiro) {
-    return <EstadoVazio titulo="Roteiro não encontrado" icone="alert-circle-outline" />;
-  }
 
   const ajustando = remover.isPending || substituir.isPending || ajustarOrcamento.isPending;
-  const orcamentoExibido = orcamentoVisual === undefined ? roteiro.orcamento : orcamentoVisual;
-  const semTeto = roteiro.orcamento == null;
-  const uso = roteiro.totais.usoOrcamento;
   const registrando = registrarVisita.isPending || desfazerVisita.isPending;
-  const paradasVisitadas = roteiro.itens.filter((item) => item.visita).length;
-  const foraDoHorario = roteiro.itens.filter(
-    (item) => (item.situacaoNoHorario ?? 'aberto') !== 'aberto',
-  ).length;
+  const visitadas = roteiro.itens.some((item) => item.visita);
+  const semTeto = roteiro.orcamento == null;
 
-  const blocoResumo = (
-    <Cartao>
-      <View style={estilos.linhaTopo}>
-        <Texto variante="titulo" peso="forte">
-          {roteiro.cidadeNome}
-        </Texto>
-        <Selo
-          texto={`${roteiro.itens.length} paradas`}
-          icone="location"
-          cor={cores.primaria}
-          fundo={cores.primariaSuave}
-        />
-      </View>
+  // A última ação que falhou, para avisar; antes, a falha passava calada.
+  const acoes = [remover, substituir, ajustarOrcamento, registrarVisita, desfazerVisita];
+  const falha = acoes.find((acao) => acao.isError);
 
-      <View style={estilos.metricas}>
-        <Metrica
-          icone="cash-outline"
-          rotulo="Custo estimado"
-          valor={formatarReais(roteiro.totais.custoTotal.estimado)}
-          detalhe={formatarFaixa(roteiro.totais.custoTotal)}
-        />
-        <Metrica
-          icone="time-outline"
-          rotulo="Duração"
-          valor={formatarDuracao(roteiro.totais.duracaoMin)}
-          detalhe={`de ${formatarDuracao(roteiro.tempoDisponivelMin)} disponíveis`}
-        />
-      </View>
-
-      {uso != null ? (
-        <View style={{ gap: espaco.xs, marginTop: espaco.md }}>
-          <View style={estilos.linhaTopo}>
-            <Texto variante="micro" cor={cores.textoSuave}>
-              Uso do orçamento
-            </Texto>
-            <Texto variante="micro" peso="semi">
-              {uso}%
-            </Texto>
-          </View>
-          <View style={estilos.trilha}>
-            <View
-              style={[
-                estilos.progresso,
-                {
-                  width: `${uso}%`,
-                  backgroundColor: uso > 85 ? cores.alerta : cores.sucesso,
-                },
-              ]}
-            />
-          </View>
-        </View>
-      ) : (
-        <Texto variante="micro" cor={cores.textoSuave} style={{ marginTop: espaco.md }}>
-          Sem teto de gasto: o valor acima é a média prevista, e a faixa vai do mínimo ao máximo.
-        </Texto>
-      )}
-
-      {roteiro.totais.trechosAPe > 0 ? (
-        <View style={[estilos.linhaIcone, { marginTop: espaco.md }]}>
-          <Ionicons name="walk" size={14} color={cores.sucesso} />
-          <Texto variante="micro" cor={cores.sucesso}>
-            {roteiro.totais.trechosAPe}{' '}
-            {roteiro.totais.trechosAPe === 1 ? 'trecho a pé' : 'trechos a pé'}:{' '}
-            {formatarReais(roteiro.totais.economiaCaminhando)} economizados
-          </Texto>
-        </View>
-      ) : null}
-
-      {paradasVisitadas > 0 ? (
-        <View style={[estilos.linhaIcone, { marginTop: espaco.xs }]}>
-          <Ionicons name="checkmark-done" size={14} color={cores.sucesso} />
-          <Texto variante="micro" cor={cores.sucesso}>
-            {paradasVisitadas} de {roteiro.itens.length} paradas visitadas
-            {roteiro.totais.custoRegistrado != null
-              ? ` · ${formatarReais(roteiro.totais.custoRegistrado)} pagos em corridas`
-              : ''}
-          </Texto>
-        </View>
-      ) : null}
-      {foraDoHorario > 0 ? (
-        <View style={[estilos.linhaIcone, { marginTop: espaco.xs }]}>
-          <Ionicons name="moon-outline" size={14} color={cores.alerta} />
-          <Texto variante="micro" cor={cores.alerta} style={{ flex: 1 }}>
-            {foraDoHorario === 1
-              ? '1 parada cai fora do horário de funcionamento'
-              : `${foraDoHorario} paradas caem fora do horário de funcionamento`}
-            : veja os avisos no percurso.
-          </Texto>
-        </View>
-      ) : null}
-    </Cartao>
-  );
-
-  const blocoOrcamento = (
-    <Cartao>
-      <View style={estilos.linhaTopo}>
-        <Texto variante="pequeno" peso="semi">
-          {semTeto ? 'Quer definir um teto?' : 'E se eu tivesse outro orçamento?'}
-        </Texto>
-        <Texto variante="destaque" peso="forte" cor={cores.primaria}>
-          {orcamentoExibido == null ? 'Sem limite' : formatarReais(orcamentoExibido)}
-        </Texto>
-      </View>
-
-      <Slider
-        style={{ height: 40, marginTop: espaco.sm }}
-        minimumValue={TETO_MINIMO}
-        maximumValue={TETO_MAXIMO}
-        step={5}
-        // Sem teto, o controle começa no fim da escala.
-        value={orcamentoExibido ?? TETO_MAXIMO}
-        minimumTrackTintColor={cores.primaria}
-        maximumTrackTintColor={cores.borda}
-        thumbTintColor={cores.primaria}
-        onValueChange={setOrcamentoVisual}
-        onSlidingComplete={(valor) => ajustarOrcamento.mutate(valor)}
-      />
-
-      <View style={estilos.linhaTopo}>
-        <Texto variante="micro" cor={cores.textoSuave} style={{ flex: 1 }}>
-          {ajustarOrcamento.isPending
-            ? 'Refazendo a seleção de pontos...'
-            : semTeto
-              ? 'Arraste para limitar o gasto e ver o algoritmo refazer o roteiro.'
-              : 'Arraste para ver o algoritmo refazer o roteiro.'}
-        </Texto>
-        {!semTeto ? (
-          <Botao
-            titulo="Tirar o limite"
-            variante="texto"
-            largura="auto"
-            desabilitado={ajustando}
-            onPress={() => {
-              setOrcamentoVisual(null);
-              ajustarOrcamento.mutate(null);
-            }}
-            style={{ minHeight: 32, paddingHorizontal: 0 }}
-          />
-        ) : null}
-      </View>
-    </Cartao>
-  );
-
-  const legendaDoMapa = (
-    <Texto variante="micro" cor={cores.textoSuave}>
-      {ORIGEM_DAS_MEDIDAS[roteiro.diagnostico.rotas ?? 'estimada']}
-      {paradasVisitadas > 0 ? ' O trecho até cada parada em que você chegou sai do mapa.' : ''}
-    </Texto>
-  );
-
-  const blocoPercurso = (
-    <View style={{ gap: espaco.md }}>
-      <Texto variante="destaque" peso="forte">
-        Seu percurso
-      </Texto>
-
-      {roteiro.itens.map((item) => (
-        <ParadaDoRoteiro
-          key={item.ponto.id}
-          item={item}
-          ocupado={ajustando}
-          registrando={registrando}
-          onRemover={() => remover.mutate(item.ponto.id)}
-          onTrocar={() => substituir.mutate(item.ponto.id)}
-          onCheckin={(custoRegistrado) =>
-            registrarVisita.mutate({ pontoId: item.ponto.id, custoRegistrado })
-          }
-          onDesfazer={() => desfazerVisita.mutate(item.ponto.id)}
-          onFocarCampo={rolarAteCampo}
-        />
-      ))}
-
-      {roteiro.itens.length === 0 ? (
-        <EstadoVazio
-          icone={semTeto ? 'time-outline' : 'wallet-outline'}
-          titulo={semTeto ? 'Nada coube no tempo disponível' : 'Nada coube no orçamento'}
-          descricao={
-            semTeto
-              ? 'Aumente o tempo livre ou escolha outro horário de início para que o algoritmo consiga montar um roteiro.'
-              : 'Aumente o valor disponível ou o tempo livre para que o algoritmo consiga montar um roteiro.'
-          }
-        />
-      ) : null}
-    </View>
-  );
-
-  const blocoDescartados = (
+  const mapa = (altura: number | 'preencher') => (
     <>
-      {roteiro.descartados.length > 0 ? (
-        <View style={{ gap: espaco.sm }}>
-          <Texto variante="destaque" peso="forte">
-            Avaliados e deixados de fora
-          </Texto>
-          {roteiro.descartados.map((descartado) => (
-            <LinhaDescartada key={descartado.ponto.id} descartado={descartado} />
-          ))}
-        </View>
-      ) : null}
+      <MapaRoteiro origem={roteiro.preferencias.origem} paradas={paradasDoMapa} altura={altura} />
+      <Texto variante="micro" cor={cores.textoSuave}>
+        {ORIGEM_DAS_MEDIDAS[roteiro.diagnostico.rotas ?? 'estimada']}
+        {visitadas ? ' O trecho até cada parada em que você chegou sai do mapa.' : ''}
+      </Texto>
     </>
   );
 
-  const blocoPainel = (
-    <Cartao style={{ backgroundColor: cores.fundoAlt }}>
-      <View style={estilos.linhaIcone}>
-        <Ionicons name="hardware-chip-outline" size={14} color={cores.textoSuave} />
-        <Texto variante="micro" peso="semi" cor={cores.textoSuave}>
-          Processamento
+  const lista = (comMapa: boolean): ReactNode => (
+    <>
+      <ResumoDoRoteiro roteiro={roteiro} />
+      <ControleDoTeto
+        roteiroId={roteiro.id}
+        orcamento={roteiro.orcamento}
+        recalculando={ajustarOrcamento.isPending}
+        bloqueado={ajustando}
+        onMudarTeto={(valor) => ajustarOrcamento.mutateAsync(valor)}
+      />
+      {comMapa ? <View style={{ gap: espaco.sm }}>{mapa(alturaMapa)}</View> : null}
+
+      <View style={{ gap: espaco.md }}>
+        <Texto variante="destaque" peso="forte" accessibilityRole="header">
+          Seu percurso
         </Texto>
+
+        {falha?.error ? (
+          <AvisoDeErro
+            mensagem={falha.error.message}
+            onFechar={() => acoes.forEach((acao) => acao.reset())}
+          />
+        ) : null}
+
+        {roteiro.itens.map((item) => (
+          <ParadaDoRoteiro
+            key={item.ponto.id}
+            item={item}
+            ocupado={ajustando}
+            registrando={registrando}
+            onRemover={() => remover.mutate(item.ponto.id)}
+            onTrocar={() => substituir.mutate(item.ponto.id)}
+            onCheckin={(custoRegistrado) =>
+              registrarVisita.mutate({ pontoId: item.ponto.id, custoRegistrado })
+            }
+            onDesfazer={() => desfazerVisita.mutate(item.ponto.id)}
+            onFocarCampo={rolarAteCampo}
+          />
+        ))}
+
+        {roteiro.itens.length === 0 ? (
+          <EstadoVazio
+            icone={semTeto ? 'time-outline' : 'wallet-outline'}
+            titulo={semTeto ? 'Nada coube no tempo disponível' : 'Nada coube no orçamento'}
+            descricao={
+              semTeto
+                ? 'Aumente o tempo livre ou escolha outro horário de início para que o algoritmo consiga montar um roteiro.'
+                : 'Aumente o valor disponível ou o tempo livre para que o algoritmo consiga montar um roteiro.'
+            }
+          />
+        ) : null}
       </View>
-      <Texto variante="micro" cor={cores.textoSuave} style={{ marginTop: 4 }}>
-        {roteiro.diagnostico.candidatosAvaliados} pontos avaliados ·{' '}
-        {roteiro.diagnostico.trechosCalculados} trechos calculados · roteiro montado em{' '}
-        {roteiro.diagnostico.duracaoMs} ms
-      </Texto>
-    </Cartao>
+
+      <PontosDescartados descartados={roteiro.descartados} />
+      <PainelDeProcessamento diagnostico={roteiro.diagnostico} />
+    </>
+  );
+
+  const rolavel = (comMapa: boolean) => (
+    <ScrollView
+      ref={rolagem}
+      innerViewRef={conteudo as RefObject<View>}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      style={{ flex: 1, backgroundColor: cores.fundo }}
+      contentContainerStyle={{
+        padding: espaco.lg,
+        gap: espaco.lg,
+        paddingBottom: 60 + insets.bottom,
+      }}>
+      {lista(comMapa)}
+    </ScrollView>
   );
 
   if (duasColunas) {
@@ -356,30 +213,9 @@ export default function TelaRoteiro() {
             paddingRight: 0,
             gap: espaco.sm,
           }}>
-          <MapaRoteiro
-            origem={roteiro.preferencias.origem}
-            paradas={paradasDoMapa}
-            altura="preencher"
-          />
-          {legendaDoMapa}
+          {mapa('preencher')}
         </View>
-        <ScrollView
-          ref={rolagem}
-          innerViewRef={conteudo as RefObject<View>}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          style={{ flex: 1 }}
-          contentContainerStyle={{
-            padding: espaco.lg,
-            gap: espaco.lg,
-            paddingBottom: 60 + insets.bottom,
-          }}>
-          {blocoResumo}
-          {blocoOrcamento}
-          {blocoPercurso}
-          {blocoDescartados}
-          {blocoPainel}
-        </ScrollView>
+        {rolavel(false)}
       </View>
     );
   }
@@ -389,448 +225,7 @@ export default function TelaRoteiro() {
       behavior="padding"
       keyboardVerticalOffset={alturaCabecalho}
       style={{ flex: 1, backgroundColor: cores.fundo }}>
-      <ScrollView
-        ref={rolagem}
-        innerViewRef={conteudo as RefObject<View>}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        style={{ backgroundColor: cores.fundo }}
-        contentContainerStyle={{
-          padding: espaco.lg,
-          gap: espaco.lg,
-          paddingBottom: 60 + insets.bottom,
-        }}>
-        {blocoResumo}
-        {blocoOrcamento}
-        <View style={{ gap: espaco.sm }}>
-          <MapaRoteiro
-            origem={roteiro.preferencias.origem}
-            paradas={paradasDoMapa}
-            altura={alturaMapa}
-          />
-          {legendaDoMapa}
-        </View>
-        {blocoPercurso}
-        {blocoDescartados}
-        {blocoPainel}
-      </ScrollView>
+      {rolavel(true)}
     </KeyboardAvoidingView>
-  );
-}
-
-/* ----------------------------------------------------------- componentes */
-
-function Metrica({
-  icone,
-  rotulo,
-  valor,
-  detalhe,
-}: {
-  icone: keyof typeof Ionicons.glyphMap;
-  rotulo: string;
-  valor: string;
-  detalhe: string;
-}) {
-  const cores = useCores();
-  return (
-    <View style={{ flex: 1, gap: 2 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-        <Ionicons name={icone} size={14} color={cores.textoSuave} />
-        <Texto variante="micro" cor={cores.textoSuave}>
-          {rotulo}
-        </Texto>
-      </View>
-      <Texto variante="destaque" peso="forte">
-        {valor}
-      </Texto>
-      <Texto variante="micro" cor={cores.textoSuave}>
-        {detalhe}
-      </Texto>
-    </View>
-  );
-}
-
-function LinhaDescartada({ descartado }: { descartado: PontoDescartado }) {
-  const cores = useCores();
-  const estilos = useEstilos(cores);
-
-  const paleta: Record<
-    MotivoDescarte,
-    { cor: string; fundo: string; icone: keyof typeof Ionicons.glyphMap }
-  > = {
-    orcamento: { cor: cores.erro, fundo: cores.erroSuave, icone: 'wallet-outline' },
-    tempo: { cor: cores.alerta, fundo: cores.alertaSuave, icone: 'time-outline' },
-    horario: { cor: cores.alerta, fundo: cores.alertaSuave, icone: 'lock-closed-outline' },
-  };
-  const estilo = paleta[descartado.motivo];
-
-  return (
-    <Cartao padding={espaco.md} style={{ backgroundColor: cores.fundoAlt }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: espaco.md }}>
-        <View style={[estilos.circuloMotivo, { backgroundColor: estilo.fundo }]}>
-          <Ionicons name={estilo.icone} size={16} color={estilo.cor} />
-        </View>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Texto variante="pequeno" peso="semi" numberOfLines={1}>
-            {descartado.ponto.nome}
-          </Texto>
-          <Texto variante="micro" cor={cores.textoSuave}>
-            {rotuloMotivoDescarte[descartado.motivo]}: {descartado.detalhe}
-          </Texto>
-        </View>
-      </View>
-    </Cartao>
-  );
-}
-
-function ParadaDoRoteiro({
-  item,
-  ocupado,
-  registrando,
-  onRemover,
-  onTrocar,
-  onCheckin,
-  onDesfazer,
-  onFocarCampo,
-}: {
-  item: ItemRoteiro;
-  ocupado: boolean;
-  registrando: boolean;
-  onRemover: () => void;
-  onTrocar: () => void;
-  onCheckin: (custoRegistrado?: number) => void;
-  onDesfazer: () => void;
-  onFocarCampo?: (campo: View | null) => void;
-}) {
-  const cores = useCores();
-  const estilos = useEstilos(cores);
-  const trecho = item.trechoAteAqui;
-  // Só faz sentido perguntar o preço quando o trecho até aqui foi de carro.
-  const veioDeCarro = trecho?.modal === 'app';
-  const [informandoValor, setInformandoValor] = useState(false);
-  const [valorPago, setValorPago] = useState('');
-  const campoValor = useRef<View>(null);
-
-  function registrarChegada() {
-    const valor = Number(valorPago.replace(',', '.'));
-    onCheckin(valor > 0 ? valor : undefined);
-    setInformandoValor(false);
-    setValorPago('');
-  }
-
-  return (
-    <View style={{ gap: espaco.sm }}>
-      {trecho ? <TrechoAteAqui trecho={trecho} /> : null}
-
-      <Cartao padding={espaco.md}>
-        <View style={{ flexDirection: 'row', gap: espaco.md }}>
-          <FotoDoLugar uri={item.ponto.fotoUrl} style={estilos.foto} />
-          <View style={{ flex: 1, gap: 4 }}>
-            <View style={estilos.linhaTopo}>
-              <Texto variante="corpo" peso="semi" numberOfLines={1} style={{ flex: 1 }}>
-                {item.ordem}. {item.ponto.nome}
-              </Texto>
-              <Texto variante="micro" peso="semi" cor={cores.primaria}>
-                {formatarHora(item.chegadaPrevista)}
-              </Texto>
-            </View>
-
-            <Texto variante="micro" cor={cores.textoSuave}>
-              {rotuloCategoria[item.ponto.categoria]} · {formatarDuracao(item.ponto.tempoVisitaMin)}{' '}
-              de visita
-              {item.custoNoLocal > 0 ? ` · ${formatarReais(item.custoNoLocal)}` : ''}
-              {item.ponto.arLivre ? ' · ao ar livre' : ''}
-            </Texto>
-
-            {/* Fechado não sai do roteiro: aparece marcado, e a pessoa decide. */}
-            {(item.situacaoNoHorario ?? 'aberto') !== 'aberto' ? (
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  alignSelf: 'flex-start',
-                  gap: 6,
-                  paddingHorizontal: espaco.sm,
-                  paddingVertical: 4,
-                  borderRadius: raio.md,
-                  backgroundColor: cores.alertaSuave,
-                }}>
-                <Ionicons
-                  name={item.situacaoNoHorario === 'fechado' ? 'moon-outline' : 'hourglass-outline'}
-                  size={13}
-                  color={cores.alerta}
-                />
-                <Texto variante="micro" peso="semi" cor={cores.alerta}>
-                  {item.situacaoNoHorario === 'fechado'
-                    ? 'Fechado nesse horário'
-                    : 'Fecha antes do fim da visita'}
-                  {item.ponto.horarioHoje ? ` · funciona das ${item.ponto.horarioHoje}` : ''}
-                </Texto>
-              </View>
-            ) : null}
-
-            {/* Ponto vindo só do mapa não tem nota: a linha some, em vez de inventar. */}
-            {item.ponto.nota != null ? (
-              <View style={estilos.linhaIcone}>
-                <Ionicons name="star" size={12} color={cores.alerta} />
-                <Texto variante="micro" cor={cores.textoSuave}>
-                  {item.ponto.nota.toFixed(1)} ({item.ponto.avaliacoes})
-                </Texto>
-              </View>
-            ) : null}
-
-            {/* Crédito exigido pela licença da foto; leva à página dela no Commons. */}
-            {item.ponto.fotoCredito ? (
-              <Pressable
-                hitSlop={6}
-                disabled={!item.ponto.fotoFonte}
-                onPress={() => item.ponto.fotoFonte && void Linking.openURL(item.ponto.fotoFonte)}>
-                <Texto variante="micro" cor={cores.textoSuave} numberOfLines={1}>
-                  {item.ponto.fotoCredito}
-                </Texto>
-              </Pressable>
-            ) : null}
-
-            {/* Parada já visitada não se troca nem se remove. */}
-            {item.visita ? null : (
-              <View style={{ flexDirection: 'row', gap: espaco.sm, marginTop: espaco.xs }}>
-                <Botao
-                  titulo="Trocar"
-                  variante="contorno"
-                  icone="swap-horizontal"
-                  largura="auto"
-                  desabilitado={ocupado}
-                  onPress={onTrocar}
-                  style={{ minHeight: 36, paddingHorizontal: espaco.md }}
-                />
-                <Botao
-                  titulo="Remover"
-                  variante="texto"
-                  icone="close"
-                  largura="auto"
-                  desabilitado={ocupado}
-                  onPress={onRemover}
-                  style={{ minHeight: 36, paddingHorizontal: espaco.sm }}
-                />
-              </View>
-            )}
-          </View>
-        </View>
-
-        {item.visita ? (
-          <View style={[estilos.linhaIcone, { marginTop: espaco.md }]}>
-            <Ionicons name="checkmark-circle" size={16} color={cores.sucesso} />
-            <Texto variante="micro" peso="semi" cor={cores.sucesso} style={{ flex: 1 }}>
-              Chegou às {formatarHora(item.visita.chegadaEm)}
-              {item.visita.custoRegistrado != null
-                ? ` · pagou ${formatarReais(item.visita.custoRegistrado)} na corrida`
-                : ''}
-            </Texto>
-            <Botao
-              titulo="Desfazer"
-              variante="texto"
-              largura="auto"
-              desabilitado={registrando}
-              onPress={onDesfazer}
-              style={{ minHeight: 28, paddingHorizontal: 0 }}
-            />
-          </View>
-        ) : informandoValor ? (
-          <View style={{ gap: espaco.sm, marginTop: espaco.md }}>
-            <Campo
-              refContainer={campoValor}
-              onFocus={() => onFocarCampo?.(campoValor.current)}
-              icone="cash-outline"
-              rotulo={`Quanto pagou na corrida até aqui? (opcional, até ${formatarReais(CORRIDA_MAXIMA)})`}
-              keyboardType="decimal-pad"
-              value={valorPago}
-              onChangeText={(texto) => setValorPago(limitarValorEmReais(texto, CORRIDA_MAXIMA))}
-              maxLength={6}
-              placeholder="Valor cobrado pelo aplicativo"
-            />
-            <Texto variante="micro" cor={cores.textoSuave}>
-              Use o valor final que o aplicativo de transporte cobrou. Ele mostra o quanto a
-              estimativa acertou.
-            </Texto>
-            <View style={{ flexDirection: 'row', gap: espaco.sm }}>
-              <Botao
-                titulo="Registrar chegada"
-                variante="secundario"
-                icone="checkmark"
-                largura="auto"
-                carregando={registrando}
-                onPress={registrarChegada}
-                style={{ minHeight: 40, paddingHorizontal: espaco.md }}
-              />
-              <Botao
-                titulo="Cancelar"
-                variante="texto"
-                largura="auto"
-                onPress={() => setInformandoValor(false)}
-                style={{ minHeight: 40, paddingHorizontal: espaco.sm }}
-              />
-            </View>
-          </View>
-        ) : (
-          <Botao
-            titulo="Cheguei"
-            variante="secundario"
-            icone="checkmark-circle-outline"
-            carregando={registrando}
-            desabilitado={ocupado}
-            onPress={() => (veioDeCarro ? setInformandoValor(true) : onCheckin())}
-            style={{ minHeight: 40, marginTop: espaco.md }}
-          />
-        )}
-      </Cartao>
-    </View>
-  );
-}
-
-/** Deslocamento até a parada, com a memória de cálculo da tarifa. */
-function TrechoAteAqui({ trecho }: { trecho: Trecho }) {
-  const cores = useCores();
-  const estilos = useEstilos(cores);
-  const [aberto, setAberto] = useState(false);
-
-  if (trecho.modal === 'pe') {
-    return (
-      <View style={estilos.trecho}>
-        <Ionicons name="walk" size={15} color={cores.sucesso} />
-        <Texto variante="micro" cor={cores.textoSuave}>
-          {formatarDistancia(trecho.distanciaKm)} · {formatarDuracao(trecho.duracaoMin)}
-        </Texto>
-        <View style={{ flex: 1 }} />
-        <Selo texto="A pé · grátis" cor={cores.sucesso} fundo={cores.sucessoSuave} />
-      </View>
-    );
-  }
-
-  const c = trecho.calculo!;
-
-  return (
-    <View style={{ gap: espaco.xs }}>
-      <Pressable onPress={() => setAberto((v) => !v)} style={estilos.trecho}>
-        <Ionicons name="car" size={15} color={cores.textoSuave} />
-        <Texto variante="micro" cor={cores.textoSuave}>
-          {formatarDistancia(trecho.distanciaKm)} · {formatarDuracao(trecho.duracaoMin)}
-        </Texto>
-        <View style={{ flex: 1 }} />
-        <Selo
-          texto={`${formatarFaixa(trecho.custo)} · bandeira ${trecho.bandeira}`}
-          cor={cores.primaria}
-          fundo={cores.primariaSuave}
-        />
-        <Ionicons
-          name={aberto ? 'chevron-up' : 'chevron-down'}
-          size={14}
-          color={cores.textoSuave}
-        />
-      </Pressable>
-
-      {aberto ? (
-        <Cartao padding={espaco.md} style={{ backgroundColor: cores.fundoAlt }}>
-          <Texto variante="micro" peso="semi" cor={cores.textoSuave}>
-            Como calculamos
-          </Texto>
-
-          <View style={{ gap: 2, marginTop: espaco.sm }}>
-            <LinhaCalculo rotulo="Bandeirada" valor={formatarReais(c.bandeirada)} />
-            <LinhaCalculo
-              rotulo={`${formatarDistancia(c.distanciaKm)} × ${formatarReais(c.valorPorKm)}/km (bandeira ${trecho.bandeira})`}
-              valor={formatarReais(c.distanciaKm * c.valorPorKm)}
-            />
-            <LinhaCalculo
-              rotulo={`${c.minutosLentos.toFixed(1).replace('.', ',')} min parado × ${formatarReais(c.valorHoraParada)}/h`}
-              valor={formatarReais((c.valorHoraParada / 60) * c.minutosLentos)}
-            />
-            <View style={estilos.separador} />
-            <LinhaCalculo
-              rotulo="Tarifa de táxi (equação 8)"
-              valor={formatarReais(c.subtotalTaxi)}
-              destaque
-            />
-            <LinhaCalculo
-              rotulo={`Fator de aplicativo (α = ${String(c.fatorAplicativo).replace('.', ',')})`}
-              valor={formatarReais(trecho.custo.estimado)}
-              destaque
-            />
-          </View>
-
-          <Texto variante="micro" cor={cores.textoSuave} style={{ marginTop: espaco.sm }}>
-            Fonte da tarifa: {c.norma}
-          </Texto>
-        </Cartao>
-      ) : null}
-    </View>
-  );
-}
-
-function LinhaCalculo({
-  rotulo,
-  valor,
-  destaque,
-}: {
-  rotulo: string;
-  valor: string;
-  destaque?: boolean;
-}) {
-  const cores = useCores();
-  return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: espaco.md }}>
-      <Texto
-        variante="micro"
-        cor={destaque ? cores.texto : cores.textoSuave}
-        peso={destaque ? 'semi' : 'normal'}
-        style={{ flex: 1 }}>
-        {rotulo}
-      </Texto>
-      <Texto variante="micro" peso={destaque ? 'semi' : 'normal'}>
-        {valor}
-      </Texto>
-    </View>
-  );
-}
-
-function useEstilos(cores: Paleta) {
-  return useMemo(
-    () =>
-      StyleSheet.create({
-        linhaTopo: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: espaco.sm,
-        },
-        linhaIcone: { flexDirection: 'row', alignItems: 'center', gap: espaco.xs },
-        metricas: { flexDirection: 'row', gap: espaco.md, marginTop: espaco.md },
-        trilha: {
-          height: 8,
-          borderRadius: raio.pilula,
-          backgroundColor: cores.fundoAlt,
-          overflow: 'hidden',
-        },
-        progresso: { height: 8, borderRadius: raio.pilula },
-        trecho: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: espaco.xs,
-          paddingHorizontal: espaco.sm,
-        },
-        foto: { width: 72, height: 72, borderRadius: raio.md, backgroundColor: cores.fundoAlt },
-        circuloMotivo: {
-          width: 34,
-          height: 34,
-          borderRadius: raio.pilula,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        separador: {
-          height: 1,
-          backgroundColor: cores.borda,
-          marginVertical: espaco.xs,
-        },
-      }),
-    [cores],
   );
 }
