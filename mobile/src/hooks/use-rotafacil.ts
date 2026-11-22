@@ -7,16 +7,11 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { chaves } from '@/data/chaves';
 import { useServicos } from '@/data/provider';
-import type { ID, PreferenciasRoteiro } from '@/domain/types';
+import type { ID, PreferenciasRoteiro, Roteiro } from '@/domain/types';
 
-export const chaves = {
-  cidades: ['cidades'] as const,
-  roteiros: ['roteiros'] as const,
-  roteiro: (id: ID) => ['roteiro', id] as const,
-  ponto: (id: ID) => ['ponto', id] as const,
-  usuario: ['usuario'] as const,
-};
+export { chaves };
 
 export function useCidades() {
   const { cidades } = useServicos();
@@ -112,19 +107,26 @@ export function useAjustarRoteiro(roteiroId: ID | undefined) {
   const { roteiros } = useServicos();
   const qc = useQueryClient();
 
+  // O roteiro recalculado substitui o do cache, e o histórico, que mostra o
+  // custo e o número de paradas, é relido.
+  const aplicarRecalculo = (roteiro: Roteiro) => {
+    qc.setQueryData(chaves.roteiro(roteiro.id), roteiro);
+    void qc.invalidateQueries({ queryKey: chaves.roteiros });
+  };
+
   const remover = useMutation({
     mutationFn: (pontoId: ID) => roteiros.removerPonto(roteiroId!, pontoId),
-    onSuccess: (roteiro) => qc.setQueryData(chaves.roteiro(roteiro.id), roteiro),
+    onSuccess: aplicarRecalculo,
   });
 
   const substituir = useMutation({
     mutationFn: (pontoId: ID) => roteiros.substituirPonto(roteiroId!, pontoId),
-    onSuccess: (roteiro) => qc.setQueryData(chaves.roteiro(roteiro.id), roteiro),
+    onSuccess: aplicarRecalculo,
   });
 
   const ajustarOrcamento = useMutation({
     mutationFn: (orcamento: number | null) => roteiros.ajustarOrcamento(roteiroId!, orcamento),
-    onSuccess: (roteiro) => qc.setQueryData(chaves.roteiro(roteiro.id), roteiro),
+    onSuccess: aplicarRecalculo,
   });
 
   // O check-in muda a parada e o historico, entao os dois sao relidos.

@@ -140,8 +140,9 @@ Não rode este modo e o do Docker ao mesmo tempo: os dois usam a porta 3333.
 
 Deixe `EXPO_PUBLIC_API_URL` vazio no `mobile/.env` (ou não crie o arquivo) e
 rode só o terminal 3. O aplicativo usa dados simulados: entre com qualquer
-e-mail válido e a senha `12345678`. Nesse modo as distâncias são sempre
-estimadas em linha reta e nada fica salvo.
+e-mail válido e a senha `12345678`. O roteiro sai do mesmo motor da API
+(`api/src/core`), então as paradas escolhidas são as mesmas; só as distâncias
+são sempre estimadas em linha reta, e nada fica salvo.
 
 ### Problemas comuns
 
@@ -186,7 +187,7 @@ mobile/
    │  └─ mapa/    mapas do percurso e do ponto de partida (WebView no celular, iframe no navegador)
    ├─ domain/     tipos, validação e formatação (contrato com a API)
    ├─ data/
-   │  ├─ mock/    dados e algoritmo do modo de demonstração (espelham a API)
+   │  ├─ mock/    modo de demonstração: dados simulados e o motor da API (api/src/core)
    │  ├─ http/    cliente da API real
    │  ├─ services.ts  interfaces dos serviços
    │  └─ provider.tsx ÚNICO ponto de troca entre modo de demonstração e API

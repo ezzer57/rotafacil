@@ -10,10 +10,15 @@
 
 import type { Prisma } from '@prisma/client';
 
-import { situacaoNoHorario } from '@/core/roteirizacao.js';
+import { situacaoNoHorario, type ResultadoRoteiro } from '@/core/roteirizacao.js';
+import type { Bandeira, MemoriaDeCalculo } from '@/core/tarifa.js';
 
 const numero = (valor: Prisma.Decimal | number | null | undefined): number =>
   valor == null ? 0 : typeof valor === 'number' ? valor : Number(valor);
+
+/** A bandeira fica no banco como número; só 1 e 2 existem. */
+const bandeiraGravada = (valor: number | null): Bandeira | null =>
+  valor === 1 || valor === 2 ? valor : null;
 
 type PontoBanco = Prisma.PontoInteresseGetPayload<object>;
 type VisitaBanco = Prisma.VisitaGetPayload<object>;
@@ -135,17 +140,18 @@ export function serializarRoteiro(roteiro: RoteiroCompleto) {
             modal: item.modal,
             distanciaKm: item.distanciaKm ?? 0,
             duracaoMin: item.duracaoMin ?? 0,
-            bandeira: item.bandeira,
+            bandeira: bandeiraGravada(item.bandeira),
             // "ruas" quando a distância veio do mapa; "estimada" quando é
             // linha reta x fator de circuidade.
-            fonte: item.fonteRota === 'ruas' ? 'ruas' : 'estimada',
+            fonte: item.fonteRota === 'ruas' ? ('ruas' as const) : ('estimada' as const),
             trajeto: (item.trajeto as [number, number][] | null) ?? null,
             custo: {
               min: numero(item.custoMin),
               estimado: numero(item.custoEst),
               max: numero(item.custoMax),
             },
-            calculo: item.calculo ?? null,
+            // Gravados pelo motor (ver gravacao.ts), voltam no mesmo formato.
+            calculo: (item.calculo as MemoriaDeCalculo | null) ?? null,
           }
         : null,
     })),
@@ -179,7 +185,7 @@ export function serializarRoteiro(roteiro: RoteiroCompleto) {
       detalhe: d.detalhe,
     })),
 
-    diagnostico: roteiro.diagnostico,
+    diagnostico: roteiro.diagnostico as unknown as ResultadoRoteiro['diagnostico'],
 
     preferencias: {
       cidadeId: roteiro.cidadeId,

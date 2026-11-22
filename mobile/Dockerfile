@@ -11,6 +11,9 @@ COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
 COPY . .
+# O motor de roteirização da API, que o modo de demonstração usa (ver
+# metro.config.js). Fica em ../api/src/core, como no repositório.
+COPY --from=motor . /api/src/core
 
 ARG EXPO_PUBLIC_API_URL=
 ENV EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_API_URL}

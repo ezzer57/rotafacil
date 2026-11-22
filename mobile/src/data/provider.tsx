@@ -14,9 +14,11 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-import { createServicosHttp, ErroApi } from '@/data/http';
+import { chaves } from '@/data/chaves';
+import { ErroApi } from '@/data/erros';
+import { createServicosHttp } from '@/data/http';
 import { createServicosMock } from '@/data/mock';
-import { hidratarSessao } from '@/data/sessao';
+import { aoPerderSessao, hidratarSessao } from '@/data/sessao';
 import type { ServicosApp } from '@/data/services';
 
 const ServicosContext = createContext<ServicosApp | null>(null);
@@ -53,6 +55,18 @@ export function ProvedorDeServicos({ children }: { children: ReactNode }) {
     if (!usandoApiReal) return;
     void hidratarSessao().finally(() => setSessaoCarregada(true));
   }, []);
+
+  // Sessão perdida sem o usuário pedir (token vencido, conta apagada em outro
+  // aparelho): sem usuário, a guarda de rota leva para a entrada, e nada da
+  // conta anterior fica em cache.
+  useEffect(
+    () =>
+      aoPerderSessao(() => {
+        queryClient.setQueryData(chaves.usuario, null);
+        queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== chaves.usuario[0] });
+      }),
+    [],
+  );
 
   if (!sessaoCarregada) return null;
 
