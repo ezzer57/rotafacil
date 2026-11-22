@@ -55,7 +55,14 @@ src/
 ```
 
 A pasta `core/` é código puro: não conhece banco, HTTP nem Prisma. É o que
-permite testar o algoritmo do trabalho sem subir infraestrutura.
+permite testar o algoritmo do trabalho sem subir infraestrutura, e o que deixa
+o modo de demonstração do aplicativo usar este mesmo motor, sem cópia (ver
+`mobile/metro.config.js`). Por isso nada em `core/` pode importar biblioteca
+de Node, de banco ou de rede.
+
+O contrato com o aplicativo é conferido na compilação:
+`src/modules/roteiros/formato-do-app.ts` exige que cada resposta caiba nos
+tipos de `mobile/src/domain/types.ts`, e `npm run typecheck` falha se não couber.
 
 ## Endpoints
 

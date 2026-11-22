@@ -11,7 +11,8 @@
  *    (por exemplo, a listagem paginada).
  */
 
-import { definirToken, encerrarSessao, tokenAtual } from '@/data/sessao';
+import { ErroApi } from '@/data/erros';
+import { definirToken, encerrarSessao, perderSessao, tokenAtual } from '@/data/sessao';
 import type { ServicosApp } from '@/data/services';
 import type {
   Cidade,
@@ -27,17 +28,6 @@ import { CONSENTIMENTO_POLITICA } from '@/domain/privacidade';
 
 /** Tempo máximo de espera por resposta. Rede de celular em viagem oscila. */
 const TEMPO_LIMITE_MS = 15_000;
-
-export class ErroApi extends Error {
-  constructor(
-    readonly status: number,
-    mensagem: string,
-    readonly codigo?: string,
-  ) {
-    super(mensagem);
-    this.name = 'ErroApi';
-  }
-}
 
 interface RespostaAutenticacao {
   usuario: Usuario;
@@ -85,9 +75,10 @@ export function createServicosHttp(baseUrl: string): ServicosApp {
     const corpo = await resposta.json().catch(() => null);
 
     if (!resposta.ok) {
-      // Token expirado ou inválido: encerra a sessão para a guarda de rota
-      // levar o usuário de volta ao login.
-      if (resposta.status === 401) void encerrarSessao();
+      // Token vencido, ou conta que não existe mais: encerra a sessão e avisa
+      // o app, que volta para a entrada. Sem token (senha errada no login),
+      // não há sessão a encerrar.
+      if (resposta.status === 401 && token) await perderSessao();
 
       throw new ErroApi(
         resposta.status,

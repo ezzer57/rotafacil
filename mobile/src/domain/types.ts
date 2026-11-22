@@ -1,12 +1,16 @@
 /**
  * Modelo de domínio do RotaFácil.
  *
- * Estes tipos são o CONTRATO entre o aplicativo e o servidor. Hoje eles são
- * preenchidos por dados simulados (src/data/mock); quando a API existir, os
- * mesmos tipos passam a ser preenchidos pelas respostas HTTP, sem que
- * nenhuma tela precise mudar.
+ * Estes tipos são o CONTRATO entre o aplicativo e a API: as respostas HTTP e
+ * o modo de demonstração (src/data/mock) preenchem os mesmos tipos, e
+ * nenhuma tela sabe de onde o dado veio.
  *
- * Regra: nada aqui pode importar React, componentes ou bibliotecas de UI.
+ * A API confere este contrato na compilação
+ * (api/src/modules/roteiros/formato-do-app.ts): se ela mudar um campo e este
+ * arquivo não, a checagem de tipos dela falha.
+ *
+ * Regra: este arquivo não importa nada, nem React nem bibliotecas, para a API
+ * conseguir lê-lo.
  */
 
 export type ID = string;
@@ -228,5 +232,4 @@ export interface Usuario {
   id: ID;
   nome: string;
   email: string;
-  avatarUrl: string | null;
 }

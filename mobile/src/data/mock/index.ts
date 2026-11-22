@@ -1,9 +1,11 @@
 /**
- * Implementação simulada dos serviços.
+ * Modo de demonstração: os serviços sem servidor.
  *
- * Mantém um armazenamento em memória e um atraso artificial, para que as
- * telas exercitem de verdade os estados de carregamento e de erro. Quando o
- * backend existir, esta fábrica é substituída por createServicosHttp().
+ * Usado quando EXPO_PUBLIC_API_URL está vazio (ver src/data/provider.tsx).
+ * Guarda tudo em memória, com um atraso artificial para as telas mostrarem
+ * os estados de carregamento, e responde como a API: o roteiro sai do mesmo
+ * motor (./motor.ts), os pontos tirados ficam lembrados no recálculo e os
+ * erros têm o mesmo status e código.
  */
 
 import type {
@@ -17,13 +19,26 @@ import type {
   Usuario,
   VisitaRegistrada,
 } from '@/domain/types';
+import { ErroApi } from '@/data/erros';
 import type { ServicosApp } from '@/data/services';
 import { CIDADES, PONTOS, cidadeDoMock, pontosPorCidade } from './dados';
 import { gerarRoteiro } from './motor';
 
 const atraso = (ms = 700) => new Promise((r) => setTimeout(r, ms));
 
+const naoEncontrado = (recurso: string) =>
+  new ErroApi(404, `${recurso} não encontrado`, 'NAO_ENCONTRADO');
+
 const historico = new Map<ID, Roteiro>();
+
+/** Pontos que o usuário tirou de cada roteiro, como a coluna pontosExcluidos da API. */
+const excluidosPorRoteiro = new Map<ID, ID[]>();
+
+function roteiroGuardado(id: ID): Roteiro {
+  const roteiro = historico.get(id);
+  if (!roteiro) throw naoEncontrado('Roteiro');
+  return roteiro;
+}
 
 /** Check-ins por roteiro, como a tabela de visitas do backend. */
 const visitas = new Map<ID, Map<ID, VisitaRegistrada>>();
@@ -52,19 +67,15 @@ function comVisitas(roteiro: Roteiro): Roteiro {
 let usuario: Usuario | null = null;
 
 /**
- * Credencial de demonstração enquanto o backend não existe. No produto, a
- * conferência é feita no servidor, comparando o hash da senha; o aplicativo
- * nunca guarda nem compara senha.
+ * Senha única do modo de demonstração. Com a API, a conferência é feita no
+ * servidor, pelo hash da senha; o aplicativo nunca guarda nem compara senha.
  */
 // Oito dígitos: o formulário exige a mesma senha mínima do servidor.
 const SENHA_DEMONSTRACAO = '12345678';
 
 /* ----------------------------------------------------- roteiro de exemplo */
 
-/**
- * Um roteiro pronto no histórico, para que a tela inicial não abra vazia na
- * apresentação. Sai quando o backend entrar.
- */
+/** Um roteiro pronto no histórico, para a tela inicial não abrir vazia na demonstração. */
 function semearExemplo() {
   const ontem = new Date();
   ontem.setDate(ontem.getDate() - 1);
@@ -97,24 +108,22 @@ function resumir(roteiro: Roteiro): ResumoRoteiro {
 }
 
 /**
- * Regera o roteiro a partir das preferências originais, opcionalmente com
- * outro teto de gasto (null tira o teto), descartando os pontos indicados. É
- * o que o backend faz ao receber um PATCH.
+ * Recalcula o roteiro com as preferências de quando foi criado, como a API
+ * faz num PATCH: os pontos tirados agora se somam aos de antes e ficam fora
+ * da escolha do motor, e o teto muda quando `novoOrcamento` vem (null tira).
  */
-function recalcular(roteiro: Roteiro, excluir: ID[], novoOrcamento?: Reais | null): Roteiro {
+function recalcular(roteiro: Roteiro, tirar: ID[], novoOrcamento?: Reais | null): Roteiro {
   const preferencias: PreferenciasRoteiro = {
     ...roteiro.preferencias,
     orcamento: novoOrcamento === undefined ? roteiro.preferencias.orcamento : novoOrcamento,
   };
+  const excluidos = [...new Set([...(excluidosPorRoteiro.get(roteiro.id) ?? []), ...tirar])];
+  excluidosPorRoteiro.set(roteiro.id, excluidos);
 
-  const novo = gerarRoteiro(preferencias);
   const atualizado: Roteiro = {
-    ...novo,
+    ...gerarRoteiro(preferencias, excluidos),
     id: roteiro.id,
     criadoEm: roteiro.criadoEm,
-    itens: novo.itens
-      .filter((i) => !excluir.includes(i.ponto.id))
-      .map((i, idx) => ({ ...i, ordem: idx + 1 })),
   };
   historico.set(atualizado.id, atualizado);
   return comVisitas(atualizado);
@@ -131,9 +140,7 @@ export function createServicosMock(): ServicosApp {
       },
       async obter(id) {
         await atraso(300);
-        const roteiro = historico.get(id);
-        if (!roteiro) throw new Error('Roteiro não encontrado');
-        return comVisitas(roteiro);
+        return comVisitas(roteiroGuardado(id));
       },
       async listar() {
         await atraso(400);
@@ -143,28 +150,22 @@ export function createServicosMock(): ServicosApp {
       },
       async removerPonto(roteiroId, pontoId) {
         await atraso(900);
-        const roteiro = historico.get(roteiroId);
-        if (!roteiro) throw new Error('Roteiro não encontrado');
-        return recalcular(roteiro, [pontoId]);
+        return recalcular(roteiroGuardado(roteiroId), [pontoId]);
       },
+      // Como na API: o ponto sai e o motor escolhe o que entra no lugar.
       async substituirPonto(roteiroId, pontoId) {
         await atraso(900);
-        const roteiro = historico.get(roteiroId);
-        if (!roteiro) throw new Error('Roteiro não encontrado');
-        return recalcular(roteiro, [pontoId]);
+        return recalcular(roteiroGuardado(roteiroId), [pontoId]);
       },
       async ajustarOrcamento(roteiroId, novoOrcamento) {
         await atraso(450);
-        const roteiro = historico.get(roteiroId);
-        if (!roteiro) throw new Error('Roteiro não encontrado');
-        return recalcular(roteiro, [], novoOrcamento);
+        return recalcular(roteiroGuardado(roteiroId), [], novoOrcamento);
       },
       async registrarVisita(roteiroId, pontoId, custoRegistrado) {
         await atraso(300);
-        const roteiro = historico.get(roteiroId);
-        if (!roteiro) throw new Error('Roteiro não encontrado');
+        const roteiro = roteiroGuardado(roteiroId);
         if (!roteiro.itens.some((i) => i.ponto.id === pontoId)) {
-          throw new Error('Este ponto não faz parte do roteiro');
+          throw new ErroApi(400, 'Este ponto não faz parte do roteiro', 'REGRA_DE_NEGOCIO');
         }
 
         const doRoteiro = visitas.get(roteiroId) ?? new Map<ID, VisitaRegistrada>();
@@ -180,12 +181,13 @@ export function createServicosMock(): ServicosApp {
       },
       async desfazerVisita(roteiroId, pontoId) {
         await atraso(300);
-        if (!visitas.get(roteiroId)?.delete(pontoId)) throw new Error('Check-in não encontrado');
+        if (!visitas.get(roteiroId)?.delete(pontoId)) throw naoEncontrado('Check-in');
       },
       async excluir(roteiroId) {
         await atraso(300);
-        historico.delete(roteiroId);
+        if (!historico.delete(roteiroId)) throw naoEncontrado('Roteiro');
         visitas.delete(roteiroId);
+        excluidosPorRoteiro.delete(roteiroId);
       },
     },
 
@@ -206,7 +208,7 @@ export function createServicosMock(): ServicosApp {
       async obter(pontoId: ID): Promise<PontoInteresse> {
         await atraso(200);
         const ponto = PONTOS.find((p) => p.id === pontoId);
-        if (!ponto) throw new Error('Ponto não encontrado');
+        if (!ponto) throw naoEncontrado('Ponto de interesse');
         return ponto;
       },
     },
@@ -218,26 +220,25 @@ export function createServicosMock(): ServicosApp {
       },
       async entrar(email, senha) {
         await atraso(900);
-        // Simula a resposta 401 do servidor quando a credencial não confere.
+        // A mesma resposta da API quando a credencial não confere.
         if (senha !== SENHA_DEMONSTRACAO) {
-          throw new Error('E-mail ou senha incorretos');
+          throw new ErroApi(401, 'E-mail ou senha incorretos', 'CREDENCIAL_INVALIDA');
         }
         const nome = email.split('@')[0] || 'viajante';
         usuario = {
           id: 'u-1',
           nome: nome.charAt(0).toUpperCase() + nome.slice(1),
           email,
-          avatarUrl: null,
         };
         return usuario;
       },
       async registrar(nome, email) {
         await atraso(1100);
-        // Simula a resposta 409 do servidor para e-mail já cadastrado.
+        // A mesma resposta da API para e-mail já cadastrado.
         if (email.trim().toLowerCase() === 'usado@exemplo.com') {
-          throw new Error('Este e-mail já está cadastrado');
+          throw new ErroApi(409, 'Este e-mail já está cadastrado', 'CONFLITO');
         }
-        usuario = { id: 'u-1', nome, email, avatarUrl: null };
+        usuario = { id: 'u-1', nome, email };
         return usuario;
       },
       async sair() {
@@ -248,6 +249,7 @@ export function createServicosMock(): ServicosApp {
         await atraso(600);
         historico.clear();
         visitas.clear();
+        excluidosPorRoteiro.clear();
         usuario = null;
       },
     },

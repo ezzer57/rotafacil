@@ -1,12 +1,12 @@
 /**
- * PONTO DE TROCA ENTRE MOCK E BACKEND.
+ * Serviços do aplicativo: o que as telas podem pedir.
  *
  * As telas nunca chamam fetch nem conhecem URL. Elas consomem estas
- * interfaces atraves dos hooks em src/hooks. Hoje a implementacao e
- * simulada (src/data/mock); quando a API estiver pronta, basta trocar a
- * fabrica usada em src/data/provider.tsx por createServicosHttp().
+ * interfaces através dos hooks em src/hooks. Há duas implementações: a da
+ * API (src/data/http) e a do modo de demonstração (src/data/mock); quem
+ * escolhe é src/data/provider.tsx, pela variável EXPO_PUBLIC_API_URL.
  *
- * Assinatura das operacoes espelha os endpoints planejados:
+ * Cada operação corresponde a um endpoint da API:
  *   POST   /v1/itineraries              -> RoteiroService.gerar
  *   GET    /v1/itineraries/:id          -> RoteiroService.obter
  *   GET    /v1/itineraries              -> RoteiroService.listar

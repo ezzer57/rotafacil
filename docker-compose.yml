@@ -63,6 +63,9 @@ services:
   web:
     build:
       context: ./mobile
+      # O modo de demonstração do site usa o motor de roteirização da API.
+      additional_contexts:
+        motor: ./api/src/core
       args:
         # O navegador de quem usa o site chama a API por este endereço.
         EXPO_PUBLIC_API_URL: http://localhost:${API_PORTA:-3333}

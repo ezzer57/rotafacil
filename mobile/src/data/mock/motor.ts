@@ -1,494 +1,163 @@
 /**
- * Mini-motor de roteirização e custo usado APENAS pelo mock.
+ * Motor do modo de demonstração: o MESMO da API.
  *
- * É uma versão reduzida do algoritmo descrito nas seções 3.5 e 3.7 do TCC:
- * seleção gulosa por razão benefício/consumo, com restrição de orçamento,
- * de tempo disponível e de janela de funcionamento. Existe para que a
- * interface reaja de verdade às entradas do usuário durante a demonstração.
- *
- * Quando o backend ficar pronto, este arquivo é descartado: o servidor passa
- * a devolver o roteiro montado, no mesmo formato de src/domain/types.ts.
+ * Não há cópia do algoritmo aqui. O modo de demonstração chama o motor de
+ * api/src/core (código puro, sem banco nem rede) e só traduz a entrada e a
+ * saída para os tipos do aplicativo, como o serializador da API faz. Assim a
+ * demonstração monta os mesmos roteiros que a API montaria, só que sem as
+ * medidas pelas ruas: sem a API não há servidor de rotas, e as distâncias
+ * saem estimadas em linha reta.
  */
 
-import { formatarDuracao, formatarReais } from '@/domain/format';
-import { distanciaViaria } from '@/domain/geo';
+import {
+  gerarRoteiro as gerarPeloMotor,
+  type Candidato,
+  type ResultadoRoteiro,
+  type Trecho as TrechoDoMotor,
+} from '@motor/roteirizacao';
+
 import type {
-  Bandeira,
-  Coordenada,
-  DetalheCalculoTarifa,
-  FaixaCusto,
-  ItemRoteiro,
-  MotivoDescarte,
-  PontoDescartado,
+  Cidade,
+  ID,
   PontoInteresse,
   PreferenciasRoteiro,
   Roteiro,
-  SituacaoNoHorario,
-  TotaisRoteiro,
   Trecho,
 } from '@/domain/types';
-import { CIDADES, cidadeDoMock, pontosPorCidade, tarifaDoMock, type TarifaTaxi } from './dados';
-
-/** Acima desta distância o deslocamento deixa de ser a pé. */
-const DISTANCIA_MAX_A_PE_KM = 1;
-const VELOCIDADE_A_PE_KMH = 4.5;
-const VELOCIDADE_CARRO_KMH = 28;
-/** Régua do custo quando não há teto de gasto, a mesma da API. */
-const ORCAMENTO_DE_REFERENCIA = 80;
-
-/** Bandeira 2 das 22h às 6h e aos domingos. */
-export function bandeiraDe(data: Date): Bandeira {
-  const hora = data.getHours();
-  const domingo = data.getDay() === 0;
-  return hora >= 22 || hora < 6 || domingo ? 2 : 1;
-}
-
-/** Equação (8) do TCC: tarifa de táxi do trecho. */
-export function custoTaxi(
-  distanciaKm: number,
-  minutosLentos: number,
-  bandeira: Bandeira,
-  tarifa: TarifaTaxi,
-): number {
-  const valorKm = bandeira === 1 ? tarifa.kmBandeira1 : tarifa.kmBandeira2;
-  return tarifa.bandeirada + valorKm * distanciaKm + (tarifa.horaParada / 60) * minutosLentos;
-}
-
-/** Equação (10): converte a tarifa de táxi em faixa de preço de aplicativo. */
-export function faixaAplicativo(custoBase: number, tarifa: TarifaTaxi): FaixaCusto {
-  const arredonda = (v: number) => Math.round(v * 100) / 100;
-  return {
-    min: arredonda(custoBase * tarifa.alfaP10),
-    estimado: arredonda(custoBase * tarifa.alfa),
-    max: arredonda(custoBase * tarifa.alfaP90),
-  };
-}
-
-export function montarTrecho(
-  origem: { id: string; coordenada: Coordenada },
-  destino: { id: string; coordenada: Coordenada },
-  partida: Date,
-  tarifa: TarifaTaxi,
-): Trecho {
-  const distanciaKm = Number(distanciaViaria(origem.coordenada, destino.coordenada).toFixed(2));
-  const aPe = distanciaKm <= DISTANCIA_MAX_A_PE_KM;
-  const duracaoMin = Math.round(
-    (distanciaKm / (aPe ? VELOCIDADE_A_PE_KMH : VELOCIDADE_CARRO_KMH)) * 60,
-  );
-
-  if (aPe) {
-    return {
-      origemId: origem.id,
-      destinoId: destino.id,
-      modal: 'pe',
-      fonte: 'estimada',
-      trajeto: null,
-      distanciaKm,
-      duracaoMin,
-      bandeira: null,
-      custo: { min: 0, estimado: 0, max: 0 },
-      calculo: null,
-    };
-  }
-
-  const bandeira = bandeiraDe(partida);
-  // Aproximação de trânsito lento: 20% da duração do trecho.
-  const minutosLentos = Number((duracaoMin * 0.2).toFixed(1));
-  const subtotalTaxi = custoTaxi(distanciaKm, minutosLentos, bandeira, tarifa);
-
-  const calculo: DetalheCalculoTarifa = {
-    bandeirada: tarifa.bandeirada,
-    valorPorKm: bandeira === 1 ? tarifa.kmBandeira1 : tarifa.kmBandeira2,
-    distanciaKm,
-    minutosLentos,
-    valorHoraParada: tarifa.horaParada,
-    subtotalTaxi: Number(subtotalTaxi.toFixed(2)),
-    fatorAplicativo: tarifa.alfa,
-    norma: tarifa.norma,
-  };
-
-  return {
-    origemId: origem.id,
-    destinoId: destino.id,
-    modal: 'app',
-    fonte: 'estimada',
-    trajeto: null,
-    distanciaKm,
-    duracaoMin,
-    bandeira,
-    custo: faixaAplicativo(subtotalTaxi, tarifa),
-    calculo,
-  };
-}
-
-/** Custo estimado dentro do local, a partir da faixa de preço do provedor. */
-function custoNoLocal(ponto: PontoInteresse): number {
-  if (ponto.faixaPreco == null) return 0;
-  return [0, 20, 45, 90, 160][ponto.faixaPreco] ?? 0;
-}
+import { CIDADES, cidadeDoMock, pontosPorCidade, tarifaDoMock } from './dados';
 
 /**
- * Janela de funcionamento em minutos desde a meia-noite, lida do texto de
- * horário do provedor. Retorna null quando o ponto não fecha.
+ * Janela de funcionamento lida do texto de horário ("08:00 às 17:00"), em
+ * minutos desde a meia-noite. Texto sem horário ("Ao ar livre") é sempre aberto.
  */
-function janelaDe(ponto: PontoInteresse): { abre: number; fecha: number } | null {
-  const texto = ponto.horarioHoje ?? '';
-  const encontrado = texto.match(/(\d{2}):(\d{2}).+?(\d{2}):(\d{2})/);
-  if (!encontrado) return null;
+function janelaDe(ponto: PontoInteresse): Pick<Candidato, 'abreMin' | 'fechaMin'> {
+  const encontrado = (ponto.horarioHoje ?? '').match(/(\d{2}):(\d{2}).+?(\d{2}):(\d{2})/);
+  if (!encontrado) return { abreMin: null, fechaMin: null };
   return {
-    abre: Number(encontrado[1]) * 60 + Number(encontrado[2]),
-    fecha: Number(encontrado[3]) * 60 + Number(encontrado[4]),
+    abreMin: Number(encontrado[1]) * 60 + Number(encontrado[2]),
+    fechaMin: Number(encontrado[3]) * 60 + Number(encontrado[4]),
   };
 }
 
-const minutosDoDia = (data: Date) => data.getHours() * 60 + data.getMinutes();
+const paraCandidato = (ponto: PontoInteresse): Candidato => ({
+  id: ponto.id,
+  nome: ponto.nome,
+  categoria: ponto.categoria,
+  coordenada: ponto.coordenada,
+  nota: ponto.nota,
+  avaliacoes: ponto.avaliacoes,
+  faixaPreco: ponto.faixaPreco,
+  tempoVisitaMin: ponto.tempoVisitaMin,
+  relevancia: ponto.relevancia,
+  arLivre: ponto.arLivre,
+  ...janelaDe(ponto),
+});
 
-/** Valor de todos os pontos quando nenhum candidato tem nota, como na API. */
-const NOTA_NEUTRA = 3;
+const paraTrecho = (trecho: TrechoDoMotor, origemId: ID, destinoId: ID): Trecho => ({
+  origemId,
+  destinoId,
+  modal: trecho.modal,
+  fonte: trecho.fonte,
+  trajeto: null,
+  distanciaKm: trecho.distanciaKm,
+  duracaoMin: trecho.duracaoMin,
+  bandeira: trecho.bandeira,
+  custo: trecho.custo,
+  calculo: trecho.calculo,
+});
 
-const temNota = (p: PontoInteresse): p is PontoInteresse & { nota: number } =>
-  p.nota != null && p.avaliacoes > 0;
+const emReais = (valor: number) => Math.round(valor * 100) / 100;
 
-/**
- * Pontuação bayesiana ponderada pela preferência (equação 6 do TCC). Ponto
- * sem nota vale a média dos que têm, e só quem tem nota entra na média.
- */
-function pontuacao(ponto: PontoInteresse, candidatos: PontoInteresse[], peso: number): number {
-  const avaliados = candidatos.filter(temNota);
-  if (avaliados.length === 0) return peso * NOTA_NEUTRA;
-
-  const C = avaliados.reduce((s, p) => s + p.nota, 0) / avaliados.length;
-  if (!temNota(ponto)) return peso * C;
-
-  const m = avaliados.map((p) => p.avaliacoes).sort((a, b) => a - b)[
-    Math.floor(avaliados.length / 2)
-  ]!;
-  const n = ponto.avaliacoes;
-  return peso * ((n * ponto.nota + m * C) / (n + m));
-}
-
-/** Mesmo cálculo da API (src/core/roteirizacao.ts): relevância pesa 70%, a nota 30%. */
-const PESO_RELEVANCIA = 0.7;
-const EXPOENTE_RELEVANCIA = 3;
-const relevanciaEfetiva = (relevancia: number) => 5 * (relevancia / 5) ** EXPOENTE_RELEVANCIA;
-
-function beneficio(ponto: PontoInteresse, candidatos: PontoInteresse[], peso: number): number {
-  return (
-    peso *
-    (PESO_RELEVANCIA * relevanciaEfetiva(ponto.relevancia) +
-      (1 - PESO_RELEVANCIA) * pontuacao(ponto, candidatos, 1))
-  );
-}
-
-/** Lugar fora do horário entra marcado, valendo menos; e o 2-opt evita criar visitas assim. */
-const FATOR_FORA_DO_HORARIO = 0.2;
-const PENALIDADE_FORA_DO_HORARIO = 1;
-
-/** Primeiro os símbolos da cidade (5), depois os grandes atrativos (4), por fim o resto. */
-const FASES_DE_RELEVANCIA = [5, 4, 0];
-
-/**
- * Construção gulosa por inserção seguida de 2-opt: a cada passo acrescenta o
- * ponto com a melhor razão benefício/consumo que ainda cabe no tempo, no
- * horário de funcionamento e, quando há teto, no orçamento; depois inverte
- * trechos da rota para desfazer o zigue-zague.
- */
-export function gerarRoteiro(pref: PreferenciasRoteiro): Roteiro {
-  const inicio = performance.now();
-  let trechosCalculados = 0;
-
-  const teto = pref.orcamento;
-  const regua = teto ?? ORCAMENTO_DE_REFERENCIA;
-
-  const cidade = CIDADES.find((c) => c.id === pref.cidadeId) ?? cidadeDoMock('quixada');
-  const tarifa = tarifaDoMock(cidade.id);
-  const candidatos = pontosPorCidade(cidade.id);
-
-  const selecionados: PontoInteresse[] = [];
-  const origem = { id: 'origem', coordenada: pref.origem };
-  const alvo = (p: PontoInteresse) => ({ id: p.id, coordenada: p.coordenada });
-
-  interface Estado {
-    posicao: { id: string; coordenada: Coordenada };
-    relogio: Date;
-    gasto: number;
-    tempo: number;
-    foraDoHorario: number;
-  }
-
-  /**
-   * Percorre a sequência; devolve null se ela não couber no tempo ou no teto.
-   * O horário de funcionamento não invalida: só conta as visitas fora dele.
-   */
-  const simular = (sequencia: PontoInteresse[]): Estado | null => {
-    let estado: Estado = {
-      posicao: origem,
-      relogio: new Date(pref.inicioPrevisto),
-      gasto: 0,
-      tempo: 0,
-      foraDoHorario: 0,
-    };
-    for (const ponto of sequencia) {
-      const trecho = montarTrecho(estado.posicao, alvo(ponto), estado.relogio, tarifa);
-      trechosCalculados += 1;
-      const deltaTempo = trecho.duracaoMin + ponto.tempoVisitaMin;
-      const deltaCusto = trecho.custo.estimado + custoNoLocal(ponto);
-
-      if (estado.tempo + deltaTempo > pref.tempoDisponivelMin) return null;
-      if (teto != null && estado.gasto + deltaCusto > teto) return null;
-      const aberto = cabeNaJanela(ponto, estado.relogio, trecho.duracaoMin);
-
-      estado = {
-        posicao: alvo(ponto),
-        relogio: new Date(estado.relogio.getTime() + deltaTempo * 60000),
-        gasto: estado.gasto + deltaCusto,
-        tempo: estado.tempo + deltaTempo,
-        foraDoHorario: estado.foraDoHorario + (aberto ? 0 : 1),
-      };
-    }
-    return estado;
-  };
-
-  const restantes = [...candidatos];
-
-  const ampliar = (relevanciaMinima: number) => {
-    for (;;) {
-      const estado = simular(selecionados)!;
-      let melhor: { ponto: PontoInteresse; razao: number } | null = null;
-
-      for (const ponto of restantes) {
-        const dentroDaPreferencia =
-          pref.categorias.length === 0 || pref.categorias.includes(ponto.categoria);
-        const peso = dentroDaPreferencia ? 1 : 0.25;
-
-        if (relevanciaMinima > 0 && (!dentroDaPreferencia || ponto.relevancia < relevanciaMinima)) {
-          continue;
-        }
-
-        const trecho = montarTrecho(estado.posicao, alvo(ponto), estado.relogio, tarifa);
-        trechosCalculados += 1;
-
-        const deltaTempo = trecho.duracaoMin + ponto.tempoVisitaMin;
-        const deltaCusto = trecho.custo.estimado + custoNoLocal(ponto);
-
-        if (estado.tempo + deltaTempo > pref.tempoDisponivelMin) continue;
-        if (teto != null && estado.gasto + deltaCusto > teto) continue;
-
-        // Imperdíveis só entram abertos; o fechado fica para a última fase, valendo menos.
-        const aberto = cabeNaJanela(ponto, estado.relogio, trecho.duracaoMin);
-        if (relevanciaMinima > 0 && !aberto) continue;
-
-        const razao =
-          (beneficio(ponto, candidatos, peso) * (aberto ? 1 : FATOR_FORA_DO_HORARIO)) /
-          (deltaTempo / pref.tempoDisponivelMin + deltaCusto / Math.max(1, regua));
-
-        if (!melhor || razao > melhor.razao) melhor = { ponto, razao };
-      }
-
-      if (!melhor) return;
-      selecionados.push(melhor.ponto);
-      restantes.splice(restantes.indexOf(melhor.ponto), 1);
-    }
-  };
-
-  const custoDaRota = (estado: Estado) =>
-    estado.tempo / pref.tempoDisponivelMin +
-    estado.gasto / Math.max(1, regua) +
-    PENALIDADE_FORA_DO_HORARIO * estado.foraDoHorario;
-
-  /** 2-opt: inverte um trecho da rota quando isso diminui tempo e custo e ela continua cabendo. */
-  const desembaracar = (): boolean => {
-    let melhorou = false;
-    let atual = simular(selecionados)!;
-
-    for (let rodada = 0; rodada < 20; rodada += 1) {
-      let achou = false;
-      for (let i = 0; i < selecionados.length - 1 && !achou; i += 1) {
-        for (let j = i + 1; j < selecionados.length && !achou; j += 1) {
-          const tentativa = [
-            ...selecionados.slice(0, i),
-            ...selecionados.slice(i, j + 1).reverse(),
-            ...selecionados.slice(j + 1),
-          ];
-          const estado = simular(tentativa);
-          if (estado && custoDaRota(estado) < custoDaRota(atual) - 1e-4) {
-            selecionados.splice(0, selecionados.length, ...tentativa);
-            atual = estado;
-            achou = true;
-            melhorou = true;
-          }
-        }
-      }
-      if (!achou) break;
-    }
-    return melhorou;
-  };
-
-  const completar = () => FASES_DE_RELEVANCIA.forEach((fase) => ampliar(fase));
-
-  completar();
-  for (let rodada = 0; rodada < 5; rodada += 1) {
-    if (!desembaracar()) break;
-    completar();
-  }
-
-  const final = simular(selecionados)!;
-  const posicao = final.posicao;
-  const relogio = final.relogio;
-  const gastoAcumulado = final.gasto;
-  const tempoAcumulado = final.tempo;
-
-  // Explica, ponto a ponto, por que cada candidato ficou de fora.
-  const descartados: PontoDescartado[] = restantes.map((ponto) => {
-    const trecho = montarTrecho(
-      posicao,
-      { id: ponto.id, coordenada: ponto.coordenada },
-      relogio,
-      tarifa,
-    );
-    const faltaOrcamento =
-      teto == null ? 0 : gastoAcumulado + trecho.custo.estimado + custoNoLocal(ponto) - teto;
-    const faltaTempo =
-      tempoAcumulado + trecho.duracaoMin + ponto.tempoVisitaMin - pref.tempoDisponivelMin;
-
-    let motivo: MotivoDescarte = 'tempo';
-    let detalhe = 'não coube na sequência do roteiro';
-
-    if (faltaOrcamento > 0) {
-      motivo = 'orcamento';
-      detalhe = `faltariam ${formatarReais(faltaOrcamento)}`;
-    } else if (faltaTempo > 0) {
-      motivo = 'tempo';
-      detalhe = `precisaria de mais ${formatarDuracao(faltaTempo)}`;
-    }
-
-    return { ponto, motivo, detalhe };
-  });
-
-  // Monta os itens finais já com horários e trechos definitivos.
-  let cursor = new Date(pref.inicioPrevisto);
-  let anterior = { id: 'origem', coordenada: pref.origem };
-  const itens: ItemRoteiro[] = selecionados.map((ponto, i) => {
-    const trecho = montarTrecho(
-      anterior,
-      { id: ponto.id, coordenada: ponto.coordenada },
-      cursor,
-      tarifa,
-    );
-    const chegada = new Date(cursor.getTime() + trecho.duracaoMin * 60000);
-    const saida = new Date(chegada.getTime() + ponto.tempoVisitaMin * 60000);
-    cursor = saida;
-    anterior = { id: ponto.id, coordenada: ponto.coordenada };
-    return {
-      ordem: i + 1,
-      ponto,
-      chegadaPrevista: chegada.toISOString(),
-      saidaPrevista: saida.toISOString(),
-      trechoAteAqui: trecho,
-      custoNoLocal: custoNoLocal(ponto),
-      situacaoNoHorario: situacaoNoHorario(ponto, chegada),
-      visitado: false,
-      visita: null,
-    };
-  });
-
-  const soma = (f: (t: Trecho) => number) =>
-    itens.reduce((s, i) => s + (i.trechoAteAqui ? f(i.trechoAteAqui) : 0), 0);
-
-  const custoTransporte: FaixaCusto = {
-    min: Number(soma((t) => t.custo.min).toFixed(2)),
-    estimado: Number(soma((t) => t.custo.estimado).toFixed(2)),
-    max: Number(soma((t) => t.custo.max).toFixed(2)),
-  };
-  const custoLocais = itens.reduce((s, i) => s + i.custoNoLocal, 0);
-
-  // Quanto custaria fazer cada trecho a pé de carro de aplicativo, na bandeira
-  // da hora em que ele começa (como na API).
-  const trechosAPe = itens.filter((i) => i.trechoAteAqui?.modal === 'pe');
-  const economiaCaminhando = Number(
-    trechosAPe
-      .reduce((s, i) => {
-        const t = i.trechoAteAqui!;
-        const saida = new Date(new Date(i.chegadaPrevista).getTime() - t.duracaoMin * 60000);
-        const taxi = custoTaxi(t.distanciaKm, 0, bandeiraDe(saida), tarifa);
-        return s + faixaAplicativo(taxi, tarifa).estimado;
-      }, 0)
-      .toFixed(2),
-  );
-
-  const totais: TotaisRoteiro = {
-    custoTransporte,
-    custoLocais,
-    custoTotal: {
-      min: Number((custoTransporte.min + custoLocais).toFixed(2)),
-      estimado: Number((custoTransporte.estimado + custoLocais).toFixed(2)),
-      max: Number((custoTransporte.max + custoLocais).toFixed(2)),
-    },
-    duracaoMin: itens.reduce(
-      (s, i) => s + (i.trechoAteAqui?.duracaoMin ?? 0) + i.ponto.tempoVisitaMin,
-      0,
-    ),
-    distanciaKm: Number(soma((t) => t.distanciaKm).toFixed(1)),
-    usoOrcamento:
-      teto == null
-        ? null
-        : Math.min(
-            100,
-            Math.round(((custoTransporte.estimado + custoLocais) / Math.max(1, teto)) * 100),
-          ),
-    economiaCaminhando,
-    trechosAPe: trechosAPe.length,
-    pontosVisitados: 0,
-    custoRegistrado: null,
-  };
+/** O resultado do motor no formato que a API devolve (api/src/modules/roteiros/serializador.ts). */
+function paraRoteiro(
+  resultado: ResultadoRoteiro,
+  preferencias: PreferenciasRoteiro,
+  cidade: Cidade,
+  pontoPorId: Map<ID, PontoInteresse>,
+): Roteiro {
+  const ponto = (id: ID) => pontoPorId.get(id)!;
+  const { custoTransporte, custoLocais } = resultado.totais;
+  const teto = preferencias.orcamento;
 
   return {
     id: `rot-${Date.now()}`,
     cidadeId: cidade.id,
     cidadeNome: cidade.nome,
     criadoEm: new Date().toISOString(),
-    inicioPrevisto: pref.inicioPrevisto,
-    orcamento: pref.orcamento,
-    tempoDisponivelMin: pref.tempoDisponivelMin,
-    itens,
-    totais,
-    descartados,
-    diagnostico: {
-      // O modo de demonstração não tem servidor de rotas.
-      rotas: 'estimada',
-      candidatosAvaliados: candidatos.length,
-      trechosCalculados,
-      duracaoMs: Number((performance.now() - inicio).toFixed(1)),
+    inicioPrevisto: preferencias.inicioPrevisto,
+    orcamento: teto,
+    tempoDisponivelMin: preferencias.tempoDisponivelMin,
+
+    itens: resultado.itens.map((item, indice) => ({
+      ordem: item.ordem,
+      ponto: ponto(item.candidato.id),
+      chegadaPrevista: item.chegadaPrevista.toISOString(),
+      saidaPrevista: item.saidaPrevista.toISOString(),
+      // A origem do primeiro trecho é a posição do usuário.
+      trechoAteAqui: paraTrecho(
+        item.trechoAteAqui,
+        indice === 0 ? 'origem' : resultado.itens[indice - 1]!.candidato.id,
+        item.candidato.id,
+      ),
+      custoNoLocal: item.custoNoLocal,
+      situacaoNoHorario: item.situacaoNoHorario,
+      visitado: false,
+      visita: null,
+    })),
+
+    totais: {
+      custoTransporte,
+      custoLocais,
+      custoTotal: {
+        min: emReais(custoTransporte.min + custoLocais),
+        estimado: emReais(custoTransporte.estimado + custoLocais),
+        max: emReais(custoTransporte.max + custoLocais),
+      },
+      duracaoMin: resultado.totais.duracaoMin,
+      distanciaKm: resultado.totais.distanciaKm,
+      usoOrcamento:
+        teto == null
+          ? null
+          : Math.min(
+              100,
+              Math.round(((custoTransporte.estimado + custoLocais) / Math.max(1, teto)) * 100),
+            ),
+      economiaCaminhando: resultado.totais.economiaCaminhando,
+      trechosAPe: resultado.totais.trechosAPe,
+      pontosVisitados: 0,
+      custoRegistrado: null,
     },
-    preferencias: pref,
+
+    descartados: resultado.descartados.map((d) => ({
+      ponto: ponto(d.candidato.id),
+      motivo: d.motivo,
+      detalhe: d.detalhe,
+    })),
+
+    diagnostico: resultado.diagnostico,
+    preferencias,
   };
 }
 
 /**
- * Mesma regra da API (`situacaoNoHorario` em api/src/core/roteirizacao.ts):
- * ao ar livre ou sem horário está sempre aberto; abertura igual ao fechamento
- * é 24 horas; fechamento antes da abertura é janela que vira o dia.
+ * Gera o roteiro como a API: os candidatos são os pontos da cidade menos os
+ * que o usuário tirou (`excluidos`, como a coluna pontosExcluidos do banco).
  */
-function situacaoNoHorario(ponto: PontoInteresse, chegada: Date): SituacaoNoHorario {
-  const janela = janelaDe(ponto);
-  if (ponto.arLivre || !janela || janela.abre === janela.fecha) return 'aberto';
-  const minuto = minutosDoDia(chegada);
+export function gerarRoteiro(preferencias: PreferenciasRoteiro, excluidos: ID[] = []): Roteiro {
+  const cidade = CIDADES.find((c) => c.id === preferencias.cidadeId) ?? cidadeDoMock('quixada');
+  const pontos = pontosPorCidade(cidade.id).filter((p) => !excluidos.includes(p.id));
 
-  let fechamento: number;
-  if (janela.fecha > janela.abre) {
-    if (minuto < janela.abre || minuto >= janela.fecha) return 'fechado';
-    fechamento = janela.fecha;
-  } else if (minuto >= janela.abre) {
-    fechamento = janela.fecha + 24 * 60;
-  } else if (minuto < janela.fecha) {
-    fechamento = janela.fecha;
-  } else {
-    return 'fechado';
-  }
-  return minuto + ponto.tempoVisitaMin > fechamento ? 'fecha-durante-a-visita' : 'aberto';
-}
+  const resultado = gerarPeloMotor(
+    pontos.map(paraCandidato),
+    {
+      origem: preferencias.origem,
+      categorias: preferencias.categorias,
+      orcamento: preferencias.orcamento,
+      tempoDisponivelMin: preferencias.tempoDisponivelMin,
+      inicioPrevisto: new Date(preferencias.inicioPrevisto),
+    },
+    tarifaDoMock(cidade.id),
+  );
 
-function cabeNaJanela(ponto: PontoInteresse, partida: Date, duracaoTrechoMin: number): boolean {
-  const chegada = new Date(partida.getTime() + duracaoTrechoMin * 60000);
-  return situacaoNoHorario(ponto, chegada) === 'aberto';
+  return paraRoteiro(resultado, preferencias, cidade, new Map(pontos.map((p) => [p.id, p])));
 }

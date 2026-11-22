@@ -38,5 +38,24 @@ export async function encerrarSessao(): Promise<void> {
   await limparToken();
 }
 
+const ouvintes = new Set<() => void>();
+
+/**
+ * Avisa quando a sessão acaba sem o usuário pedir (a API recusou o token).
+ * Devolve a função que cancela o aviso.
+ */
+export function aoPerderSessao(ouvinte: () => void): () => void {
+  ouvintes.add(ouvinte);
+  return () => {
+    ouvintes.delete(ouvinte);
+  };
+}
+
+/** A API recusou o token: encerra a sessão e avisa quem estiver ouvindo. */
+export async function perderSessao(): Promise<void> {
+  await encerrarSessao();
+  ouvintes.forEach((ouvinte) => ouvinte());
+}
+
 /** Leitura síncrona, usada pelo cliente HTTP a cada requisição. */
 export const tokenAtual = (): string | null => tokenEmMemoria;
