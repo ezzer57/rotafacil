@@ -112,6 +112,52 @@ describe('situacaoNoHorario', () => {
     const praia = candidato({ id: 'praia', arLivre: true, abreMin: 6 * 60, fechaMin: 18 * 60 });
     expect(situacaoNoHorario(praia, new Date('2026-10-21T23:30:00'))).toBe('aberto');
   });
+
+  it('entende janela que vira o dia: um bar das 18h às 2h', () => {
+    const bar = candidato({ id: 'bar', abreMin: 18 * 60, fechaMin: 2 * 60, tempoVisitaMin: 60 });
+
+    expect(situacaoNoHorario(bar, new Date('2026-10-21T17:00:00'))).toBe('fechado');
+    expect(situacaoNoHorario(bar, new Date('2026-10-21T23:00:00'))).toBe('aberto');
+    expect(situacaoNoHorario(bar, new Date('2026-10-22T00:30:00'))).toBe('aberto');
+    expect(situacaoNoHorario(bar, new Date('2026-10-22T01:30:00'))).toBe('fecha-durante-a-visita');
+    expect(situacaoNoHorario(bar, new Date('2026-10-22T03:00:00'))).toBe('fechado');
+  });
+
+  it('visita longa que começa à noite fecha na madrugada seguinte, e não no mesmo dia', () => {
+    const bar = candidato({
+      id: 'bar',
+      abreMin: 18 * 60,
+      fechaMin: 2 * 60,
+      tempoVisitaMin: 5 * 60,
+    });
+    // Das 22h às 3h passa das 2h; das 20h à 1h, não.
+    expect(situacaoNoHorario(bar, new Date('2026-10-21T22:00:00'))).toBe('fecha-durante-a-visita');
+    expect(situacaoNoHorario(bar, new Date('2026-10-21T20:00:00'))).toBe('aberto');
+  });
+
+  it('fechamento à meia-noite vale gravado como 0h ou como 24h', () => {
+    const comoZero = candidato({ id: 'a', abreMin: 18 * 60, fechaMin: 0, tempoVisitaMin: 30 });
+    const comoVinteEQuatro = candidato({
+      id: 'b',
+      abreMin: 18 * 60,
+      fechaMin: 24 * 60,
+      tempoVisitaMin: 30,
+    });
+
+    for (const lugar of [comoZero, comoVinteEQuatro]) {
+      expect(situacaoNoHorario(lugar, new Date('2026-10-21T23:00:00'))).toBe('aberto');
+      expect(situacaoNoHorario(lugar, new Date('2026-10-21T23:45:00'))).toBe(
+        'fecha-durante-a-visita',
+      );
+      expect(situacaoNoHorario(lugar, new Date('2026-10-22T00:30:00'))).toBe('fechado');
+    }
+  });
+
+  it('abertura igual ao fechamento é lugar aberto 24 horas', () => {
+    const posto = candidato({ id: 'posto', abreMin: 0, fechaMin: 0, tempoVisitaMin: 60 });
+    expect(situacaoNoHorario(posto, new Date('2026-10-21T03:00:00'))).toBe('aberto');
+    expect(situacaoNoHorario(posto, new Date('2026-10-21T23:30:00'))).toBe('aberto');
+  });
 });
 
 describe('pontuar', () => {
@@ -489,5 +535,106 @@ describe('gerarRoteiro: relevância e ordem das paradas', () => {
     for (const item of resultado.itens) {
       expect(item.situacaoNoHorario).toBe(situacaoNoHorario(item.candidato, item.chegadaPrevista));
     }
+  });
+});
+
+describe('gerarRoteiro: horário do dia', () => {
+  it('roteiro que passa da meia-noite encontra o bar aberto na madrugada', () => {
+    const bar = candidato({
+      id: 'bar',
+      categoria: 'vidaNoturna',
+      relevancia: 5,
+      coordenada: aNorte(0.3),
+      abreMin: 18 * 60,
+      fechaMin: 2 * 60,
+    });
+    const resultado = gerarRoteiro(
+      [bar],
+      preferencias({ inicioPrevisto: new Date('2026-10-21T23:58:00'), orcamento: null }),
+      TARIFA,
+    );
+
+    const parada = resultado.itens[0]!;
+    expect(parada.candidato.id).toBe('bar');
+    expect(parada.chegadaPrevista.getDate()).toBe(22);
+    expect(parada.situacaoNoHorario).toBe('aberto');
+  });
+
+  it('à noite, o parque com horário no mapa ganha do museu fechado', () => {
+    const parque = candidato({
+      id: 'parque',
+      relevancia: 5,
+      arLivre: true,
+      coordenada: aNorte(0.3),
+      abreMin: 6 * 60,
+      fechaMin: 17 * 60 + 30,
+      tempoVisitaMin: 40,
+    });
+    const museu = candidato({
+      id: 'museu',
+      relevancia: 5,
+      coordenada: aNorte(-0.3),
+      abreMin: 8 * 60,
+      fechaMin: 17 * 60,
+      tempoVisitaMin: 40,
+    });
+    // Uma hora só dá para um dos dois.
+    const resultado = gerarRoteiro(
+      [museu, parque],
+      preferencias({
+        inicioPrevisto: new Date('2026-10-21T21:00:00'),
+        tempoDisponivelMin: 60,
+        orcamento: null,
+      }),
+      TARIFA,
+    );
+
+    expect(resultado.itens.map((i) => i.candidato.id)).toEqual(['parque']);
+    expect(resultado.itens[0]!.situacaoNoHorario).toBe('aberto');
+  });
+
+  it('a economia de caminhar usa a bandeira da hora: vale mais à noite e no domingo', () => {
+    const praca = candidato({ id: 'praca', coordenada: aNorte(0.3) });
+    const economiaAs = (inicio: string) =>
+      gerarRoteiro(
+        [praca],
+        preferencias({ inicioPrevisto: new Date(inicio), orcamento: null }),
+        TARIFA,
+      ).totais.economiaCaminhando;
+
+    const diaUtil = economiaAs('2026-10-21T10:00:00');
+    expect(diaUtil).toBeGreaterThan(0);
+    expect(economiaAs('2026-10-21T23:00:00')).toBeGreaterThan(diaUtil);
+    expect(economiaAs('2026-10-25T10:00:00')).toBeGreaterThan(diaUtil);
+  });
+});
+
+describe('gerarRoteiro: memória de trechos', () => {
+  const candidatos = [
+    candidato({ id: 'a', coordenada: aNorte(0.2) }),
+    candidato({ id: 'b', coordenada: aNorte(0.5) }),
+    candidato({ id: 'c', coordenada: aNorte(0.9) }),
+  ];
+
+  it('mede cada par de pontos uma vez só, por mais ordens que simule', () => {
+    const { itens, diagnostico } = gerarRoteiro(
+      candidatos,
+      preferencias({ orcamento: null }),
+      TARIFA,
+    );
+
+    expect(itens).toHaveLength(3);
+    // Da origem para 3 pontos, e de cada ponto para os outros 2: 9 pares, todos
+    // de manhã num dia útil (uma bandeira só).
+    expect(diagnostico.trechosCalculados).toBeLessThanOrEqual(9);
+  });
+
+  it('devolve o mesmo roteiro para a mesma entrada', () => {
+    const gerar = () =>
+      gerarRoteiro(candidatos, preferencias({ orcamento: null }), TARIFA).itens.map((i) => [
+        i.candidato.id,
+        i.chegadaPrevista.toISOString(),
+      ]);
+    expect(gerar()).toEqual(gerar());
   });
 });

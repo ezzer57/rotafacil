@@ -402,13 +402,16 @@ export function gerarRoteiro(pref: PreferenciasRoteiro): Roteiro {
   };
   const custoLocais = itens.reduce((s, i) => s + i.custoNoLocal, 0);
 
-  // Quanto custaria se cada trecho a pé fosse feito de carro de aplicativo.
+  // Quanto custaria fazer cada trecho a pé de carro de aplicativo, na bandeira
+  // da hora em que ele começa (como na API).
   const trechosAPe = itens.filter((i) => i.trechoAteAqui?.modal === 'pe');
   const economiaCaminhando = Number(
     trechosAPe
       .reduce((s, i) => {
         const t = i.trechoAteAqui!;
-        return s + faixaAplicativo(custoTaxi(t.distanciaKm, 0, 1, tarifa), tarifa).estimado;
+        const saida = new Date(new Date(i.chegadaPrevista).getTime() - t.duracaoMin * 60000);
+        const taxi = custoTaxi(t.distanciaKm, 0, bandeiraDe(saida), tarifa);
+        return s + faixaAplicativo(taxi, tarifa).estimado;
       }, 0)
       .toFixed(2),
   );
@@ -461,15 +464,28 @@ export function gerarRoteiro(pref: PreferenciasRoteiro): Roteiro {
   };
 }
 
-/** O ponto precisa estar aberto na chegada e até o fim da visita. */
-/** Mesma regra da API: lugar ao ar livre ou sem horário está sempre aberto. */
+/**
+ * Mesma regra da API (`situacaoNoHorario` em api/src/core/roteirizacao.ts):
+ * ao ar livre ou sem horário está sempre aberto; abertura igual ao fechamento
+ * é 24 horas; fechamento antes da abertura é janela que vira o dia.
+ */
 function situacaoNoHorario(ponto: PontoInteresse, chegada: Date): SituacaoNoHorario {
   const janela = janelaDe(ponto);
-  if (ponto.arLivre || !janela) return 'aberto';
+  if (ponto.arLivre || !janela || janela.abre === janela.fecha) return 'aberto';
   const minuto = minutosDoDia(chegada);
-  if (minuto < janela.abre || minuto >= janela.fecha) return 'fechado';
-  if (minuto + ponto.tempoVisitaMin > janela.fecha) return 'fecha-durante-a-visita';
-  return 'aberto';
+
+  let fechamento: number;
+  if (janela.fecha > janela.abre) {
+    if (minuto < janela.abre || minuto >= janela.fecha) return 'fechado';
+    fechamento = janela.fecha;
+  } else if (minuto >= janela.abre) {
+    fechamento = janela.fecha + 24 * 60;
+  } else if (minuto < janela.fecha) {
+    fechamento = janela.fecha;
+  } else {
+    return 'fechado';
+  }
+  return minuto + ponto.tempoVisitaMin > fechamento ? 'fecha-durante-a-visita' : 'aberto';
 }
 
 function cabeNaJanela(ponto: PontoInteresse, partida: Date, duracaoTrechoMin: number): boolean {

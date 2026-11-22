@@ -6,10 +6,14 @@
  * máquina e em qualquer integração contínua, sem subir PostgreSQL.
  */
 
+import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 
 import { criarApp } from './app.js';
+
+const SEGREDO = 'segredo-apenas-para-testes-com-mais-de-32-caracteres';
+const UM_USUARIO = '3f2a1c9e-8b7d-4e6f-9a5b-1c2d3e4f5a6b';
 
 const app = criarApp();
 
@@ -40,6 +44,23 @@ describe('infraestrutura HTTP', () => {
     expect(resposta.headers['x-request-id']).toBeTruthy();
   });
 
+  it('aproveita o identificador do cliente só quando ele é curto e simples', async () => {
+    const valido = await request(app).get('/').set('x-request-id', 'app-123.abc');
+    expect(valido.headers['x-request-id']).toBe('app-123.abc');
+
+    const estranho = await request(app).get('/').set('x-request-id', 'linha	com espaço');
+    expect(estranho.headers['x-request-id']).not.toContain('espaço');
+  });
+
+  it('não confia no X-Forwarded-For sem proxy configurado', () => {
+    expect(app.get('trust proxy')).toBe(0);
+  });
+
+  it('não libera credenciais de navegador pelo CORS', async () => {
+    const resposta = await request(app).get('/').set('Origin', 'http://localhost:8080');
+    expect(resposta.headers['access-control-allow-credentials']).toBeUndefined();
+  });
+
   it('responde 404 no formato padrão de erro', async () => {
     const resposta = await request(app).get('/rota-que-nao-existe');
 
@@ -62,6 +83,31 @@ describe('autenticação', () => {
       .set('Authorization', 'Bearer token-falso');
 
     expect(resposta.status).toBe(401);
+  });
+
+  it('rejeita token assinado com outro algoritmo, mesmo com o segredo certo', async () => {
+    const token = jwt.sign({ sub: UM_USUARIO }, SEGREDO, {
+      algorithm: 'HS512',
+      issuer: 'rotafacil-api',
+    });
+    const resposta = await request(app).get('/v1/me').set('Authorization', `Bearer ${token}`);
+    expect(resposta.status).toBe(401);
+  });
+
+  it('rejeita token sem algoritmo de assinatura ("none")', async () => {
+    const token = jwt.sign({ sub: UM_USUARIO, iss: 'rotafacil-api' }, '', { algorithm: 'none' });
+    const resposta = await request(app).get('/v1/me').set('Authorization', `Bearer ${token}`);
+    expect(resposta.status).toBe(401);
+  });
+
+  it('rejeita token de outro emissor ou sem usuário', async () => {
+    const outroEmissor = jwt.sign({ sub: UM_USUARIO }, SEGREDO, { issuer: 'outro-sistema' });
+    const semUsuario = jwt.sign({ papel: 'admin' }, SEGREDO, { issuer: 'rotafacil-api' });
+
+    for (const token of [outroEmissor, semUsuario]) {
+      const resposta = await request(app).get('/v1/me').set('Authorization', `Bearer ${token}`);
+      expect(resposta.status).toBe(401);
+    }
   });
 });
 

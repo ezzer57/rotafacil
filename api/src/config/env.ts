@@ -31,6 +31,14 @@ const esquema = z.object({
     ),
 
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
+  /**
+   * Quantos proxies há na frente da API (0 = nenhum, acesso direto). Só com
+   * proxy o IP do cliente vem no cabeçalho X-Forwarded-For; numa hospedagem
+   * com balanceador, normalmente 1.
+   */
+  TRUST_PROXY: z.coerce.number().int().min(0).default(0),
+  /** Tentativas de cadastro e login por IP a cada 15 minutos. */
+  RATE_LIMIT_CREDENCIAL_MAX: z.coerce.number().int().positive().default(10),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 
   // Fuso das contas de horário: bandeira do táxi e horário de funcionamento.

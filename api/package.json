@@ -17,6 +17,7 @@
     "format:check": "prettier --check \"src/**/*.ts\" \"prisma/**/*.ts\" \"*.{js,ts,json}\"",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:integracao": "vitest run --config vitest.integracao.config.ts",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:migrate": "prisma migrate dev",

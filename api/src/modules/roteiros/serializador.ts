@@ -46,16 +46,17 @@ type RoteiroCompleto = Prisma.RoteiroGetPayload<{
 /** "08:00 às 17:00" a partir dos minutos guardados no banco. */
 function horarioLegivel(ponto: PontoBanco): string | null {
   if (ponto.arLivre) return 'Ao ar livre, sem horário';
-  if (ponto.abreMin == null || ponto.fechaMin == null) return 'Aberto 24 horas';
+  if (ponto.abreMin == null || ponto.fechaMin == null || ponto.abreMin === ponto.fechaMin) {
+    return 'Aberto 24 horas';
+  }
   const formatar = (minutos: number) =>
     `${String(Math.floor(minutos / 60)).padStart(2, '0')}:${String(minutos % 60).padStart(2, '0')}`;
   return `${formatar(ponto.abreMin)} às ${formatar(ponto.fechaMin)}`;
 }
 
-function abertoAgora(ponto: PontoBanco, momento = new Date()): boolean | null {
-  if (ponto.arLivre || ponto.abreMin == null || ponto.fechaMin == null) return true;
-  const agora = momento.getHours() * 60 + momento.getMinutes();
-  return agora >= ponto.abreMin && agora <= ponto.fechaMin;
+/** Mesma regra do motor, inclusive para janela que vira o dia. */
+function abertoAgora(ponto: PontoBanco, momento = new Date()): boolean {
+  return situacaoNoHorario({ ...ponto, tempoVisitaMin: 0 }, momento) !== 'fechado';
 }
 
 export function serializarPonto(ponto: PontoBanco) {

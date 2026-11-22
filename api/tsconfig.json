@@ -19,5 +19,5 @@
     "baseUrl": ".",
     "paths": { "@/*": ["src/*"] }
   },
-  "include": ["src/**/*.ts", "prisma/**/*.ts", "vitest.config.ts"]
+  "include": ["src/**/*.ts", "prisma/**/*.ts", "vitest.config.ts", "vitest.integracao.config.ts"]
 }

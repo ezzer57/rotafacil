@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
@@ -6,8 +6,10 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    // Os de integração precisam de banco: rodam com `npm run test:integracao`.
+    exclude: [...configDefaults.exclude, 'src/**/*.integracao.test.ts'],
     // Configuração mínima para os testes rodarem sem depender de um .env
-    // local. Os testes de contrato HTTP não encostam no banco.
+    // local. Estes testes não encostam no banco.
     env: {
       NODE_ENV: 'test',
       DATABASE_URL: 'postgresql://rotafacil:rotafacil@localhost:5432/rotafacil_test?schema=public',

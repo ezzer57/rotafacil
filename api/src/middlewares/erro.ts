@@ -53,6 +53,14 @@ export function tratadorDeErros(erro: unknown, req: Request, res: Response, _nex
     return;
   }
 
+  // Registro apagado entre a leitura e a escrita (dois pedidos ao mesmo tempo).
+  if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === 'P2025') {
+    res.status(404).json({
+      erro: { codigo: 'NAO_ENCONTRADO', mensagem: 'Registro não encontrado' },
+    });
+    return;
+  }
+
   // Erros do express.json e do CORS chegam como Error comum, mas carregam
   // status e tipo. Sem este tratamento, um corpo grande demais viraria 500.
   const comStatus = erro as {

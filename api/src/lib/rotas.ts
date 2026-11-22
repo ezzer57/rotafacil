@@ -37,6 +37,15 @@ const USER_AGENT = 'RotaFacil-TCC/0.3 (prototipo academico)';
 /** Os servidores públicos aceitam até 100 coordenadas por matriz. */
 const MAX_PONTOS_POR_MATRIZ = 100;
 const MAX_PONTOS_NO_TRACADO = 250;
+/** Traçados pedidos ao mesmo tempo: os servidores públicos pedem uso moderado. */
+const TRACADOS_SIMULTANEOS = 3;
+
+/**
+ * Respostas que dizem "não há caminho entre estes pontos" (ponto longe de
+ * qualquer rua, por exemplo), e não "servidor fora do ar". Elas valem só para
+ * aquele pedido e não colocam o servidor em pausa.
+ */
+const SEM_CAMINHO = new Set(['NoRoute', 'NoSegment']);
 
 const emGraus = (valor: number) => Math.round(valor * 1e5) / 1e5;
 
@@ -81,10 +90,16 @@ export function criarClienteDeRotas(opcoes: OpcoesCliente) {
         headers: { 'User-Agent': USER_AGENT },
         signal: AbortSignal.timeout(opcoes.timeoutMs),
       });
-      if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
+      // O OSRM responde 400 com um código quando não há caminho; o corpo
+      // precisa ser lido antes de decidir se foi falha do servidor.
+      const corpo = (await resposta.json().catch(() => null)) as { code?: string } | null;
 
-      const corpo = (await resposta.json()) as { code?: string };
-      if (corpo.code !== 'Ok') throw new Error(`OSRM respondeu ${corpo.code ?? 'sem código'}`);
+      if (corpo?.code && SEM_CAMINHO.has(corpo.code)) {
+        logger.debug({ perfil, codigo: corpo.code }, 'sem caminho pelas ruas entre os pontos');
+        return null;
+      }
+      if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
+      if (corpo?.code !== 'Ok') throw new Error(`OSRM respondeu ${corpo?.code ?? 'sem código'}`);
       return corpo;
     } catch (erro) {
       emPausaAte[perfil] = agora() + pausa;
@@ -115,6 +130,23 @@ export function criarClienteDeRotas(opcoes: OpcoesCliente) {
     return { distanciasM: corpo.distances, duracoesS: corpo.durations };
   }
 
+  /** Ruas por onde passa um trecho, ou null se o servidor não respondeu. */
+  async function tracar(
+    perfil: PerfilDeRota,
+    de: Coordenada,
+    para: Coordenada,
+  ): Promise<Tracado | null> {
+    const corpo = (await buscar(
+      perfil,
+      `/route/v1/driving/${coordenadas([de, para])}?overview=full&geometries=geojson`,
+    )) as { routes?: { geometry?: { coordinates?: [number, number][] } }[] } | null;
+
+    const linha = corpo?.routes?.[0]?.geometry?.coordinates;
+    if (!linha || linha.length < 2) return null;
+
+    return simplificarTracado(linha.map(([lng, lat]) => [emGraus(lat), emGraus(lng)]));
+  }
+
   return {
     /**
      * Mede todos os pares de pontos, a pé e de carro. Devolve null se nenhum
@@ -129,17 +161,28 @@ export function criarClienteDeRotas(opcoes: OpcoesCliente) {
       return criarMedidor(pontos, aPe, deCarro);
     },
 
-    /** Ruas por onde passa um trecho, ou null se o servidor não respondeu. */
-    async tracar(perfil: PerfilDeRota, de: Coordenada, para: Coordenada): Promise<Tracado | null> {
-      const corpo = (await buscar(
-        perfil,
-        `/route/v1/driving/${coordenadas([de, para])}?overview=full&geometries=geojson`,
-      )) as { routes?: { geometry?: { coordinates?: [number, number][] } }[] } | null;
+    tracar,
 
-      const linha = corpo?.routes?.[0]?.geometry?.coordinates;
-      if (!linha || linha.length < 2) return null;
+    /**
+     * Traça vários trechos, até TRACADOS_SIMULTANEOS por vez, na ordem pedida.
+     * Pedido null (trecho que não foi medido pelas ruas) volta como null.
+     */
+    async tracarVarios(
+      pedidos: ({ perfil: PerfilDeRota; de: Coordenada; para: Coordenada } | null)[],
+    ): Promise<(Tracado | null)[]> {
+      const resultados: (Tracado | null)[] = pedidos.map(() => null);
+      let proximo = 0;
 
-      return simplificarTracado(linha.map(([lng, lat]) => [emGraus(lat), emGraus(lng)]));
+      const trabalhar = async () => {
+        while (proximo < pedidos.length) {
+          const indice = proximo++;
+          const pedido = pedidos[indice];
+          if (pedido) resultados[indice] = await tracar(pedido.perfil, pedido.de, pedido.para);
+        }
+      };
+
+      await Promise.all(Array.from({ length: TRACADOS_SIMULTANEOS }, trabalhar));
+      return resultados;
     },
   };
 }
