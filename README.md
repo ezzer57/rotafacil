@@ -88,10 +88,57 @@ alguns minutos, porque o Docker baixa as imagens e monta o site.
   de centenas de metros. Toque no mapa da tela Nova rota para marcar o ponto
   de partida.
 
-### 2. No celular, com o Expo Go (desenvolvimento)
+### 2. No celular, com o Docker e o Expo Go (recomendado para testar no aparelho)
 
-São três terminais, todos a partir da pasta do projeto. O celular precisa
-estar no mesmo Wi-Fi do computador.
+O Docker cuida do banco e da API, como no modo 1, e o Expo só entrega o
+aplicativo ao celular. O celular precisa estar no mesmo Wi-Fi do computador.
+
+1. Suba o banco e a API com o Docker, como no modo 1, e espere aparecer
+   `RotaFácil API no ar`:
+
+   ```bash
+   docker compose up --build
+   ```
+
+2. Descubra o IP do computador na rede (no Windows, com `ipconfig`, na linha
+   "Endereço IPv4"; no macOS e no Linux, com `ip addr` ou nas configurações de
+   rede) e crie o arquivo `mobile/.env` com ele:
+
+   ```
+   EXPO_PUBLIC_API_URL=http://192.168.0.10:3333
+   ```
+
+3. No navegador **do celular**, abra `http://192.168.0.10:3333/health/live`,
+   com o seu IP. Tem que aparecer uma resposta com `"status":"ok"`. Se não
+   abrir, o celular não alcança o computador: veja os problemas comuns abaixo
+   antes de seguir.
+
+4. Em outro terminal, na pasta do projeto (o `npm install` só é preciso na
+   primeira vez e depois de baixar uma versão nova):
+
+   ```bash
+   cd mobile
+   npm install
+   npx expo start
+   ```
+
+   No PowerShell do Windows, se aparecer "a execução de scripts foi
+   desabilitada", use `npm.cmd install` e `npx.cmd expo start`, ou rode os
+   mesmos comandos no Prompt de Comando (cmd).
+
+5. Escaneie o QR code com o Expo Go (Android) ou com a câmera (iPhone). A
+   primeira abertura demora um pouco, porque o Expo monta o aplicativo.
+
+A conta é a do banco do Docker: crie uma no próprio celular. A conta criada no
+site (http://localhost:8080) também vale, porque é o mesmo banco. Para
+desligar, `Ctrl+C` no terminal do Expo; o Docker para como no modo 1.
+
+### 3. No celular, com a API fora do Docker (para mexer no código da API)
+
+Para quem vai alterar a API e quer vê-la recarregar a cada mudança. São três
+terminais, todos a partir da pasta do projeto, e o celular precisa estar no
+mesmo Wi-Fi do computador. No PowerShell do Windows, se `npm` ou `npx` forem
+bloqueados, use `npm.cmd` e `npx.cmd`, como no modo 2.
 
 **Terminal 1, banco de dados** (pode fechar depois que terminar):
 
@@ -115,7 +162,8 @@ cd api
 npm run dev
 ```
 
-Confira em http://localhost:3333/health/live, que deve responder `ok`.
+Confira em http://localhost:3333/health/live, que deve responder com
+`"status":"ok"`.
 
 **Terminal 3, aplicativo** (fica aberto). Antes, crie o arquivo `mobile/.env`
 com o IP do computador na rede (no Windows, veja com `ipconfig`; no macOS e
@@ -136,7 +184,7 @@ npx expo start
 Escaneie o QR code com o Expo Go (Android) ou com a câmera (iPhone). Para
 abrir no navegador do computador em vez do celular, aperte `w` no terminal.
 
-Não rode este modo e o do Docker ao mesmo tempo: os dois usam a porta 3333.
+Não rode este modo e o Docker ao mesmo tempo: a API dos dois usa a porta 3333.
 
 Testes do aplicativo, sem celular nem servidor:
 
@@ -150,11 +198,11 @@ as rotas de verdade e o modo de demonstração: entrar (e errar a senha), gerar
 um roteiro a partir do Início, registrar chegadas a pé e de carro até o
 Histórico e refazer o resto com o "Recalcular daqui" (`src/__tests__`).
 
-### 3. Só o aplicativo, sem servidor (modo de demonstração)
+### 4. Só o aplicativo, sem servidor (modo de demonstração)
 
 Deixe `EXPO_PUBLIC_API_URL` vazio no `mobile/.env` (ou não crie o arquivo) e
-rode só o terminal 3. O aplicativo usa dados simulados: entre com qualquer
-e-mail válido e a senha `12345678`. O roteiro sai do mesmo motor da API
+rode só o Expo (o passo 4 do modo 2). O aplicativo usa dados simulados: entre
+com qualquer e-mail válido e a senha `12345678`. O roteiro sai do mesmo motor da API
 (`api/src/core`), então as paradas escolhidas são as mesmas; só as distâncias
 são sempre estimadas em linha reta, e nada fica salvo.
 
@@ -162,7 +210,10 @@ são sempre estimadas em linha reta, e nada fica salvo.
 
 | Sintoma | O que fazer |
 |---|---|
-| O celular abre o app, mas não entra ou não gera roteiro | Confira o IP no `mobile/.env`, se celular e computador estão no mesmo Wi-Fi e se o firewall do Windows libera o Node na rede privada. Redes de faculdade costumam bloquear isso: use o modo 1 |
+| O celular abre o app, mas não entra ou não gera roteiro | Abra `http://IP-do-computador:3333/health/live` no navegador do celular: se não aparecer `"status":"ok"`, o celular não alcança a API. Confira o IP no `mobile/.env`, se os dois estão no mesmo Wi-Fi, se a rede do Windows está como **Privada** e se o firewall libera a porta 3333 (no modo 2, o Docker Desktop; no modo 3, o Node). Redes de faculdade costumam isolar os aparelhos: use o modo 1 ou o 4 |
+| `npx.ps1 não pode ser carregado porque a execução de scripts foi desabilitada` | O PowerShell do Windows está bloqueando scripts. Use `npm.cmd` e `npx.cmd` no lugar de `npm` e `npx` (por exemplo, `npx.cmd expo start`), ou rode os comandos no Prompt de Comando (cmd) |
+| O QR code não abre o app, ou o carregamento não termina | O celular não alcança o Expo (porta 8081). Rode `npx expo start --tunnel`, que passa pela internet (na primeira vez, ele pede para instalar um complemento). Isso resolve só a entrega do app: se o `health/live` do primeiro item também não abrir, a API continua fora de alcance |
+| "Recalcular daqui" recusa: "Você está a … km de …" | Não é erro: o recálculo pela posição só vale perto da cidade do roteiro (60 km), o mesmo raio da Nova rota. Para testar longe dela, desligue a localização do celular: o resto parte da última parada em que você chegou |
 | `port is already allocated` ou `EADDRINUSE` | Outra coisa usa a porta: feche a outra API, ou troque a porta (`API_PORTA`, `WEB_PORTA`, `DB_PORTA`) |
 | Roteiro avisa "distâncias estimadas em linha reta" | O servidor público de rotas demorou. Tente de novo, ou use um servidor próprio: `bash osrm/preparar.sh` (baixa cerca de 450 MB) e o perfil `osrm` do `docker-compose.yml` |
 | Lugar aparece "Fechado nesse horário" | Não é erro: o lugar entra no roteiro marcado para você decidir. Escolha outro horário de início para vê-lo aberto |

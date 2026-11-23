@@ -21,6 +21,11 @@ npx expo-doctor     # versões dos pacotes de acordo com o SDK
 Os testes rodam sempre no modo de demonstração, mesmo com o `.env` apontando
 para a API.
 
+No PowerShell do Windows, se aparecer "a execução de scripts foi
+desabilitada", use `npm.cmd` e `npx.cmd` no lugar de `npm` e `npx` (por
+exemplo, `npx.cmd expo start`). Para testar no celular com a API do Docker,
+siga o modo 2 do [README da raiz](../README.md#2-no-celular-com-o-docker-e-o-expo-go-recomendado-para-testar-no-aparelho).
+
 ## Dependências
 
 - Instale e atualize pacotes com `npx expo install`, que escolhe a versão
