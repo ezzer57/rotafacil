@@ -5,13 +5,12 @@
 
 import MapaPartida from '@/components/mapa/partida';
 import { useAlturaDoMapa } from '@/components/mapa/altura';
-import { Chip, Texto } from '@/components/ui';
+import { Chip, GrupoDeOpcoes, Texto } from '@/components/ui';
 import { RAIO_COBERTURA_CIDADE_KM } from '@/domain/geo';
 import type { Partida } from '@/domain/partida';
 import type { Coordenada } from '@/domain/types';
 import type { Localizacao } from '@/hooks/use-localizacao';
 import { useCores } from '@/theme/provider';
-import { Opcoes } from './secao';
 
 interface Props {
   partida: Partida;
@@ -47,7 +46,7 @@ export function EscolhaDaPartida({
         Toque no mapa para ajustar o ponto de partida. O ponto com borda verde é de onde o roteiro
         sai.
       </Texto>
-      <Opcoes rotulo="Ponto de partida">
+      <GrupoDeOpcoes rotulo="Ponto de partida">
         {gpsNaCidade ? (
           <Chip
             rotulo="Minha posição"
@@ -63,7 +62,7 @@ export function EscolhaDaPartida({
           onPress={onUsarCentro}
         />
         {modo === 'manual' ? <Chip rotulo="Ponto no mapa" icone="pin" ativo /> : null}
-      </Opcoes>
+      </GrupoDeOpcoes>
       {longeDemais ? (
         <Texto variante="micro" cor={cores.erro}>
           Esse ponto fica a mais de {RAIO_COBERTURA_CIDADE_KM} km do centro de {cidade?.nome}.

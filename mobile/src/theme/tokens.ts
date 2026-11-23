@@ -7,6 +7,11 @@
  * uma cor do tema significa mexer somente neste arquivo.
  *
  * Medidas, raios, tipografia e sombras nao mudam entre os temas.
+ *
+ * Contraste: toda cor usada como texto passa de 4,5:1 sobre os fundos em que
+ * aparece (WCAG 2.1, nível AA). Por isso as cores de sucesso, alerta, erro e
+ * a primária são mais escuras no tema claro do que um tom "vivo" seria. O
+ * teste src/theme/__tests__/contraste.test.ts confere isso a cada mudança.
  */
 
 export const paletaClara = {
@@ -24,18 +29,20 @@ export const paletaClara = {
   textoSobreImagem: '#FFFFFF',
 
   // marca
-  primaria: '#4F6DF5',
+  primaria: '#3D5AE6',
   primariaSuave: '#EDF1FE',
+  /** Texto e ícone sobre a cor primária (botão secundário). */
+  textoSobrePrimaria: '#FFFFFF',
   /** Cor do botao principal e do texto dentro dele. */
   tinta: '#171A21',
   tintaTexto: '#FFFFFF',
 
   // semanticas
-  sucesso: '#12B76A',
+  sucesso: '#027A48',
   sucessoSuave: '#E8F8F0',
-  alerta: '#F79009',
+  alerta: '#B54708',
   alertaSuave: '#FEF4E6',
-  erro: '#F04438',
+  erro: '#B42318',
   erroSuave: '#FEECEB',
 
   // categorias de ponto de interesse
@@ -62,6 +69,8 @@ export const paletaEscura: Paleta = {
 
   primaria: '#7B93FF',
   primariaSuave: '#1C2338',
+  // O azul do tema escuro é claro: texto branco sobre ele não se lê bem.
+  textoSobrePrimaria: '#0E1117',
   tinta: '#F2F4F8',
   tintaTexto: '#0E1117',
 

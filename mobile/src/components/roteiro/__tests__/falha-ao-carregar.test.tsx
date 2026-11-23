@@ -1,6 +1,6 @@
 import { fireEvent, screen } from '@testing-library/react-native';
 
-import { AvisoDeErro } from '@/components/aviso-de-erro';
+import { AvisoDeErro } from '@/components/ui';
 import { ErroApi } from '@/data/erros';
 import { renderizar } from '@/testes/renderizar';
 import { FalhaAoCarregar } from '../falha-ao-carregar';

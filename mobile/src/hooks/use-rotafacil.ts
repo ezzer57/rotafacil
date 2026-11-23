@@ -103,6 +103,19 @@ export function useGerarRoteiro() {
   });
 }
 
+/** Apaga um roteiro do histórico (e da API), com as paradas e as visitas. */
+export function useExcluirRoteiro() {
+  const { roteiros } = useServicos();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (roteiroId: ID) => roteiros.excluir(roteiroId),
+    onSuccess: (_, roteiroId) => {
+      qc.removeQueries({ queryKey: chaves.roteiro(roteiroId) });
+      void qc.invalidateQueries({ queryKey: chaves.roteiros });
+    },
+  });
+}
+
 export function useAjustarRoteiro(roteiroId: ID | undefined) {
   const { roteiros } = useServicos();
   const qc = useQueryClient();

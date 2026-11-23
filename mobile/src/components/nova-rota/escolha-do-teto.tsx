@@ -5,12 +5,12 @@
 import { useRef } from 'react';
 import { View } from 'react-native';
 
-import { Campo, Chip, Texto } from '@/components/ui';
+import { Campo, Chip, GrupoDeOpcoes, Texto } from '@/components/ui';
 import { formatarReais } from '@/domain/format';
 import { TETO_MAXIMO, limitarValorEmReais } from '@/domain/limites';
 import { lerTeto } from '@/domain/teto';
 import { useCores } from '@/theme/provider';
-import { Opcoes, Secao } from './secao';
+import { Secao } from './secao';
 
 const VALORES_PRONTOS = [30, 50, 80, 150];
 
@@ -29,7 +29,7 @@ export function EscolhaDoTeto({ texto, onMudar, onFocarCampo }: Props) {
 
   return (
     <Secao titulo="Quer limitar o gasto?">
-      <Opcoes rotulo="Teto de gasto">
+      <GrupoDeOpcoes rotulo="Teto de gasto">
         <Chip
           rotulo="Sem limite"
           icone="infinite"
@@ -44,7 +44,7 @@ export function EscolhaDoTeto({ texto, onMudar, onFocarCampo }: Props) {
             onPress={() => onMudar(String(pronto))}
           />
         ))}
-      </Opcoes>
+      </GrupoDeOpcoes>
       <Campo
         refContainer={campo}
         onFocus={() => onFocarCampo(campo.current)}

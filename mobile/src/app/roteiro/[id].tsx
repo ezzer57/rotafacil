@@ -22,7 +22,6 @@ import { useMemo, useRef, type ReactNode, type RefObject } from 'react';
 import { KeyboardAvoidingView, ScrollView, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AvisoDeErro } from '@/components/aviso-de-erro';
 import MapaRoteiro, { type ParadaMapa } from '@/components/mapa';
 import { LARGURA_DUAS_COLUNAS, useAlturaDoMapa } from '@/components/mapa/altura';
 import { ControleDoTeto } from '@/components/roteiro/controle-do-teto';
@@ -30,7 +29,7 @@ import { PainelDeProcessamento, PontosDescartados } from '@/components/roteiro/d
 import { FalhaAoCarregar } from '@/components/roteiro/falha-ao-carregar';
 import { ParadaDoRoteiro } from '@/components/roteiro/parada';
 import { ResumoDoRoteiro } from '@/components/roteiro/resumo';
-import { EstadoVazio, Esqueleto, Texto } from '@/components/ui';
+import { AvisoDeErro, EstadoVazio, Esqueleto, Texto } from '@/components/ui';
 import type { Roteiro } from '@/domain/types';
 import { useAjustarRoteiro, useRoteiro } from '@/hooks/use-rotafacil';
 import { useRolarAteCampo } from '@/hooks/use-teclado';

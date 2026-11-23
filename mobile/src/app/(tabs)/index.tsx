@@ -1,8 +1,9 @@
 /**
  * Tela inicial (UI-04).
  *
- * Estrutura inspirada no Figma: saudação, busca, destinos e viagens recentes,
- * com o botao flutuante de nova rota. O icone de sol/lua alterna o tema.
+ * Estrutura inspirada no Figma: saudação, busca de cidade, destinos e viagens
+ * recentes, com o botão flutuante de nova rota. O ícone de sol/lua alterna o
+ * tema.
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -12,16 +13,16 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FotoDoLugar } from '@/components/foto';
+import { CartaoDoRoteiro } from '@/components/historico/cartao-do-roteiro';
 import {
   Botao,
   CabecalhoSecao,
-  Cartao,
   Campo,
+  ErroAoCarregar,
   Esqueleto,
   EstadoVazio,
   Texto,
 } from '@/components/ui';
-import { formatarDataCurta, formatarReais } from '@/domain/format';
 import { useCidades, useHistorico, useUsuario } from '@/hooks/use-rotafacil';
 import { useTema } from '@/theme/provider';
 import { espaco, raio, sombra, type Paleta } from '@/theme/tokens';
@@ -44,8 +45,13 @@ export default function TelaInicio() {
   const estilos = useEstilos(cores);
   const [busca, setBusca] = useState('');
   const { data: usuario } = useUsuario();
-  const { data: cidades, isLoading: carregandoCidades } = useCidades();
-  const { data: historico, isLoading: carregandoHistorico } = useHistorico();
+  const cidadesConsulta = useCidades();
+  const historicoConsulta = useHistorico();
+  const historico = historicoConsulta.data;
+  const termo = busca.trim().toLowerCase();
+  const cidadesVisiveis = (cidadesConsulta.data ?? []).filter((c) =>
+    c.nome.toLowerCase().includes(termo),
+  );
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: cores.fundo }} edges={['top']}>
@@ -56,7 +62,7 @@ export default function TelaInicio() {
         <View style={estilos.topo}>
           <View style={estilos.marca}>
             <View style={estilos.logo}>
-              <Ionicons name="navigate" size={18} color="#FFFFFF" />
+              <Ionicons name="navigate" size={18} color={cores.textoSobrePrimaria} aria-hidden />
             </View>
             <Texto variante="destaque" peso="forte">
               RotaFácil
@@ -64,15 +70,24 @@ export default function TelaInicio() {
           </View>
 
           <View style={{ flexDirection: 'row', gap: espaco.sm }}>
-            <Pressable style={estilos.botaoRedondo} onPress={alternar}>
+            <Pressable
+              style={estilos.botaoRedondo}
+              onPress={alternar}
+              role="button"
+              aria-label={escuro ? 'Mudar para o tema claro' : 'Mudar para o tema escuro'}>
               <Ionicons
                 name={escuro ? 'sunny' : 'moon'}
                 size={18}
                 color={escuro ? cores.alerta : cores.textoSuave}
+                aria-hidden
               />
             </Pressable>
-            <Pressable style={estilos.botaoRedondo} onPress={() => router.push('/perfil')}>
-              <Ionicons name="person" size={18} color={cores.textoSuave} />
+            <Pressable
+              style={estilos.botaoRedondo}
+              onPress={() => router.push('/perfil')}
+              role="button"
+              aria-label="Abrir o perfil">
+              <Ionicons name="person" size={18} color={cores.textoSuave} aria-hidden />
             </Pressable>
           </View>
         </View>
@@ -84,61 +99,66 @@ export default function TelaInicio() {
           <Texto variante="corpo" cor={cores.textoSuave}>
             Monte um roteiro que cabe no seu tempo e no seu bolso.
           </Texto>
-          <Campo
-            icone="search"
-            placeholder="Ache novos lugares"
-            value={busca}
-            onChangeText={setBusca}
-          />
+          <Campo icone="search" placeholder="Buscar cidade" value={busca} onChangeText={setBusca} />
         </View>
 
         {/* ------------------------------------------------------- destinos */}
         <View>
           <CabecalhoSecao titulo="Destinos" />
-          {carregandoCidades ? (
-            <View style={{ flexDirection: 'row', gap: espaco.md }}>
+          {cidadesConsulta.isLoading ? (
+            <View style={{ flexDirection: 'row', gap: espaco.md }} aria-busy>
               <Esqueleto altura={180} largura={220} arredondado={raio.lg} />
               <Esqueleto altura={180} largura={220} arredondado={raio.lg} />
             </View>
+          ) : cidadesConsulta.error ? (
+            <ErroAoCarregar
+              erro={cidadesConsulta.error}
+              titulo="Não foi possível carregar as cidades"
+              onTentarDeNovo={() => void cidadesConsulta.refetch()}
+            />
+          ) : cidadesVisiveis.length === 0 ? (
+            <Texto variante="pequeno" cor={cores.textoSuave}>
+              Nenhuma cidade atendida com esse nome.
+            </Texto>
           ) : (
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ gap: espaco.md, paddingRight: espaco.lg }}>
-              {(cidades ?? [])
-                .filter((c) => c.nome.toLowerCase().includes(busca.trim().toLowerCase()))
-                .map((cidade) => (
-                  <Pressable
-                    key={cidade.id}
-                    onPress={() =>
-                      router.push({ pathname: '/nova-rota', params: { cidadeId: cidade.id } })
-                    }
-                    style={estilos.cardDestino}>
-                    <FotoDoLugar
-                      uri={capaCidade[cidade.id]?.url}
-                      style={estilos.imagemDestino}
-                      tamanhoIcone={32}
-                    />
-                    <View style={estilos.sombraTexto} />
-                    <View style={estilos.infoDestino}>
-                      <Texto variante="destaque" peso="forte" cor={cores.textoSobreImagem}>
-                        {cidade.bandeira} {cidade.nome}
+              {cidadesVisiveis.map((cidade) => (
+                <Pressable
+                  key={cidade.id}
+                  onPress={() =>
+                    router.push({ pathname: '/nova-rota', params: { cidadeId: cidade.id } })
+                  }
+                  role="button"
+                  aria-label={`Nova rota em ${cidade.nome}`}
+                  style={estilos.cardDestino}>
+                  <FotoDoLugar
+                    uri={capaCidade[cidade.id]?.url}
+                    style={estilos.imagemDestino}
+                    tamanhoIcone={32}
+                  />
+                  <View style={estilos.sombraTexto} />
+                  <View style={estilos.infoDestino}>
+                    <Texto variante="destaque" peso="forte" cor={cores.textoSobreImagem}>
+                      {cidade.bandeira} {cidade.nome}
+                    </Texto>
+                    <Texto variante="micro" cor={cores.textoSobreImagem}>
+                      {cidade.uf} · {cidade.pais}
+                    </Texto>
+                    {capaCidade[cidade.id] ? (
+                      <Texto
+                        variante="micro"
+                        cor={cores.textoSobreImagem}
+                        numberOfLines={1}
+                        style={{ opacity: 0.8, fontSize: 9 }}>
+                        {capaCidade[cidade.id]!.credito}
                       </Texto>
-                      <Texto variante="micro" cor={cores.textoSobreImagem}>
-                        {cidade.uf} · {cidade.pais}
-                      </Texto>
-                      {capaCidade[cidade.id] ? (
-                        <Texto
-                          variante="micro"
-                          cor={cores.textoSobreImagem}
-                          numberOfLines={1}
-                          style={{ opacity: 0.8, fontSize: 9 }}>
-                          {capaCidade[cidade.id]!.credito}
-                        </Texto>
-                      ) : null}
-                    </View>
-                  </Pressable>
-                ))}
+                    ) : null}
+                  </View>
+                </Pressable>
+              ))}
             </ScrollView>
           )}
         </View>
@@ -150,33 +170,26 @@ export default function TelaInicio() {
             acao={historico?.length ? 'Ver tudo' : undefined}
             onPressAcao={() => router.push('/historico')}
           />
-          {carregandoHistorico ? (
-            <View style={{ gap: espaco.sm }}>
+          {historicoConsulta.isLoading ? (
+            <View style={{ gap: espaco.sm }} aria-busy>
               <Esqueleto altura={72} arredondado={raio.lg} />
               <Esqueleto altura={72} arredondado={raio.lg} />
             </View>
+          ) : historicoConsulta.error ? (
+            // Antes, uma falha de rede aparecia como "Nenhuma rota ainda".
+            <ErroAoCarregar
+              erro={historicoConsulta.error}
+              titulo="Não foi possível carregar seus roteiros"
+              onTentarDeNovo={() => void historicoConsulta.refetch()}
+            />
           ) : historico?.length ? (
             <View style={{ gap: espaco.sm }}>
               {historico.slice(0, 3).map((item) => (
-                <Cartao
+                <CartaoDoRoteiro
                   key={item.id}
-                  padding={espaco.md}
-                  onPress={() => router.push(`/roteiro/${item.id}`)}>
-                  <View style={estilos.linhaRecente}>
-                    <FotoDoLugar uri={item.capaUrl} style={estilos.miniatura} tamanhoIcone={18} />
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <Texto variante="corpo" peso="semi">
-                        {item.cidadeNome}
-                      </Texto>
-                      <Texto variante="pequeno" cor={cores.textoSuave}>
-                        {item.totalPontos} paradas · {formatarDataCurta(item.criadoEm)}
-                      </Texto>
-                    </View>
-                    <Texto variante="pequeno" peso="semi" cor={cores.primaria}>
-                      {formatarReais(item.custoEstimado)}
-                    </Texto>
-                  </View>
-                </Cartao>
+                  resumo={item}
+                  onAbrir={() => router.push(`/roteiro/${item.id}`)}
+                />
               ))}
             </View>
           ) : (
@@ -254,13 +267,6 @@ function useEstilos(cores: Paleta) {
           right: espaco.md,
           bottom: espaco.md,
           gap: 2,
-        },
-        linhaRecente: { flexDirection: 'row', alignItems: 'center', gap: espaco.md },
-        miniatura: {
-          width: 48,
-          height: 48,
-          borderRadius: raio.md,
-          backgroundColor: cores.fundoAlt,
         },
         rodape: {
           position: 'absolute',

@@ -5,7 +5,7 @@
  * tentar de novo não adianta; no segundo, é exatamente o que resolve.
  */
 
-import { EstadoVazio } from '@/components/ui';
+import { ErroAoCarregar, EstadoVazio } from '@/components/ui';
 import { ErroApi } from '@/data/erros';
 
 interface Props {
@@ -29,20 +29,11 @@ export function FalhaAoCarregar({ erro, onTentarDeNovo, onVoltar }: Props) {
     );
   }
 
-  const semRede = status === 0;
   return (
-    <EstadoVazio
-      icone={semRede ? 'cloud-offline-outline' : 'warning-outline'}
-      titulo={semRede ? 'Sem conexão' : 'Não foi possível abrir o roteiro'}
-      descricao={
-        semRede
-          ? 'Confira a internet do aparelho e tente de novo.'
-          : erro instanceof Error
-            ? erro.message
-            : 'Tente de novo em instantes.'
-      }
-      acao="Tentar de novo"
-      onPressAcao={onTentarDeNovo}
+    <ErroAoCarregar
+      erro={erro}
+      titulo="Não foi possível abrir o roteiro"
+      onTentarDeNovo={onTentarDeNovo}
     />
   );
 }

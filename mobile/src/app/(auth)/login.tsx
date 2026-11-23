@@ -2,8 +2,8 @@
  * Login (UI-03).
  *
  * A validação de formato acontece aqui (Zod) apenas para dar resposta
- * imediata. A conferência da credencial é feita pelo serviço de
- * autenticação - hoje simulado, depois a rota POST /v1/sessions da API.
+ * imediata. A conferência da credencial é feita pela API (POST
+ * /v1/sessions), ou pelo modo de demonstração.
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -13,7 +13,7 @@ import { KeyboardAvoidingView, Pressable, ScrollView, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MarcaRotaFacil } from '@/components/marca';
-import { Botao, Cartao, Campo, Texto } from '@/components/ui';
+import { AvisoDeErro, Botao, Campo, Texto } from '@/components/ui';
 import { usandoApiReal } from '@/data/provider';
 import { errosPorCampo, schemaLogin } from '@/domain/validacao';
 import { useEntrar } from '@/hooks/use-rotafacil';
@@ -79,12 +79,8 @@ export default function TelaLogin() {
                 autoComplete="email"
                 value={email}
                 onChangeText={setEmail}
+                erro={erros.email}
               />
-              {erros.email ? (
-                <Texto variante="micro" cor={cores.erro}>
-                  {erros.email}
-                </Texto>
-              ) : null}
             </View>
 
             <View style={{ gap: espaco.xs }}>
@@ -99,11 +95,15 @@ export default function TelaLogin() {
                 />
                 <Pressable
                   onPress={() => setMostrarSenha((v) => !v)}
+                  role="button"
+                  aria-label={mostrarSenha ? 'Esconder a senha' : 'Mostrar a senha'}
+                  hitSlop={8}
                   style={{ position: 'absolute', right: espaco.lg, bottom: 16 }}>
                   <Ionicons
                     name={mostrarSenha ? 'eye-off-outline' : 'eye-outline'}
                     size={18}
                     color={cores.textoSuave}
+                    aria-hidden
                   />
                 </Pressable>
               </View>
@@ -115,18 +115,7 @@ export default function TelaLogin() {
             </View>
 
             {/* Erro devolvido pelo servidor (credencial inválida, rede etc.) */}
-            {entrar.isError ? (
-              <Cartao
-                padding={espaco.md}
-                style={{ backgroundColor: cores.erroSuave, borderColor: cores.erroSuave }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: espaco.sm }}>
-                  <Ionicons name="alert-circle" size={16} color={cores.erro} />
-                  <Texto variante="pequeno" cor={cores.erro}>
-                    {(entrar.error as Error).message}
-                  </Texto>
-                </View>
-              </Cartao>
-            ) : null}
+            {entrar.error ? <AvisoDeErro mensagem={entrar.error.message} /> : null}
 
             <Botao
               titulo="Entrar"

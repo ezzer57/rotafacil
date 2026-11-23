@@ -1,67 +1,57 @@
-/** Histórico de roteiros (UI-08): cada viagem com as paradas visitadas e o que foi pago. */
+/**
+ * Histórico de roteiros (UI-08): cada viagem com as paradas visitadas e o que
+ * foi pago. Cada roteiro pode ser apagado, com confirmação.
+ */
 
 import { useRouter } from 'expo-router';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { FotoDoLugar } from '@/components/foto';
-import { Cartao, Esqueleto, EstadoVazio, Texto } from '@/components/ui';
-import { formatarDataCurta, formatarReais } from '@/domain/format';
-import { useHistorico } from '@/hooks/use-rotafacil';
+import { CartaoDoRoteiro } from '@/components/historico/cartao-do-roteiro';
+import { AvisoDeErro, ErroAoCarregar, Esqueleto, EstadoVazio, Texto } from '@/components/ui';
+import { useExcluirRoteiro, useHistorico } from '@/hooks/use-rotafacil';
 import { useCores } from '@/theme/provider';
 import { espaco, raio } from '@/theme/tokens';
 
 export default function TelaHistorico() {
   const router = useRouter();
-  const { data, isLoading } = useHistorico();
+  const { data, isLoading, error, refetch } = useHistorico();
+  const excluir = useExcluirRoteiro();
   const cores = useCores();
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: cores.fundo }} edges={['top']}>
       <ScrollView contentContainerStyle={{ padding: espaco.lg, gap: espaco.md }}>
-        <Texto variante="display" peso="forte">
+        <Texto variante="display" peso="forte" accessibilityRole="header">
           Suas viagens
         </Texto>
 
+        {excluir.error ? (
+          <AvisoDeErro mensagem={excluir.error.message} onFechar={() => excluir.reset()} />
+        ) : null}
+
         {isLoading ? (
-          <View style={{ gap: espaco.sm }}>
+          <View style={{ gap: espaco.sm }} aria-busy aria-label="Carregando as viagens">
             <Esqueleto altura={88} arredondado={raio.lg} />
             <Esqueleto altura={88} arredondado={raio.lg} />
           </View>
+        ) : error ? (
+          // Antes, uma falha de rede aparecia como "Sem viagens registradas".
+          <ErroAoCarregar
+            erro={error}
+            titulo="Não foi possível carregar as viagens"
+            onTentarDeNovo={() => void refetch()}
+          />
         ) : data?.length ? (
           data.map((item) => (
-            <Cartao
+            <CartaoDoRoteiro
               key={item.id}
-              padding={espaco.md}
-              onPress={() => router.push(`/roteiro/${item.id}`)}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: espaco.md }}>
-                <FotoDoLugar
-                  uri={item.capaUrl}
-                  style={{ width: 64, height: 64, borderRadius: raio.md }}
-                />
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Texto variante="corpo" peso="semi">
-                    {item.cidadeNome}
-                  </Texto>
-                  <Texto variante="pequeno" cor={cores.textoSuave}>
-                    {item.totalPontos} paradas · {formatarDataCurta(item.criadoEm)}
-                  </Texto>
-                  {item.pontosVisitados > 0 ? (
-                    <Texto variante="micro" peso="semi" cor={cores.sucesso}>
-                      {item.pontosVisitados === 1
-                        ? '1 parada visitada'
-                        : `${item.pontosVisitados} paradas visitadas`}
-                      {item.custoRegistrado != null
-                        ? ` · ${formatarReais(item.custoRegistrado)} pagos em corridas`
-                        : ''}
-                    </Texto>
-                  ) : null}
-                  <Texto variante="pequeno" peso="semi" cor={cores.primaria}>
-                    {formatarReais(item.custoEstimado)} previstos
-                  </Texto>
-                </View>
-              </View>
-            </Cartao>
+              resumo={item}
+              detalhado
+              onAbrir={() => router.push(`/roteiro/${item.id}`)}
+              onApagar={() => excluir.mutate(item.id)}
+              apagando={excluir.isPending && excluir.variables === item.id}
+            />
           ))
         ) : (
           <EstadoVazio
