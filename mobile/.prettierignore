@@ -5,3 +5,4 @@ dist-web
 web-build
 assets
 package-lock.json
+src/components/mapa/leaflet-embutido.ts

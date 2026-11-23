@@ -1,18 +1,14 @@
 /**
- * Monta a página do mapa.
+ * Página do mapa do roteiro: as paradas numeradas, a posição de partida e o
+ * trecho entre elas (pelas ruas quando há traçado; reta, mais clara, quando
+ * não há).
  *
- * O mesmo HTML é usado nas duas plataformas: dentro de um WebView no
- * celular e de um iframe no navegador. Isso garante que o mapa apareça
- * igual nos dois lugares e mantém um único lugar para mexer no desenho.
- *
- * Usa Leaflet com tiles do OpenStreetMap, que não exige chave de API. Para
- * uso além de protótipo, a política de uso do OSM pede servidor próprio ou
- * um provedor de tiles contratado.
- *
- * O crédito do mapa é texto, sem link: dentro do WebView, tocar num link
- * trocaria o mapa pela página de destino, sem botão de voltar.
+ * O mesmo HTML é usado nas duas plataformas: dentro de um WebView no celular
+ * e de um iframe no navegador. A base (Leaflet embutido, mapa do
+ * OpenStreetMap e os cuidados de segurança) está em pagina.ts.
  */
 
+import { corSegura, paginaDoMapa } from './pagina';
 import type { ParadaMapa } from './tipos';
 
 interface OpcoesMapa {
@@ -32,60 +28,36 @@ export function construirHtmlMapa({
   corFundo,
   escuro,
 }: OpcoesMapa): string {
-  const dados = JSON.stringify({ origem: origem ?? null, paradas });
+  const primaria = corSegura(corPrimaria);
+  const sucesso = corSegura(corSucesso);
 
-  return `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<style>
-  html, body, #mapa { height: 100%; margin: 0; padding: 0; background: ${corFundo}; }
-  .leaflet-container { background: ${corFundo}; font-family: -apple-system, system-ui, sans-serif; }
-  /* No tema escuro, inverte os tiles para não ofuscar o usuário à noite. */
-  .escuro .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.92); }
+  return paginaDoMapa({
+    corFundo,
+    escuro,
+    dados: { origem: origem ?? null, paradas, cores: { primaria, sucesso } },
+    estilos: `
   .marcador {
     display: flex; align-items: center; justify-content: center;
     width: 28px; height: 28px; border-radius: 999px;
-    background: ${corPrimaria}; color: #fff;
+    background: ${primaria}; color: #fff;
     font-size: 13px; font-weight: 700;
     border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.35);
   }
   /* Parada em que o usuário já chegou: visto no lugar do número. */
   .marcador-visitado {
-    background: #fff; color: ${corSucesso};
-    border: 2px solid ${corSucesso};
+    background: #fff; color: ${sucesso};
+    border: 2px solid ${sucesso};
     font-size: 15px;
   }
   .marcador-origem {
     width: 14px; height: 14px; border-radius: 999px;
-    background: #fff; border: 4px solid ${corSucesso};
+    background: #fff; border: 4px solid ${sucesso};
     box-shadow: 0 2px 6px rgba(0,0,0,.35);
-  }
-  .leaflet-control-attribution { font-size: 9px; opacity: .8; }
-</style>
-</head>
-<body class="${escuro ? 'escuro' : ''}">
-<div id="mapa"></div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-  var dados = ${dados};
-
-  var mapa = L.map('mapa', { zoomControl: false, attributionControl: false });
-  L.control.zoom({ position: 'bottomright' }).addTo(mapa);
-  L.control.attribution({ prefix: false }).addTo(mapa);
-
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    // Crédito exigido pela licença ODbL dos dados do OpenStreetMap; as rotas
-    // também vêm desses dados.
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(mapa);
-
+  }`,
+    script: `
   function avisarSelecao(id) {
     if (window.ReactNativeWebView) {
-      window.ReactNativeWebView.postMessage(id);        // celular
+      window.ReactNativeWebView.postMessage(id);                   // celular
     } else if (window.parent) {
       window.parent.postMessage({ tipo: 'parada', id: id }, '*');  // navegador
     }
@@ -97,27 +69,25 @@ export function construirHtmlMapa({
     pontos.push([dados.origem.lat, dados.origem.lng]);
     L.marker([dados.origem.lat, dados.origem.lng], {
       icon: L.divIcon({ className: '', html: '<div class="marcador-origem"></div>', iconSize: [14, 14], iconAnchor: [7, 7] })
-    }).addTo(mapa).bindPopup('Você está aqui');
+    }).addTo(mapa).bindPopup(texto('Você está aqui'));
   }
 
   dados.paradas.forEach(function (parada) {
     var posicao = [parada.lat, parada.lng];
     pontos.push(posicao);
 
+    // O número vem do app, mas entra como texto do mesmo jeito.
+    var marcador = document.createElement('div');
+    marcador.className = parada.visitada ? 'marcador marcador-visitado' : 'marcador';
+    marcador.textContent = parada.visitada ? '\\u2713' : String(parada.ordem);
+
     L.marker(posicao, {
-      icon: L.divIcon({
-        className: '',
-        html: parada.visitada
-          ? '<div class="marcador marcador-visitado">&#10003;</div>'
-          : '<div class="marcador">' + parada.ordem + '</div>',
-        iconSize: [28, 28],
-        iconAnchor: [14, 14]
-      }),
+      icon: L.divIcon({ className: '', html: marcador, iconSize: [28, 28], iconAnchor: [14, 14] }),
       // Parada já visitada fica atrás das que ainda faltam.
       zIndexOffset: parada.visitada ? -100 : 0
     })
       .addTo(mapa)
-      .bindPopup(parada.ordem + '. ' + parada.nome + (parada.visitada ? ' (você já chegou)' : ''))
+      .bindPopup(texto(parada.ordem + '. ' + parada.nome + (parada.visitada ? ' (você já chegou)' : '')))
       .on('click', function () { avisarSelecao(parada.id); });
   });
 
@@ -135,7 +105,7 @@ export function construirHtmlMapa({
     var ruas = parada && parada.trajetoAteAqui && parada.trajetoAteAqui.length > 1;
     var linha = ruas ? parada.trajetoAteAqui : [pontos[i - 1], pontos[i]];
     L.polyline(linha, {
-      color: aPe ? '${corSucesso}' : '${corPrimaria}',
+      color: aPe ? dados.cores.sucesso : dados.cores.primaria,
       weight: ruas ? 5 : 3,
       opacity: ruas ? 0.9 : 0.45,
       dashArray: aPe ? '2 8' : null,
@@ -151,8 +121,6 @@ export function construirHtmlMapa({
     mapa.setView(pontos[0], 15);
   } else {
     mapa.setView([-4.9712, -39.0156], 13);
-  }
-</script>
-</body>
-</html>`;
+  }`,
+  });
 }

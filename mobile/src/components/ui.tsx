@@ -109,6 +109,9 @@ export function Botao({
   return (
     <Pressable
       onPress={inativo ? undefined : onPress}
+      // disabled, e não só aria-disabled: no navegador, o Pressable só repassa
+      // o estado de desabilitado ao HTML por esta prop.
+      disabled={inativo}
       role="button"
       aria-label={rotuloAcessivel ?? titulo}
       aria-disabled={inativo}
@@ -170,6 +173,7 @@ export function Campo({
   icone,
   ref,
   refContainer,
+  erro,
   ...props
 }: TextInputProps & {
   rotulo?: string;
@@ -177,6 +181,8 @@ export function Campo({
   ref?: Ref<TextInput>;
   /** Para a tela medir onde o campo está e rolar até ele quando o teclado abre. */
   refContainer?: Ref<View>;
+  /** Problema com o valor digitado, mostrado embaixo do campo. */
+  erro?: string;
 }) {
   const cores = useCores();
   const estilos = useEstilos(cores);
@@ -192,16 +198,25 @@ export function Campo({
           {rotulo}
         </Texto>
       ) : null}
-      <View style={estilos.campo}>
-        {icone ? <Ionicons name={icone} size={18} color={cores.textoSuave} /> : null}
+      <View style={[estilos.campo, erro ? { borderColor: cores.erro } : null]}>
+        {icone ? <Ionicons name={icone} size={18} color={cores.textoSuave} aria-hidden /> : null}
         <TextInput
           ref={ref}
           placeholderTextColor={cores.textoSuave}
           style={{ flex: 1, fontSize: fonte.tamanho.corpo, color: cores.texto }}
           inputAccessoryViewID={precisaBarra ? idBarra : undefined}
+          // O rótulo visível também é o nome do campo para o leitor de tela.
+          aria-label={rotulo ?? props.placeholder}
           {...props}
         />
       </View>
+      {erro ? (
+        <View accessible role="alert">
+          <Texto variante="micro" cor={cores.erro}>
+            {erro}
+          </Texto>
+        </View>
+      ) : null}
       {precisaBarra ? (
         <InputAccessoryView nativeID={idBarra}>
           <View style={estilos.barraTeclado}>
@@ -253,17 +268,27 @@ export function Chip({
   ativo,
   icone,
   onPress,
+  selecao = 'unica',
 }: {
   rotulo: string;
   ativo?: boolean;
   icone?: keyof typeof Ionicons.glyphMap;
   onPress?: () => void;
+  /**
+   * Para o leitor de tela: escolha única (um entre vários, como a cidade) ou
+   * múltipla (vários ao mesmo tempo, como os interesses).
+   */
+  selecao?: 'unica' | 'multipla';
 }) {
   const cores = useCores();
   const estilos = useEstilos(cores);
   return (
     <Pressable
       onPress={onPress}
+      // Chip sem ação é só um indicador, e não um controle.
+      role={onPress ? (selecao === 'multipla' ? 'checkbox' : 'radio') : undefined}
+      aria-checked={onPress ? Boolean(ativo) : undefined}
+      aria-label={rotulo}
       style={[
         estilos.chip,
         {
@@ -272,7 +297,12 @@ export function Chip({
         },
       ]}>
       {icone ? (
-        <Ionicons name={icone} size={15} color={ativo ? cores.primaria : cores.textoSuave} />
+        <Ionicons
+          name={icone}
+          size={15}
+          color={ativo ? cores.primaria : cores.textoSuave}
+          aria-hidden
+        />
       ) : null}
       <Texto variante="pequeno" peso="medio" cor={ativo ? cores.primaria : cores.textoSuave}>
         {rotulo}

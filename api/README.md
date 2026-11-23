@@ -143,14 +143,15 @@ limitação conhecida do protótipo, justificada.
 | Escapar do limite trocando de IP | O cabeçalho `X-Forwarded-For` só vale com `TRUST_PROXY` configurado para a hospedagem (0 por padrão) |
 | Token forjado ou adulterado | JWT HS256 com segredo de 32 caracteres ou mais, conferido na partida. Só HS256 é aceito (nem `none`, nem outro algoritmo), e o emissor e o usuário são conferidos |
 | Token de conta apagada | Toda requisição autenticada confere se a conta ainda existe |
-| Token roubado do aparelho | No celular, fica no SecureStore (Keychain no iPhone, Keystore no Android) e expira em 7 dias. No navegador fica no armazenamento local, ao alcance de um script malicioso na página: aceito no protótipo, que não carrega script de terceiros além do Leaflet |
+| Token roubado do aparelho | No celular, fica no SecureStore (Keychain no iPhone, Keystore no Android) e expira em 7 dias. No navegador fica no armazenamento local, ao alcance de um script malicioso na página: aceito no protótipo, que não carrega script de terceiros (o Leaflet vem embutido) e roda os mapas num iframe isolado, sem acesso a esse armazenamento |
 | Ver ou mexer no roteiro de outra pessoa | Toda consulta filtra pelo dono. Roteiro alheio responde 404, sem confirmar que existe |
 | Pedido vindo de outro site, pelo navegador | Lista de origens autorizadas (`CORS_ORIGENS`), sem credenciais de navegador: o token vai no cabeçalho, nunca em cookie |
 | Dado pessoal no log | Senha, token e cabeçalho `Authorization` são removidos; o corpo das requisições, com a posição do usuário, não vai para o log; o identificador de requisição vindo do cliente só é aceito se for curto e simples |
+| Código injetado pelo mapa | O nome dos lugares entra no mapa como texto, nunca como HTML, e os dados entram escapados no script; no navegador o mapa roda num iframe isolado (`sandbox`) e o app só aceita mensagens vindas dele |
 | Corpo gigante ou JSON malformado | Limite de 100 KB e erro no formato padrão |
 | Erro interno revelando detalhes | Em produção, 500 genérico; o detalhe fica só no log |
 | Injeção de SQL | Prisma com consultas parametrizadas; nenhuma SQL é montada com dado do usuário |
-| Dados enviados a terceiros | O OSRM recebe a partida e as coordenadas dos pontos; mapa, fotos e Leaflet recebem o IP. Tudo declarado na Política de Privacidade, com a transferência internacional (art. 33, VIII). Com servidor de rotas próprio, as coordenadas não saem |
+| Dados enviados a terceiros | O OSRM recebe a partida e as coordenadas dos pontos; o mapa e as fotos recebem o IP. Tudo declarado na Política de Privacidade, com a transferência internacional (art. 33, VIII). Com servidor de rotas próprio, as coordenadas não saem |
 | Direito de eliminação (art. 18) | `DELETE /v1/me` apaga conta, roteiros, paradas, visitas e aceites, em cascata; um teste de integração confere |
 | Prova do consentimento (art. 8º) | O aceite fica gravado com tipo, versão da política e data |
 | Cadastro revela se o e-mail existe | Inevitável num cadastro ("e-mail já cadastrado"); contido pelo limite de tentativas. Aceito |
