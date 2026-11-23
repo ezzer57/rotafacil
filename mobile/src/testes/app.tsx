@@ -8,7 +8,7 @@
  * existe no aparelho.
  */
 
-import { screen, userEvent } from '@testing-library/react-native';
+import { act, screen, userEvent } from '@testing-library/react-native';
 // Também prepara o Jest para o roteador (gestos, animações e links).
 import { renderRouter } from 'expo-router/testing-library';
 
@@ -57,6 +57,20 @@ export const ESPERA = { timeout: 5000 };
 export const SENHA_DE_DEMONSTRACAO = '12345678';
 
 export type Usuario = ReturnType<typeof userEvent.setup>;
+
+/**
+ * Deixa o tempo passar. O `renderRouter` liga os relógios falsos do Jest: um
+ * `setTimeout` comum no teste nunca terminaria. As buscas do Testing Library
+ * (`findBy...`) já avançam esse relógio sozinhas; esta função é para quando o
+ * teste quer conferir que nada aconteceu depois de um tempo.
+ */
+export async function esperar(ms: number) {
+  // A versão assíncrona deixa as promessas andarem entre um relógio e outro:
+  // sem ela, um pedido ao modo de demonstração nunca terminaria na espera.
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(ms);
+  });
+}
 
 export function abrirApp() {
   // Relativo à pasta mobile, de onde o Jest roda (a configuração dele está lá).
