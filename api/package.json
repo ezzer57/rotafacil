@@ -5,7 +5,13 @@
   "description": "API do RotaFácil: roteirização turística com estimativa de custo e controle de micro-orçamento",
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.12"
+  },
+  "overrides": {
+    "@prisma/config": {
+      "deepmerge-ts": "^8.0.2",
+      "effect": "^3.22.5"
+    }
   },
   "scripts": {
     "dev": "tsx watch src/server.ts",
@@ -60,6 +66,6 @@
     "supertest": "^7.0.0",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.73.0",
-    "vitest": "^2.1.8"
+    "vitest": "^5.1.1"
   }
 }

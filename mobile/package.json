@@ -8,17 +8,17 @@
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/slider": "5.2.0",
     "@tanstack/react-query": "^5.104.2",
-    "expo": "~57.0.32",
-    "expo-constants": "~57.0.21",
+    "expo": "~57.0.33",
+    "expo-constants": "~57.0.25",
     "expo-device": "~57.0.2",
     "expo-font": "~57.0.4",
     "expo-glass-effect": "~57.0.5",
     "expo-image": "~57.0.5",
-    "expo-linking": "~57.0.13",
-    "expo-location": "~57.0.23",
-    "expo-router": "~57.0.30",
+    "expo-linking": "~57.0.14",
+    "expo-location": "~57.0.24",
+    "expo-router": "~57.0.32",
     "expo-secure-store": "~57.0.4",
-    "expo-splash-screen": "~57.0.11",
+    "expo-splash-screen": "~57.0.12",
     "expo-status-bar": "~57.0.1",
     "expo-symbols": "~57.0.3",
     "expo-system-ui": "~57.0.4",
@@ -47,7 +47,7 @@
     "jest-expo": "~57.0.6",
     "leaflet": "1.9.4",
     "prettier": "^3.10.1",
-    "react-test-renderer": "^19.2.3",
+    "react-test-renderer": "19.2.3",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -64,6 +64,12 @@
     "leaflet:embutir": "node scripts/embutir-leaflet.js"
   },
   "private": true,
+  "overrides": {
+    "@expo/fingerprint": {
+      "glob": "^14.0.6",
+      "minimatch": "^11.0.9"
+    }
+  },
   "jest": {
     "preset": "jest-expo",
     "globalSetup": "<rootDir>/jest.fuso.js",
