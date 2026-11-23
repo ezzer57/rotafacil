@@ -35,10 +35,11 @@ it('sem sessão, abre nas boas-vindas; senha errada avisa e não entra; a certa 
   ).toBeOnTheScreen();
   expect(app.getPathname()).toBe('/login');
 
-  // Senha certa: entra e vê o Início com o próprio nome.
+  // Senha certa, enviada com Enter: entra e vê o Início com o próprio nome.
   await usuario.clear(screen.getByPlaceholderText('Senha'));
-  await usuario.type(screen.getByPlaceholderText('Senha'), SENHA_DE_DEMONSTRACAO);
-  await usuario.press(screen.getByRole('button', { name: 'Entrar' }));
+  await usuario.type(screen.getByPlaceholderText('Senha'), SENHA_DE_DEMONSTRACAO, {
+    submitEditing: true,
+  });
   expect(await screen.findByText('Olá, Ana', undefined, ESPERA)).toBeOnTheScreen();
   expect(app.getPathname()).toBe('/');
 });

@@ -11,8 +11,8 @@
  */
 
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { KeyboardAvoidingView, ScrollView, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { KeyboardAvoidingView, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AvisoDeErro, Botao, CaixaMarcacao, Campo, Texto } from '@/components/ui';
@@ -32,8 +32,13 @@ export default function TelaCadastro() {
   const [confirmacao, setConfirmacao] = useState('');
   const [aceitouPolitica, setAceitouPolitica] = useState(false);
   const [erros, setErros] = useState<Record<string, string>>({});
+  // Para o Enter de cada campo levar ao seguinte.
+  const refsDosCampos = useRef<(TextInput | null)[]>([]);
 
   async function aoRegistrar() {
+    // Sem o aceite, o Enter não cadastra, como o botão desligado.
+    // E Enter apertado duas vezes não manda dois pedidos.
+    if (!aceitouPolitica || registrar.isPending) return;
     const resultado = schemaCadastro.safeParse({ nome, email, senha, confirmacao });
     if (!resultado.success) {
       setErros(errosPorCampo(resultado.error));
@@ -92,19 +97,31 @@ export default function TelaCadastro() {
           </View>
 
           <View style={{ gap: espaco.md }}>
-            {campos.map((campo) => (
-              <Campo
-                key={campo.chave}
-                rotulo={campo.rotulo}
-                icone={campo.icone}
-                value={campo.valor}
-                onChangeText={campo.set}
-                secureTextEntry={campo.secreto}
-                autoCapitalize={campo.chave === 'nome' ? 'words' : 'none'}
-                keyboardType={campo.chave === 'email' ? 'email-address' : 'default'}
-                erro={erros[campo.chave]}
-              />
-            ))}
+            {campos.map((campo, indice) => {
+              const ultimo = indice === campos.length - 1;
+              return (
+                <Campo
+                  key={campo.chave}
+                  ref={(el) => {
+                    refsDosCampos.current[indice] = el;
+                  }}
+                  rotulo={campo.rotulo}
+                  icone={campo.icone}
+                  value={campo.valor}
+                  onChangeText={campo.set}
+                  secureTextEntry={campo.secreto}
+                  autoCapitalize={campo.chave === 'nome' ? 'words' : 'none'}
+                  keyboardType={campo.chave === 'email' ? 'email-address' : 'default'}
+                  erro={erros[campo.chave]}
+                  // Enter vai para o campo seguinte; no último, cadastra.
+                  returnKeyType={ultimo ? 'go' : 'next'}
+                  submitBehavior={ultimo ? 'blurAndSubmit' : 'submit'}
+                  onSubmitEditing={() =>
+                    ultimo ? aoRegistrar() : refsDosCampos.current[indice + 1]?.focus()
+                  }
+                />
+              );
+            })}
 
             <View style={{ gap: espaco.xs, marginTop: espaco.xs }}>
               <CaixaMarcacao

@@ -8,8 +8,8 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { KeyboardAvoidingView, Pressable, ScrollView, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { KeyboardAvoidingView, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MarcaRotaFacil } from '@/components/marca';
@@ -29,8 +29,11 @@ export default function TelaLogin() {
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [erros, setErros] = useState<Record<string, string>>({});
+  const campoSenha = useRef<TextInput>(null);
 
   async function aoEntrar() {
+    // Enter apertado duas vezes não manda dois pedidos.
+    if (entrar.isPending) return;
     const resultado = schemaLogin.safeParse({ email, senha });
     if (!resultado.success) {
       setErros(errosPorCampo(resultado.error));
@@ -80,18 +83,26 @@ export default function TelaLogin() {
                 value={email}
                 onChangeText={setEmail}
                 erro={erros.email}
+                // Enter (ou "próximo" no teclado do celular) vai para a senha.
+                returnKeyType="next"
+                submitBehavior="submit"
+                onSubmitEditing={() => campoSenha.current?.focus()}
               />
             </View>
 
             <View style={{ gap: espaco.xs }}>
               <View style={{ justifyContent: 'center' }}>
                 <Campo
+                  ref={campoSenha}
                   icone="lock-closed-outline"
                   placeholder="Senha"
                   secureTextEntry={!mostrarSenha}
                   autoComplete="password"
                   value={senha}
                   onChangeText={setSenha}
+                  // Enter na senha entra, como o botão.
+                  returnKeyType="go"
+                  onSubmitEditing={aoEntrar}
                 />
                 <Pressable
                   onPress={() => setMostrarSenha((v) => !v)}
