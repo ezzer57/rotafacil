@@ -12,6 +12,7 @@ import type { Prisma } from '@prisma/client';
 
 import { situacaoNoHorario, type ResultadoRoteiro } from '@/core/roteirizacao.js';
 import type { Bandeira, MemoriaDeCalculo } from '@/core/tarifa.js';
+import { lerRecalculo } from './gravacao.js';
 
 const numero = (valor: Prisma.Decimal | number | null | undefined): number =>
   valor == null ? 0 : typeof valor === 'number' ? valor : Number(valor);
@@ -99,6 +100,12 @@ export function serializarCidade(
   };
 }
 
+/** O último "Recalcular daqui"; null enquanto o roteiro não foi recalculado. */
+function serializarRecalculo(roteiro: RoteiroCompleto) {
+  const recalculo = lerRecalculo(roteiro);
+  return recalculo && { ...recalculo, em: recalculo.em.toISOString() };
+}
+
 export function serializarRoteiro(roteiro: RoteiroCompleto) {
   const itens = [...roteiro.itens].sort((a, b) => a.ordem - b.ordem);
   const visitaPorPonto = new Map(roteiro.visitas.map((v) => [v.pontoId, v]));
@@ -121,40 +128,49 @@ export function serializarRoteiro(roteiro: RoteiroCompleto) {
     orcamento,
     tempoDisponivelMin: roteiro.tempoDisponivelMin,
 
-    itens: itens.map((item, indice) => ({
-      ordem: item.ordem,
-      ponto: serializarPonto(item.ponto),
-      chegadaPrevista: item.chegadaPrevista.toISOString(),
-      saidaPrevista: item.saidaPrevista.toISOString(),
-      custoNoLocal: numero(item.custoNoLocal),
-      // Calculada na hora (o servidor roda no fuso da cidade), e não gravada:
-      // vale também para roteiros feitos antes desta regra.
-      situacaoNoHorario: situacaoNoHorario(item.ponto, item.chegadaPrevista),
-      visitado: visitaPorPonto.has(item.pontoId),
-      visita: serializarVisita(visitaPorPonto.get(item.pontoId)),
-      trechoAteAqui: item.modal
-        ? {
-            // A origem do primeiro trecho é a posição do usuário.
-            origemId: indice === 0 ? 'origem' : itens[indice - 1]!.pontoId,
-            destinoId: item.pontoId,
-            modal: item.modal,
-            distanciaKm: item.distanciaKm ?? 0,
-            duracaoMin: item.duracaoMin ?? 0,
-            bandeira: bandeiraGravada(item.bandeira),
-            // "ruas" quando a distância veio do mapa; "estimada" quando é
-            // linha reta x fator de circuidade.
-            fonte: item.fonteRota === 'ruas' ? ('ruas' as const) : ('estimada' as const),
-            trajeto: (item.trajeto as [number, number][] | null) ?? null,
-            custo: {
-              min: numero(item.custoMin),
-              estimado: numero(item.custoEst),
-              max: numero(item.custoMax),
-            },
-            // Gravados pelo motor (ver gravacao.ts), voltam no mesmo formato.
-            calculo: (item.calculo as MemoriaDeCalculo | null) ?? null,
-          }
-        : null,
-    })),
+    itens: itens.map((item, indice) => {
+      // Trecho que não saiu da parada anterior: no "Recalcular daqui", sai da
+      // posição da pessoa naquela hora.
+      const partida =
+        item.partidaLat != null && item.partidaLng != null
+          ? { lat: item.partidaLat, lng: item.partidaLng }
+          : null;
+      return {
+        ordem: item.ordem,
+        ponto: serializarPonto(item.ponto),
+        chegadaPrevista: item.chegadaPrevista.toISOString(),
+        saidaPrevista: item.saidaPrevista.toISOString(),
+        custoNoLocal: numero(item.custoNoLocal),
+        // Calculada na hora (o servidor roda no fuso da cidade), e não gravada:
+        // vale também para roteiros feitos antes desta regra.
+        situacaoNoHorario: situacaoNoHorario(item.ponto, item.chegadaPrevista),
+        visitado: visitaPorPonto.has(item.pontoId),
+        visita: serializarVisita(visitaPorPonto.get(item.pontoId)),
+        trechoAteAqui: item.modal
+          ? {
+              // A origem do primeiro trecho é a partida do roteiro.
+              origemId: partida ? 'posicao' : indice === 0 ? 'origem' : itens[indice - 1]!.pontoId,
+              partida,
+              destinoId: item.pontoId,
+              modal: item.modal,
+              distanciaKm: item.distanciaKm ?? 0,
+              duracaoMin: item.duracaoMin ?? 0,
+              bandeira: bandeiraGravada(item.bandeira),
+              // "ruas" quando a distância veio do mapa; "estimada" quando é
+              // linha reta x fator de circuidade.
+              fonte: item.fonteRota === 'ruas' ? ('ruas' as const) : ('estimada' as const),
+              trajeto: (item.trajeto as [number, number][] | null) ?? null,
+              custo: {
+                min: numero(item.custoMin),
+                estimado: numero(item.custoEst),
+                max: numero(item.custoMax),
+              },
+              // Gravados pelo motor (ver gravacao.ts), voltam no mesmo formato.
+              calculo: (item.calculo as MemoriaDeCalculo | null) ?? null,
+            }
+          : null,
+      };
+    }),
 
     totais: {
       custoTransporte,
@@ -186,6 +202,8 @@ export function serializarRoteiro(roteiro: RoteiroCompleto) {
     })),
 
     diagnostico: roteiro.diagnostico as unknown as ResultadoRoteiro['diagnostico'],
+
+    recalculo: serializarRecalculo(roteiro),
 
     preferencias: {
       cidadeId: roteiro.cidadeId,

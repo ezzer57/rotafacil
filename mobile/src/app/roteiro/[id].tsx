@@ -28,6 +28,7 @@ import { ControleDoTeto } from '@/components/roteiro/controle-do-teto';
 import { PainelDeProcessamento, PontosDescartados } from '@/components/roteiro/descartados';
 import { FalhaAoCarregar } from '@/components/roteiro/falha-ao-carregar';
 import { ParadaDoRoteiro } from '@/components/roteiro/parada';
+import { RecalcularDaqui } from '@/components/roteiro/recalcular-daqui';
 import { ResumoDoRoteiro } from '@/components/roteiro/resumo';
 import { AvisoDeErro, EstadoVazio, Esqueleto, Texto } from '@/components/ui';
 import type { Roteiro } from '@/domain/types';
@@ -78,8 +79,14 @@ export default function TelaRoteiro() {
 }
 
 function ConteudoDoRoteiro({ roteiro }: { roteiro: Roteiro }) {
-  const { remover, substituir, ajustarOrcamento, registrarVisita, desfazerVisita } =
-    useAjustarRoteiro(roteiro.id);
+  const {
+    remover,
+    substituir,
+    ajustarOrcamento,
+    recalcularDaqui,
+    registrarVisita,
+    desfazerVisita,
+  } = useAjustarRoteiro(roteiro.id);
   const cores = useCores();
   const { width } = useWindowDimensions();
   const duasColunas = width >= LARGURA_DUAS_COLUNAS;
@@ -103,12 +110,17 @@ function ConteudoDoRoteiro({ roteiro }: { roteiro: Roteiro }) {
         lng: item.ponto.coordenada.lng,
         modalAteAqui: item.trechoAteAqui?.modal ?? null,
         trajetoAteAqui: item.trechoAteAqui?.trajeto ?? null,
+        partidaAteAqui: item.trechoAteAqui?.partida ?? null,
         visitada: item.visitado || item.visita != null,
       })),
     [roteiro.itens],
   );
 
-  const ajustando = remover.isPending || substituir.isPending || ajustarOrcamento.isPending;
+  const ajustando =
+    remover.isPending ||
+    substituir.isPending ||
+    ajustarOrcamento.isPending ||
+    recalcularDaqui.isPending;
   const registrando = registrarVisita.isPending || desfazerVisita.isPending;
   const visitadas = roteiro.itens.some((item) => item.visita);
   const semTeto = roteiro.orcamento == null;
@@ -136,6 +148,12 @@ function ConteudoDoRoteiro({ roteiro }: { roteiro: Roteiro }) {
         recalculando={ajustarOrcamento.isPending}
         bloqueado={ajustando}
         onMudarTeto={(valor) => ajustarOrcamento.mutateAsync(valor)}
+      />
+      <RecalcularDaqui
+        roteiro={roteiro}
+        recalculando={recalcularDaqui.isPending}
+        bloqueado={ajustando}
+        onRecalcular={(pedido) => recalcularDaqui.mutateAsync(pedido)}
       />
       {comMapa ? <View style={{ gap: espaco.sm }}>{mapa(alturaMapa)}</View> : null}
 

@@ -689,7 +689,11 @@ function montarItens(
   });
 }
 
-function somarTotais(itens: ItemRoteiro[], tarifa: ParametrosTarifa): ResultadoRoteiro['totais'] {
+/** Totais de uma lista de paradas (o recálculo soma as já feitas com as novas). */
+export function somarTotais(
+  itens: ItemRoteiro[],
+  tarifa: ParametrosTarifa,
+): ResultadoRoteiro['totais'] {
   const somar = (f: (t: Trecho) => number) =>
     itens.reduce((soma, item) => soma + f(item.trechoAteAqui), 0);
 
@@ -725,7 +729,7 @@ function somarTotais(itens: ItemRoteiro[], tarifa: ParametrosTarifa): ResultadoR
 }
 
 /** Se o roteiro final foi todo medido pelas ruas, só em parte ou só estimado. */
-function qualidadeDasRotas(itens: ItemRoteiro[]): ResultadoRoteiro['diagnostico']['rotas'] {
+export function qualidadeDasRotas(itens: ItemRoteiro[]): ResultadoRoteiro['diagnostico']['rotas'] {
   if (itens.length === 0 || itens.every((i) => i.trechoAteAqui.fonte === 'estimada')) {
     return 'estimada';
   }

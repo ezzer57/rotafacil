@@ -97,7 +97,12 @@ export async function carregarCandidatos(
     take: MAX_CANDIDATOS,
   });
 
-  return pontos.map((ponto) => ({
+  return pontos.map(paraCandidato);
+}
+
+/** O ponto gravado no formato que o motor lê. */
+export function paraCandidato(ponto: Prisma.PontoInteresseGetPayload<object>): Candidato {
+  return {
     id: ponto.id,
     nome: ponto.nome,
     categoria: ponto.categoria as Categoria,
@@ -110,7 +115,7 @@ export async function carregarCandidatos(
     abreMin: ponto.abreMin,
     fechaMin: ponto.fechaMin,
     arLivre: ponto.arLivre,
-  }));
+  };
 }
 
 /**

@@ -53,6 +53,12 @@ export function construirHtmlMapa({
     width: 14px; height: 14px; border-radius: 999px;
     background: #fff; border: 4px solid ${sucesso};
     box-shadow: 0 2px 6px rgba(0,0,0,.35);
+  }
+  /* Onde a pessoa estava quando tocou em "Recalcular daqui". */
+  .marcador-recalculo {
+    width: 14px; height: 14px; border-radius: 999px;
+    background: #fff; border: 4px solid ${primaria};
+    box-shadow: 0 2px 6px rgba(0,0,0,.35);
   }`,
     script: `
   function avisarSelecao(id) {
@@ -69,7 +75,7 @@ export function construirHtmlMapa({
     pontos.push([dados.origem.lat, dados.origem.lng]);
     L.marker([dados.origem.lat, dados.origem.lng], {
       icon: L.divIcon({ className: '', html: '<div class="marcador-origem"></div>', iconSize: [14, 14], iconAnchor: [7, 7] })
-    }).addTo(mapa).bindPopup(texto('Você está aqui'));
+    }).addTo(mapa).bindPopup(texto('Ponto de partida'));
   }
 
   dados.paradas.forEach(function (parada) {
@@ -94,6 +100,17 @@ export function construirHtmlMapa({
   // Tudo o que precisa caber na tela, inclusive as curvas das ruas.
   var limites = pontos.slice();
 
+  // De onde o roteiro foi refeito ("Recalcular daqui"): o trecho seguinte
+  // sai deste ponto, e não da parada anterior.
+  dados.paradas.forEach(function (parada) {
+    if (!parada.partidaAteAqui) return;
+    var partida = [parada.partidaAteAqui.lat, parada.partidaAteAqui.lng];
+    limites.push(partida);
+    L.marker(partida, {
+      icon: L.divIcon({ className: '', html: '<div class="marcador-recalculo"></div>', iconSize: [14, 14], iconAnchor: [7, 7] })
+    }).addTo(mapa).bindPopup(texto('Daqui o roteiro foi refeito'));
+  });
+
   // Um segmento por trecho, para diferenciar o que é feito a pé. Quando há
   // traçado, a linha segue as ruas; sem ele, é a reta entre os dois pontos,
   // mais clara para não se passar por caminho de verdade. O trecho até uma
@@ -103,7 +120,10 @@ export function construirHtmlMapa({
     if (parada && parada.visitada) continue;
     var aPe = parada && parada.modalAteAqui === 'pe';
     var ruas = parada && parada.trajetoAteAqui && parada.trajetoAteAqui.length > 1;
-    var linha = ruas ? parada.trajetoAteAqui : [pontos[i - 1], pontos[i]];
+    var de = parada && parada.partidaAteAqui
+      ? [parada.partidaAteAqui.lat, parada.partidaAteAqui.lng]
+      : pontos[i - 1];
+    var linha = ruas ? parada.trajetoAteAqui : [de, pontos[i]];
     L.polyline(linha, {
       color: aPe ? dados.cores.sucesso : dados.cores.primaria,
       weight: ruas ? 5 : 3,

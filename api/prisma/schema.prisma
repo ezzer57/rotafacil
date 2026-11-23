@@ -168,6 +168,16 @@ model Roteiro {
   /// Pontos que o usuário removeu e que o recálculo deve continuar ignorando.
   pontosExcluidos   String[]       @default([])
 
+  /// Último "Recalcular daqui": quando foi feito, de onde o resto partiu, com
+  /// quanto tempo e de que partida ("posicao", "ultima-parada" ou "partida").
+  /// Nulos enquanto o roteiro não é recalculado. Os ajustes seguintes partem
+  /// dele, e não do pedido original.
+  recalculadoEm     DateTime?
+  recalculoLat      Float?
+  recalculoLng      Float?
+  recalculoTempoMin Int?
+  recalculoDe       String?  @db.VarChar(20)
+
   custoTransporteMin Decimal @db.Decimal(10, 2)
   custoTransporteEst Decimal @db.Decimal(10, 2)
   custoTransporteMax Decimal @db.Decimal(10, 2)
@@ -215,6 +225,10 @@ model RoteiroItem {
   custoMax     Decimal? @db.Decimal(10, 2)
   /// Memória de cálculo da tarifa, exibida no "como calculamos".
   calculo      Json?
+  /// De onde saiu o trecho até esta parada, quando não foi da parada anterior
+  /// (no "Recalcular daqui", da posição da pessoa). Nulo no caso comum.
+  partidaLat   Float?
+  partidaLng   Float?
 
   roteiro Roteiro        @relation(fields: [roteiroId], references: [id], onDelete: Cascade)
   ponto   PontoInteresse @relation(fields: [pontoId], references: [id])

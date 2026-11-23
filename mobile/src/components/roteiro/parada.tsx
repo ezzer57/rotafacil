@@ -47,8 +47,10 @@ export function ParadaDoRoteiro({ onRemover, onTrocar, ...chegada }: PropsParada
               <Texto variante="corpo" peso="semi" numberOfLines={1} style={{ flex: 1 }}>
                 {item.ordem}. {ponto.nome}
               </Texto>
+              {/* Onde a pessoa já chegou, vale a hora real: depois de um
+                  "Recalcular daqui", a lista segue a ordem do que aconteceu. */}
               <Texto variante="micro" peso="semi" cor={cores.primaria}>
-                {formatarHora(item.chegadaPrevista)}
+                {formatarHora(item.visita?.chegadaEm ?? item.chegadaPrevista)}
               </Texto>
             </View>
 

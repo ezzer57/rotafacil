@@ -20,6 +20,11 @@ export interface ParadaMapa {
   /** Ruas do trecho até esta parada, como [lat, lng]; sem ele, linha reta. */
   trajetoAteAqui?: [number, number][] | null;
   /**
+   * De onde saiu o trecho até esta parada, quando não foi da anterior: no
+   * "Recalcular daqui", a posição da pessoa. Vira um marcador no mapa.
+   */
+  partidaAteAqui?: { lat: number; lng: number } | null;
+  /**
    * O usuário já fez check-in aqui ("Cheguei"): o trecho até esta parada sai
    * do mapa, e o marcador vira um visto.
    */

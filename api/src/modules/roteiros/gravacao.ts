@@ -8,16 +8,52 @@
 
 import { Prisma } from '@prisma/client';
 
+import type { Coordenada } from '@/core/geo.js';
+import type { OrigemDoRecalculo } from '@/core/recalculo.js';
 import type { Preferencias, ResultadoRoteiro } from '@/core/roteirizacao.js';
 import type { Tracado } from '@/lib/rotas.js';
+
+/** O último "Recalcular daqui": quando, de onde o resto partiu e com quanto tempo. */
+export interface Recalculo {
+  em: Date;
+  origem: Coordenada;
+  tempoDisponivelMin: number;
+  de: OrigemDoRecalculo;
+}
+
+/** As colunas do roteiro que guardam o recálculo. */
+interface ColunasDoRecalculo {
+  recalculadoEm: Date | null;
+  recalculoLat: number | null;
+  recalculoLng: number | null;
+  recalculoTempoMin: number | null;
+  recalculoDe: string | null;
+}
+
+/** O recálculo gravado no roteiro; null quando ele nunca foi recalculado. */
+export function lerRecalculo(colunas: ColunasDoRecalculo): Recalculo | null {
+  const { recalculadoEm, recalculoLat, recalculoLng, recalculoTempoMin, recalculoDe } = colunas;
+  if (!recalculadoEm || recalculoLat == null || recalculoLng == null || recalculoTempoMin == null) {
+    return null;
+  }
+  return {
+    em: recalculadoEm,
+    origem: { lat: recalculoLat, lng: recalculoLng },
+    tempoDisponivelMin: recalculoTempoMin,
+    de: recalculoDe === 'ultima-parada' || recalculoDe === 'partida' ? recalculoDe : 'posicao',
+  };
+}
 
 /** O que o usuário pediu, já com a cidade resolvida. */
 export interface PedidoDeRoteiro {
   usuarioId: string;
   cidadeId: string;
+  /** O pedido original (com o teto em vigor): é o que a tela mostra como pedido. */
   preferencias: Preferencias;
   /** Pontos que o usuário tirou e que o recálculo continua ignorando. */
   excluidos: string[];
+  /** Ausente (ou null) enquanto o roteiro não é recalculado. */
+  recalculo?: Recalculo | null;
 }
 
 export interface RegistroDeRoteiro {
@@ -32,14 +68,17 @@ const json = (valor: unknown) =>
 
 /**
  * Monta a gravação. `tracados` tem um traçado (ou null) por parada, na ordem
- * do roteiro.
+ * do roteiro, e `partidas`, de onde saiu o trecho até cada parada quando não
+ * foi da anterior (null no caso comum).
  */
 export function paraGravacao(
   pedido: PedidoDeRoteiro,
   resultado: ResultadoRoteiro,
   tracados: (Tracado | null)[],
+  partidas: (Coordenada | null)[] = [],
 ): RegistroDeRoteiro {
   const { preferencias } = pedido;
+  const recalculo = pedido.recalculo ?? null;
   const t = resultado.totais;
 
   return {
@@ -53,6 +92,11 @@ export function paraGravacao(
       origemLng: preferencias.origem.lng,
       categorias: preferencias.categorias,
       pontosExcluidos: pedido.excluidos,
+      recalculadoEm: recalculo?.em ?? null,
+      recalculoLat: recalculo?.origem.lat ?? null,
+      recalculoLng: recalculo?.origem.lng ?? null,
+      recalculoTempoMin: recalculo?.tempoDisponivelMin ?? null,
+      recalculoDe: recalculo?.de ?? null,
       custoTransporteMin: decimal(t.custoTransporte.min),
       custoTransporteEst: decimal(t.custoTransporte.estimado),
       custoTransporteMax: decimal(t.custoTransporte.max),
@@ -82,6 +126,8 @@ export function paraGravacao(
         custoEst: decimal(trecho.custo.estimado),
         custoMax: decimal(trecho.custo.max),
         calculo: json(trecho.calculo),
+        partidaLat: partidas[indice]?.lat ?? null,
+        partidaLng: partidas[indice]?.lng ?? null,
       };
     }),
 

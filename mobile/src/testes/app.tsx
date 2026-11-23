@@ -12,6 +12,9 @@ import { screen, userEvent } from '@testing-library/react-native';
 // Também prepara o Jest para o roteador (gestos, animações e links).
 import { renderRouter } from 'expo-router/testing-library';
 
+// O modo de demonstração não lê o ambiente nem usa GPS ou mapa: pode vir antes das trocas.
+import { createServicosMock } from '@/data/mock';
+
 // Os fluxos rodam no modo de demonstração mesmo que o ambiente aponte para a
 // API (o provedor lê a variável quando é carregado, depois deste arquivo).
 process.env.EXPO_PUBLIC_API_URL = '';
@@ -30,6 +33,22 @@ jest.mock('expo-location', () => ({
     status: 'denied',
   })),
 }));
+
+/**
+ * Uma parada a pé e outra de carro do roteiro que o modo de demonstração já
+ * traz, lidas pelos mesmos serviços que a tela usa.
+ */
+export async function paradasDoExemplo() {
+  const servicos = createServicosMock();
+  const [exemplo] = await servicos.roteiros.listar();
+  const { itens, cidadeNome } = await servicos.roteiros.obter(exemplo!.id);
+  const nomeDa = (modal: 'pe' | 'app') => {
+    const item = itens.find((i) => i.trechoAteAqui?.modal === modal);
+    if (!item) throw new Error(`O roteiro de exemplo não tem trecho "${modal}"; ajuste este teste`);
+    return item.ponto.nome;
+  };
+  return { cidadeNome, aPe: nomeDa('pe'), deCarro: nomeDa('app') };
+}
 
 /** O modo de demonstração responde com atraso, como um servidor de verdade. */
 export const ESPERA = { timeout: 5000 };

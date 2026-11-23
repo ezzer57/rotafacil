@@ -11,6 +11,7 @@
  *   GET    /v1/itineraries/:id          -> RoteiroService.obter
  *   GET    /v1/itineraries              -> RoteiroService.listar
  *   PATCH  /v1/itineraries/:id          -> RoteiroService.removerPonto / substituirPonto
+ *   POST   /v1/itineraries/:id/recalculate -> RoteiroService.recalcularDaqui
  *   POST   /v1/itineraries/:id/checkins -> RoteiroService.registrarVisita
  *   DELETE /v1/itineraries/:id/checkins/:pontoId -> RoteiroService.desfazerVisita
  *   GET    /v1/cities                   -> CidadeService.listar
@@ -21,6 +22,7 @@
 import type {
   Cidade,
   ID,
+  PedidoDeRecalculo,
   PontoInteresse,
   PreferenciasRoteiro,
   ResumoRoteiro,
@@ -39,6 +41,11 @@ export interface RoteiroService {
   substituirPonto(roteiroId: ID, pontoId: ID): Promise<Roteiro>;
   /** Refaz a seleção de pontos para um novo teto de gasto; null tira o teto. */
   ajustarOrcamento(roteiroId: ID, orcamento: number | null): Promise<Roteiro>;
+  /**
+   * "Recalcular daqui": refaz o que falta a partir da posição e da hora de
+   * agora. As paradas em que a pessoa já chegou ficam como estão.
+   */
+  recalcularDaqui(roteiroId: ID, pedido: PedidoDeRecalculo): Promise<Roteiro>;
   /** Check-in na parada, com o valor pago na corrida quando o usuário informa. */
   registrarVisita(roteiroId: ID, pontoId: ID, custoRegistrado?: number): Promise<Visita>;
   /** Desfaz um check-in feito por engano. */

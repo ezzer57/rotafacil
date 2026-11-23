@@ -9,7 +9,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { chaves } from '@/data/chaves';
 import { useServicos } from '@/data/provider';
-import type { ID, PreferenciasRoteiro, Roteiro } from '@/domain/types';
+import type { ID, PedidoDeRecalculo, PreferenciasRoteiro, Roteiro } from '@/domain/types';
 
 export { chaves };
 
@@ -142,6 +142,11 @@ export function useAjustarRoteiro(roteiroId: ID | undefined) {
     onSuccess: aplicarRecalculo,
   });
 
+  const recalcularDaqui = useMutation({
+    mutationFn: (pedido: PedidoDeRecalculo) => roteiros.recalcularDaqui(roteiroId!, pedido),
+    onSuccess: aplicarRecalculo,
+  });
+
   // O check-in muda a parada e o historico, entao os dois sao relidos.
   const atualizarAposVisita = () => {
     void qc.invalidateQueries({ queryKey: chaves.roteiro(roteiroId!) });
@@ -159,5 +164,12 @@ export function useAjustarRoteiro(roteiroId: ID | undefined) {
     onSuccess: atualizarAposVisita,
   });
 
-  return { remover, substituir, ajustarOrcamento, registrarVisita, desfazerVisita };
+  return {
+    remover,
+    substituir,
+    ajustarOrcamento,
+    recalcularDaqui,
+    registrarVisita,
+    desfazerVisita,
+  };
 }

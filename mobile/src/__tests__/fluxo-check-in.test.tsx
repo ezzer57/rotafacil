@@ -4,26 +4,11 @@
  * mede a estimativa (hipótese 1).
  */
 
-import { ESPERA, abrirApp, entrar } from '@/testes/app';
+import { ESPERA, abrirApp, entrar, paradasDoExemplo } from '@/testes/app';
 import { screen, userEvent } from '@testing-library/react-native';
 import { testRouter } from 'expo-router/testing-library';
 
-import { createServicosMock } from '@/data/mock';
-
 jest.setTimeout(30_000);
-
-/** Uma parada a pé e outra de carro do roteiro que o modo de demonstração já traz. */
-async function paradasDoExemplo() {
-  const servicos = createServicosMock();
-  const [exemplo] = await servicos.roteiros.listar();
-  const { itens, cidadeNome } = await servicos.roteiros.obter(exemplo!.id);
-  const nomeDa = (modal: 'pe' | 'app') => {
-    const item = itens.find((i) => i.trechoAteAqui?.modal === modal);
-    if (!item) throw new Error(`O roteiro de exemplo não tem trecho "${modal}"; ajuste este teste`);
-    return item.ponto.nome;
-  };
-  return { cidadeNome, aPe: nomeDa('pe'), deCarro: nomeDa('app') };
-}
 
 it('chegada a pé é um toque; de carro pergunta o valor; o Histórico soma as visitas', async () => {
   const { cidadeNome, aPe, deCarro } = await paradasDoExemplo();

@@ -70,6 +70,9 @@ describe('ParadaDoRoteiro', () => {
     });
 
     expect(screen.getByText(/Chegou às 09:10 · pagou R\$\s14,00 na corrida/)).toBeOnTheScreen();
+    // No alto do cartão, a hora real da chegada, e não a prevista (09:06).
+    expect(screen.getByText('09:10')).toBeOnTheScreen();
+    expect(screen.queryByText('09:06')).toBeNull();
     expect(screen.queryByRole('button', { name: `Remover ${NOME} do roteiro` })).toBeNull();
 
     fireEvent.press(screen.getByRole('button', { name: `Desfazer a chegada em ${NOME}` }));

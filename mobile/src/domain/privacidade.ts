@@ -8,7 +8,7 @@
  */
 
 export const POLITICA_PRIVACIDADE = {
-  versao: '1.1',
+  versao: '1.2',
   vigencia: 'novembro de 2026',
 } as const;
 
@@ -35,7 +35,7 @@ export const SECOES_POLITICA: SecaoPolitica[] = [
     titulo: 'Quais dados o app usa',
     itens: [
       'Conta: nome, e-mail e senha. A senha é guardada só como código embaralhado (hash), nunca como texto.',
-      'Localização: a posição do aparelho, lida só quando você abre a tela de nova rota e só com o app aberto, nunca em segundo plano. Ela é o ponto de partida do roteiro e fica guardada junto com ele.',
+      'Localização: a posição do aparelho, lida só quando você abre a tela de nova rota ou toca em "Recalcular daqui", e só com o app aberto, nunca em segundo plano nem acompanhando você pelo caminho. Ela é o ponto de partida do roteiro (ou do resto dele, no recálculo) e fica guardada junto com ele.',
       'Roteiros: cidade, interesses, tempo disponível e, se você definir, o teto de gasto.',
       'Check-ins: a hora em que você chegou a cada parada e, se informar, quanto pagou na corrida.',
       'Aceite: a versão desta política que você aceitou e quando.',
@@ -53,7 +53,7 @@ export const SECOES_POLITICA: SecaoPolitica[] = [
     titulo: 'Com quem os dados são compartilhados',
     itens: [
       'Ninguém compra nem recebe os seus dados do RotaFácil. Para funcionar, o app usa os serviços abaixo, e nenhum deles recebe o seu nome, o seu e-mail ou a sua senha.',
-      'Rotas (OSRM): para medir o caminho pelas ruas, o servidor do RotaFácil envia ao serviço de rotas a sua posição de partida e as coordenadas dos pontos do roteiro. Hoje são servidores públicos de demonstração do projeto OSRM e da comunidade do OpenStreetMap, na Europa. Quando o RotaFácil usa um servidor de rotas próprio, essas coordenadas não saem dele.',
+      'Rotas (OSRM): para medir o caminho pelas ruas, o servidor do RotaFácil envia ao serviço de rotas a sua posição de partida (e a do recálculo, quando você pede) e as coordenadas dos pontos do roteiro. Hoje são servidores públicos de demonstração do projeto OSRM e da comunidade do OpenStreetMap, na Europa. Quando o RotaFácil usa um servidor de rotas próprio, essas coordenadas não saem dele.',
       'Mapa (OpenStreetMap): para desenhar o mapa, o celular baixa as imagens do servidor do OpenStreetMap, que recebe o endereço de internet (IP) do aparelho e a área do mapa exibida, que costuma ser perto de onde você está.',
       'Fotos (Wikimedia Commons): as fotos dos lugares vêm do Wikimedia Commons, que recebe o IP do aparelho e quais fotos foram abertas.',
       'O nome do bairro mostrado na nova rota vem do serviço de localização do próprio celular (Google no Android, Apple no iPhone), que recebe a sua coordenada.',

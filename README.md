@@ -15,12 +15,13 @@ Centro Universitário Católica de Quixadá
 | Telas (login, nova rota, roteiro, histórico, perfil) | Funcionando, no celular e no navegador |
 | Algoritmo de roteirização | Funcionando na API: escolha gulosa por relevância, tempo e custo, com 2-opt contra zigue-zague |
 | Localização (GPS) | Funcionando, só em primeiro plano, com mapa da posição, margem de erro e correção por toque |
+| Recalcular daqui | No meio do passeio, refaz o resto do roteiro a partir da posição de agora e do tempo que a pessoa ainda tem; as paradas em que ela já chegou ficam como estão |
 | Pontos turísticos | 22 lugares reais do OpenStreetMap (13 em Quixadá, 9 em Fortaleza) |
 | Distância e tempo | Pelas ruas (OSRM, dados do OpenStreetMap), com reserva em linha reta × 1,3 quando o servidor não responde |
 | Mapa do percurso | Leaflet + OpenStreetMap, sem chave de API, com o trajeto pelas ruas |
 | Backend e banco | API em Node.js com PostgreSQL, migrações e carga inicial |
 | Rodar sem Expo Go | Um comando com Docker, abrindo no navegador |
-| Testes automáticos | Na API, o motor, o HTTP e a integração com o banco; no aplicativo, os componentes e os fluxos principais (entrar, gerar roteiro e check-in). Rodam no GitHub a cada pull request e a cada atualização da `main` |
+| Testes automáticos | Na API, o motor, o HTTP e a integração com o banco; no aplicativo, os componentes e os fluxos principais (entrar, gerar roteiro, check-in e Recalcular daqui). Rodam no GitHub a cada pull request e a cada atualização da `main` |
 
 Ainda provisório: as tarifas de táxi (a trocar pelos decretos municipais de
 Quixadá e Fortaleza), 10 dos 22 horários de funcionamento (suposições) e a
@@ -146,8 +147,8 @@ npm test
 
 Além dos componentes e das regras das telas, eles percorrem o app inteiro, com
 as rotas de verdade e o modo de demonstração: entrar (e errar a senha), gerar
-um roteiro a partir do Início e registrar chegadas a pé e de carro até o
-Histórico (`src/__tests__`).
+um roteiro a partir do Início, registrar chegadas a pé e de carro até o
+Histórico e refazer o resto com o "Recalcular daqui" (`src/__tests__`).
 
 ### 3. Só o aplicativo, sem servidor (modo de demonstração)
 
@@ -191,7 +192,7 @@ api/
 │  ├─ migrations/ estrutura do banco, versão a versão
 │  └─ seed.ts     carga inicial
 └─ src/
-   ├─ core/        motor puro: geo, tarifa, roteirização e medidas pelas ruas (com testes)
+   ├─ core/        motor puro: geo, tarifa, roteirização, recálculo e medidas pelas ruas (com testes)
    ├─ lib/         banco, log, erros e cliente do servidor de rotas (OSRM)
    ├─ modules/     auth, cidades, pontos, roteiros e saúde
    ├─ middlewares/ autenticação, validação e erros
@@ -199,7 +200,7 @@ api/
 
 mobile/
 └─ src/
-   ├─ __tests__/  fluxos principais com o app inteiro (entrar, gerar roteiro, check-in)
+   ├─ __tests__/  fluxos principais com o app inteiro (entrar, gerar roteiro, check-in, recalcular)
    ├─ app/        telas (expo-router)
    ├─ components/ componentes visuais
    │  ├─ ui/      biblioteca (botão, campo, chip, cartão, estados de carregamento e erro), com testes
