@@ -30,13 +30,16 @@ export function FotoDoLugar({
           { backgroundColor: cores.fundoAlt, alignItems: 'center', justifyContent: 'center' },
           style,
         ]}>
-        <Ionicons name="image-outline" size={tamanhoIcone} color={cores.textoSuave} />
+        <Ionicons name="image-outline" size={tamanhoIcone} color={cores.textoSuave} aria-hidden />
       </View>
     );
   }
 
   return (
     <Image
+      // Decorativa: o nome do lugar está sempre ao lado, e o crédito em texto.
+      // Sem alt vazio, o leitor de tela do navegador leria o endereço do arquivo.
+      alt=""
       source={{ uri }}
       style={style as StyleProp<ImageStyle>}
       contentFit="cover"

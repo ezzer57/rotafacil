@@ -10,13 +10,12 @@
  * com a versão lida (LGPD, art. 8º).
  */
 
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Botao, CaixaMarcacao, Cartao, Campo, Texto } from '@/components/ui';
+import { AvisoDeErro, Botao, CaixaMarcacao, Campo, Texto } from '@/components/ui';
 import { errosPorCampo, schemaCadastro } from '@/domain/validacao';
 import { useRegistrar } from '@/hooks/use-rotafacil';
 import { useCores } from '@/theme/provider';
@@ -84,7 +83,7 @@ export default function TelaCadastro() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag">
           <View style={{ gap: espaco.sm, marginTop: espaco.lg }}>
-            <Texto variante="display" peso="forte">
+            <Texto variante="display" peso="forte" accessibilityRole="header">
               Criar conta
             </Texto>
             <Texto variante="pequeno" cor={cores.textoSuave}>
@@ -94,22 +93,17 @@ export default function TelaCadastro() {
 
           <View style={{ gap: espaco.md }}>
             {campos.map((campo) => (
-              <View key={campo.chave} style={{ gap: espaco.xs }}>
-                <Campo
-                  rotulo={campo.rotulo}
-                  icone={campo.icone}
-                  value={campo.valor}
-                  onChangeText={campo.set}
-                  secureTextEntry={campo.secreto}
-                  autoCapitalize={campo.chave === 'nome' ? 'words' : 'none'}
-                  keyboardType={campo.chave === 'email' ? 'email-address' : 'default'}
-                />
-                {erros[campo.chave] ? (
-                  <Texto variante="micro" cor={cores.erro}>
-                    {erros[campo.chave]}
-                  </Texto>
-                ) : null}
-              </View>
+              <Campo
+                key={campo.chave}
+                rotulo={campo.rotulo}
+                icone={campo.icone}
+                value={campo.valor}
+                onChangeText={campo.set}
+                secureTextEntry={campo.secreto}
+                autoCapitalize={campo.chave === 'nome' ? 'words' : 'none'}
+                keyboardType={campo.chave === 'email' ? 'email-address' : 'default'}
+                erro={erros[campo.chave]}
+              />
             ))}
 
             <View style={{ gap: espaco.xs, marginTop: espaco.xs }}>
@@ -132,18 +126,7 @@ export default function TelaCadastro() {
               />
             </View>
 
-            {registrar.isError ? (
-              <Cartao
-                padding={espaco.md}
-                style={{ backgroundColor: cores.erroSuave, borderColor: cores.erroSuave }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: espaco.sm }}>
-                  <Ionicons name="alert-circle" size={16} color={cores.erro} />
-                  <Texto variante="pequeno" cor={cores.erro}>
-                    {(registrar.error as Error).message}
-                  </Texto>
-                </View>
-              </Cartao>
-            ) : null}
+            {registrar.error ? <AvisoDeErro mensagem={registrar.error.message} /> : null}
 
             <Botao
               titulo="Cadastrar"

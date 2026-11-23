@@ -190,8 +190,11 @@ api/
 mobile/
 └─ src/
    ├─ app/        telas (expo-router)
-   ├─ components/ biblioteca de componentes visuais
+   ├─ components/ componentes visuais
+   │  ├─ ui/      biblioteca (botão, campo, chip, cartão, estados de carregamento e erro), com testes
    │  ├─ roteiro/ partes da tela do roteiro (resumo, teto, parada, trecho, descartados), com testes
+   │  ├─ nova-rota/ partes da tela Nova rota (localização, partida, teto, horário)
+   │  ├─ historico/ cartão de roteiro do Início e do Histórico (abrir e apagar)
    │  └─ mapa/    mapas do percurso e do ponto de partida (WebView no celular, iframe no navegador)
    ├─ domain/     tipos, validação e formatação (contrato com a API)
    ├─ data/

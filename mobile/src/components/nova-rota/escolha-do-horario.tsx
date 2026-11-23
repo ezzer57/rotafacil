@@ -4,11 +4,11 @@
  * explica o que muda.
  */
 
-import { Cartao, Chip, Texto } from '@/components/ui';
+import { Cartao, Chip, GrupoDeOpcoes, Texto } from '@/components/ui';
 import { HORARIOS_DE_INICIO, ehOutroDia, emBandeira2, inicioPrevisto } from '@/domain/inicio';
 import { useCores } from '@/theme/provider';
 import { espaco } from '@/theme/tokens';
-import { Opcoes, Secao } from './secao';
+import { Secao } from './secao';
 
 interface Props {
   /** Hora escolhida; null é "agora". */
@@ -24,7 +24,7 @@ export function EscolhaDoHorario({ hora, onEscolher, agora = new Date() }: Props
 
   return (
     <Secao titulo="Começando quando?">
-      <Opcoes rotulo="Horário de início">
+      <GrupoDeOpcoes rotulo="Horário de início">
         {HORARIOS_DE_INICIO.map((opcao) => {
           const amanha = ehOutroDia(inicioPrevisto(opcao.hora, agora), agora);
           return (
@@ -36,7 +36,7 @@ export function EscolhaDoHorario({ hora, onEscolher, agora = new Date() }: Props
             />
           );
         })}
-      </Opcoes>
+      </GrupoDeOpcoes>
       {emBandeira2(inicio) ? (
         <Cartao
           padding={espaco.md}

@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Botao, Cartao, Chip, Texto } from '@/components/ui';
+import { AvisoDeErro, Botao, Cartao, Chip, GrupoDeOpcoes, Texto } from '@/components/ui';
 import { useExcluirConta, useSair, useUsuario } from '@/hooks/use-rotafacil';
 import { useTema, type ModoTema } from '@/theme/provider';
 import { espaco, raio } from '@/theme/tokens';
@@ -43,9 +43,9 @@ export default function TelaPerfil() {
               alignItems: 'center',
               justifyContent: 'center',
             }}>
-            <Ionicons name="person" size={34} color={cores.primaria} />
+            <Ionicons name="person" size={34} color={cores.primaria} aria-hidden />
           </View>
-          <Texto variante="titulo" peso="forte">
+          <Texto variante="titulo" peso="forte" accessibilityRole="header">
             {usuario?.nome ?? 'Visitante'}
           </Texto>
           <Texto variante="pequeno" cor={cores.textoSuave}>
@@ -64,7 +64,7 @@ export default function TelaPerfil() {
             style={{ marginTop: 4, marginBottom: espaco.md }}>
             Escolha o tema do aplicativo. A opção Sistema acompanha a configuração do aparelho.
           </Texto>
-          <View style={{ flexDirection: 'row', gap: espaco.sm }}>
+          <GrupoDeOpcoes rotulo="Tema do aplicativo">
             {OPCOES_TEMA.map((opcao) => (
               <Chip
                 key={opcao.modo}
@@ -74,7 +74,7 @@ export default function TelaPerfil() {
                 onPress={() => definirModo(opcao.modo)}
               />
             ))}
-          </View>
+          </GrupoDeOpcoes>
         </Cartao>
 
         {/* Créditos exigidos pelas licenças dos dados e das fotos. */}
@@ -136,13 +136,14 @@ export default function TelaPerfil() {
               onPress={() => setConfirmandoExclusao(true)}
             />
           )}
-          {excluirConta.isError ? (
-            <Texto variante="micro" cor={cores.erro} style={{ marginTop: espaco.sm }}>
-              {(excluirConta.error as Error).message}
-            </Texto>
+          {excluirConta.error ? (
+            <View style={{ marginTop: espaco.sm }}>
+              <AvisoDeErro mensagem={excluirConta.error.message} />
+            </View>
           ) : null}
         </Cartao>
 
+        {sair.error ? <AvisoDeErro mensagem={sair.error.message} /> : null}
         <Botao
           titulo="Sair da conta"
           variante="texto"

@@ -21,14 +21,13 @@ import { useMemo, useRef, useState, type RefObject } from 'react';
 import { KeyboardAvoidingView, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AvisoDeErro } from '@/components/aviso-de-erro';
 import { CartaoLocalizacao } from '@/components/nova-rota/cartao-localizacao';
 import { EscolhaDaPartida } from '@/components/nova-rota/escolha-da-partida';
 import { EscolhaDoHorario } from '@/components/nova-rota/escolha-do-horario';
 import { EscolhaDoTeto } from '@/components/nova-rota/escolha-do-teto';
 import { ResumoDoPedido } from '@/components/nova-rota/resumo-do-pedido';
-import { Opcoes, Secao } from '@/components/nova-rota/secao';
-import { Botao, Chip } from '@/components/ui';
+import { Secao } from '@/components/nova-rota/secao';
+import { AvisoDeErro, Botao, Chip, GrupoDeOpcoes } from '@/components/ui';
 import { formatarDuracao, iconeCategoria, rotuloCategoria } from '@/domain/format';
 import { inicioPrevisto } from '@/domain/inicio';
 import { decidirPartida } from '@/domain/partida';
@@ -151,7 +150,7 @@ export default function TelaNovaRota() {
         </View>
 
         <Secao titulo="Onde você está?">
-          <Opcoes rotulo="Cidade">
+          <GrupoDeOpcoes rotulo="Cidade">
             {(cidades ?? []).map((c) => (
               <Chip
                 key={c.id}
@@ -160,11 +159,11 @@ export default function TelaNovaRota() {
                 onPress={() => trocarCidade(c.id)}
               />
             ))}
-          </Opcoes>
+          </GrupoDeOpcoes>
         </Secao>
 
         <Secao titulo="O que te interessa?">
-          <Opcoes rotulo="Interesses" multipla>
+          <GrupoDeOpcoes rotulo="Interesses" multipla>
             {CATEGORIAS.map((c) => (
               <Chip
                 key={c}
@@ -175,13 +174,13 @@ export default function TelaNovaRota() {
                 onPress={() => alternarCategoria(c)}
               />
             ))}
-          </Opcoes>
+          </GrupoDeOpcoes>
         </Secao>
 
         <EscolhaDoTeto texto={textoDoTeto} onMudar={setTextoDoTeto} onFocarCampo={rolarAteCampo} />
 
         <Secao titulo="Quanto tempo tem livre?">
-          <Opcoes rotulo="Tempo disponível">
+          <GrupoDeOpcoes rotulo="Tempo disponível">
             {TEMPOS.map((t) => (
               <Chip
                 key={t}
@@ -190,7 +189,7 @@ export default function TelaNovaRota() {
                 onPress={() => setTempoMin(t)}
               />
             ))}
-          </Opcoes>
+          </GrupoDeOpcoes>
         </Secao>
 
         <EscolhaDoHorario hora={horaInicio} onEscolher={setHoraInicio} />
