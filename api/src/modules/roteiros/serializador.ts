@@ -130,7 +130,7 @@ export function serializarRoteiro(roteiro: RoteiroCompleto) {
       // Calculada na hora (o servidor roda no fuso da cidade), e não gravada:
       // vale também para roteiros feitos antes desta regra.
       situacaoNoHorario: situacaoNoHorario(item.ponto, item.chegadaPrevista),
-      visitado: item.visitado || visitaPorPonto.has(item.pontoId),
+      visitado: visitaPorPonto.has(item.pontoId),
       visita: serializarVisita(visitaPorPonto.get(item.pontoId)),
       trechoAteAqui: item.modal
         ? {

@@ -169,30 +169,23 @@ export async function salvar(
   });
 }
 
-/** Registra a chegada a uma parada (ou atualiza o valor pago) e marca a parada. */
+/** Registra a chegada a uma parada (ou atualiza o valor pago). */
 export async function registrarVisita(
   roteiroId: string,
   pontoId: string,
   custoRegistrado: number | undefined,
 ) {
   const custo = custoRegistrado == null ? null : new Prisma.Decimal(custoRegistrado);
-  const [visita] = await prisma.$transaction([
-    prisma.visita.upsert({
-      where: { roteiroId_pontoId: { roteiroId, pontoId } },
-      create: { roteiroId, pontoId, custoRegistrado: custo },
-      update: { custoRegistrado: custo },
-    }),
-    prisma.roteiroItem.updateMany({ where: { roteiroId, pontoId }, data: { visitado: true } }),
-  ]);
-  return visita;
+  return prisma.visita.upsert({
+    where: { roteiroId_pontoId: { roteiroId, pontoId } },
+    create: { roteiroId, pontoId, custoRegistrado: custo },
+    update: { custoRegistrado: custo },
+  });
 }
 
-/** Apaga a visita e desmarca a parada. */
+/** Apaga a visita: a parada volta a aparecer como não visitada. */
 export async function apagarVisita(roteiroId: string, pontoId: string) {
-  await prisma.$transaction([
-    prisma.visita.delete({ where: { roteiroId_pontoId: { roteiroId, pontoId } } }),
-    prisma.roteiroItem.updateMany({ where: { roteiroId, pontoId }, data: { visitado: false } }),
-  ]);
+  await prisma.visita.delete({ where: { roteiroId_pontoId: { roteiroId, pontoId } } });
 }
 
 /** Apaga o roteiro se ele for de quem pede; diz se havia o que apagar. */

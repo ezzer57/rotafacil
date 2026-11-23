@@ -163,9 +163,15 @@ limitação conhecida do protótipo, justificada.
 
 Nome, coordenada e endereço dos pontos de interesse vêm do
 [OpenStreetMap](https://www.openstreetmap.org/copyright), © colaboradores do
-OpenStreetMap, sob a licença ODbL. A carga fica em `prisma/seed.ts`, e cada
-ponto guarda em `fonte` o elemento de origem. A coordenada é a do ponto de
-chegada (a entrada, o início da trilha), não a do centro do lugar.
+OpenStreetMap, sob a licença ODbL, e cada ponto guarda em `fonte` o elemento
+de origem. A coordenada é a do ponto de chegada (a entrada, o início da
+trilha), não a do centro do lugar.
+
+**Fonte única:** cidades, tarifas e pontos (com relevância, horário, foto e
+crédito) ficam em `prisma/dados/index.ts`. A carga do banco (`prisma/seed.ts`)
+e o modo de demonstração do aplicativo leem de lá; mudar um ponto é mudar só
+esse arquivo. O teste `prisma/dados/dados.test.ts` confere identificadores,
+coordenadas dentro do raio da cidade, horários e o crédito de cada foto.
 
 Ponto que sai da lista não é apagado: fica com `ativo = false`, fora dos
 roteiros novos e visível nos antigos.
@@ -197,7 +203,7 @@ um aberto na escolha, as fases dos imperdíveis só aceitam lugares abertos, e o
 horário; o Parque do Cocó tem portões no OpenStreetMap, mas entra como os demais.
 
 A relevância é opinião do autor, não dado do OpenStreetMap: está em
-`prisma/seed.ts` e deve ser validada por quem conhece cada cidade.
+`prisma/dados/index.ts` e deve ser validada por quem conhece cada cidade.
 
 ## Rotas pelas ruas
 

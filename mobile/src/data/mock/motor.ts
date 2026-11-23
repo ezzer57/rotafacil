@@ -24,20 +24,7 @@ import type {
   Roteiro,
   Trecho,
 } from '@/domain/types';
-import { CIDADES, cidadeDoMock, pontosPorCidade, tarifaDoMock } from './dados';
-
-/**
- * Janela de funcionamento lida do texto de horário ("08:00 às 17:00"), em
- * minutos desde a meia-noite. Texto sem horário ("Ao ar livre") é sempre aberto.
- */
-function janelaDe(ponto: PontoInteresse): Pick<Candidato, 'abreMin' | 'fechaMin'> {
-  const encontrado = (ponto.horarioHoje ?? '').match(/(\d{2}):(\d{2}).+?(\d{2}):(\d{2})/);
-  if (!encontrado) return { abreMin: null, fechaMin: null };
-  return {
-    abreMin: Number(encontrado[1]) * 60 + Number(encontrado[2]),
-    fechaMin: Number(encontrado[3]) * 60 + Number(encontrado[4]),
-  };
-}
+import { CIDADES, cidadeDoMock, janelaDoMock, pontosPorCidade, tarifaDoMock } from './dados';
 
 const paraCandidato = (ponto: PontoInteresse): Candidato => ({
   id: ponto.id,
@@ -50,7 +37,7 @@ const paraCandidato = (ponto: PontoInteresse): Candidato => ({
   tempoVisitaMin: ponto.tempoVisitaMin,
   relevancia: ponto.relevancia,
   arLivre: ponto.arLivre,
-  ...janelaDe(ponto),
+  ...janelaDoMock(ponto.id),
 });
 
 const paraTrecho = (trecho: TrechoDoMotor, origemId: ID, destinoId: ID): Trecho => ({

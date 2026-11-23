@@ -5,7 +5,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'prisma/**/*.test.ts'],
     // Os de integração precisam de banco: rodam com `npm run test:integracao`.
     exclude: [...configDefaults.exclude, 'src/**/*.integracao.test.ts'],
     // Configuração mínima para os testes rodarem sem depender de um .env
