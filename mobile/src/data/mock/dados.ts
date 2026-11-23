@@ -1,547 +1,90 @@
 /**
- * Dados do modo simulado, usado nas demonstrações sem servidor.
+ * Dados do modo de demonstração, no formato que a API devolve.
  *
- * Os pontos são os mesmos da carga da API (api/prisma/seed.ts): nome,
- * coordenada do ponto de chegada e endereço vêm do OpenStreetMap
- * (© colaboradores do OpenStreetMap, licença ODbL). Ao mudar a lista lá,
- * repita a mudança aqui. Parte dos horários ainda é suposição, e nenhum ponto
- * tem nota (o mapa não traz avaliações); os detalhes estão no cabeçalho da carga.
- * As fotos são do Wikimedia Commons, com licença livre e crédito.
- *
- * As tarifas de táxi são PROVISÓRIAS e precisam ser substituídas pelos
- * valores do decreto municipal de cada cidade (Quadro Z do TCC).
+ * Não há cópia dos pontos aqui: cidades, tarifas e pontos vêm da fonte única
+ * da API (api/prisma/dados/index.ts, pelo atalho @dados), a mesma que a carga
+ * do banco usa. Este arquivo só traduz para os tipos do aplicativo, como o
+ * serializador da API faz.
  */
+
+import {
+  CIDADES as CIDADES_DADOS,
+  PONTOS as PONTOS_DADOS,
+  TARIFAS as TARIFAS_DADOS,
+  janelaDoPonto,
+  type PontoDados,
+  type TarifaDados,
+} from '@dados/index';
+import { situacaoNoHorario } from '@motor/roteirizacao';
 
 import type { Cidade, PontoInteresse } from '@/domain/types';
 
-export interface TarifaTaxi {
-  cidadeId: string;
-  bandeirada: number;
-  kmBandeira1: number;
-  kmBandeira2: number;
-  horaParada: number;
-  /** Fator de calibração para transporte por aplicativo (seccao 3.7.4). */
-  alfa: number;
-  alfaP10: number;
-  alfaP90: number;
-  norma: string;
+export type TarifaTaxi = TarifaDados;
+
+export const CIDADES: Cidade[] = CIDADES_DADOS.map((cidade) => ({
+  id: cidade.id,
+  nome: cidade.nome,
+  uf: cidade.uf,
+  pais: cidade.pais,
+  bandeira: cidade.bandeira,
+  centro: { lat: cidade.lat, lng: cidade.lng },
+  tarifaCalibrada: TARIFAS_DADOS.some((tarifa) => tarifa.cidadeId === cidade.id),
+}));
+
+/** Mesmo texto do serializador da API ("08:00 às 17:00"). */
+function horarioLegivel(ponto: PontoDados): string {
+  if (ponto.arLivre) return 'Ao ar livre, sem horário';
+  if (!ponto.horario) return 'Aberto 24 horas';
+  return `${ponto.horario.abre} às ${ponto.horario.fecha}`;
 }
 
-export const CIDADES: Cidade[] = [
-  {
-    id: 'quixada',
-    nome: 'Quixadá',
-    uf: 'CE',
-    pais: 'Brasil',
-    bandeira: '🇧🇷',
-    centro: { lat: -4.9712, lng: -39.0156 },
-    tarifaCalibrada: true,
-  },
-  {
-    id: 'fortaleza',
-    nome: 'Fortaleza',
-    uf: 'CE',
-    pais: 'Brasil',
-    bandeira: '🇧🇷',
-    centro: { lat: -3.7319, lng: -38.5267 },
-    tarifaCalibrada: true,
-  },
-];
+function paraPonto(ponto: PontoDados): PontoInteresse {
+  return {
+    id: ponto.id,
+    nome: ponto.nome,
+    categoria: ponto.categoria,
+    endereco: ponto.endereco,
+    coordenada: { lat: ponto.lat, lng: ponto.lng },
+    // O OpenStreetMap não traz avaliações.
+    nota: null,
+    avaliacoes: 0,
+    faixaPreco: ponto.faixaPreco,
+    fotoUrl: ponto.foto?.url ?? null,
+    fotoCredito: ponto.foto?.credito ?? null,
+    fotoFonte: ponto.foto?.fonte ?? null,
+    tempoVisitaMin: ponto.tempoVisitaMin,
+    relevancia: ponto.relevancia,
+    arLivre: ponto.arLivre,
+    abertoAgora:
+      situacaoNoHorario(
+        { ...janelaDoPonto(ponto), arLivre: ponto.arLivre, tempoVisitaMin: 0 },
+        new Date(),
+      ) !== 'fechado',
+    horarioHoje: horarioLegivel(ponto),
+  };
+}
+
+export const PONTOS: PontoInteresse[] = PONTOS_DADOS.map(paraPonto);
+
+/** Janela de funcionamento do ponto, em minutos, como o motor usa. */
+export function janelaDoMock(id: string): { abreMin: number | null; fechaMin: number | null } {
+  const ponto = PONTOS_DADOS.find((p) => p.id === id);
+  return ponto ? janelaDoPonto(ponto) : { abreMin: null, fechaMin: null };
+}
 
 /** Cidade do modo de demonstração; um id que não existe é erro de programação. */
 export function cidadeDoMock(id: string): Cidade {
   const cidade = CIDADES.find((c) => c.id === id);
-  if (!cidade) throw new Error(`Cidade "${id}" não existe nos dados simulados`);
+  if (!cidade) throw new Error(`Cidade "${id}" não existe nos dados`);
   return cidade;
 }
 
 /** Tarifa da cidade no modo de demonstração. */
 export function tarifaDoMock(cidadeId: string): TarifaTaxi {
-  const tarifa = TARIFAS[cidadeId];
-  if (!tarifa) throw new Error(`Cidade "${cidadeId}" sem tarifa nos dados simulados`);
+  const tarifa = TARIFAS_DADOS.find((t) => t.cidadeId === cidadeId);
+  if (!tarifa) throw new Error(`Cidade "${cidadeId}" sem tarifa nos dados`);
   return tarifa;
 }
 
-export const TARIFAS: Record<string, TarifaTaxi> = {
-  quixada: {
-    cidadeId: 'quixada',
-    bandeirada: 5.0,
-    kmBandeira1: 3.0,
-    kmBandeira2: 3.6,
-    horaParada: 28.0,
-    alfa: 0.85,
-    alfaP10: 0.72,
-    alfaP90: 1.05,
-    norma: 'Valor provisório - confirmar decreto municipal',
-  },
-  fortaleza: {
-    cidadeId: 'fortaleza',
-    bandeirada: 5.5,
-    kmBandeira1: 3.2,
-    kmBandeira2: 3.9,
-    horaParada: 30.0,
-    alfa: 0.82,
-    alfaP10: 0.68,
-    alfaP90: 1.1,
-    norma: 'Valor provisório - confirmar decreto municipal',
-  },
-};
-
-/** As mesmas fotos da carga da API: Wikimedia Commons, com licença livre. */
-const FOTOS: Record<string, { url: string; credito: string; fonte: string }> = {
-  'qx-acude-cedro': {
-    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/a/aa/A%C3%A7ude_Cedro_-_Cart%C3%A3o_postal_do_Cear%C3%A1.jpg/500px-A%C3%A7ude_Cedro_-_Cart%C3%A3o_postal_do_Cear%C3%A1.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
-    credito: 'Foto: GLandovsky · CC BY-SA 4.0 · Wikimedia Commons',
-    fonte:
-      'https://commons.wikimedia.org/wiki/File:A%C3%A7ude_Cedro_-_Cart%C3%A3o_postal_do_Cear%C3%A1.jpg',
-  },
-  'qx-galinha-choca': {
-    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2d/Pedra_da_Galinha_Choca.jpg/500px-Pedra_da_Galinha_Choca.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
-    credito: 'Foto: Krewinkel-Terto de Amorim · domínio público · Wikimedia Commons',
-    fonte: 'https://commons.wikimedia.org/wiki/File:Pedra_da_Galinha_Choca.jpg',
-  },
-  'qx-pedra-cruzeiro': {
-    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d9/Pedra_do_cruzeiro_-_quixada_ce.JPG/500px-Pedra_do_cruzeiro_-_quixada_ce.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
-    credito: 'Foto: Fábio Barros · CC BY 2.5 · Wikimedia Commons',
-    fonte: 'https://commons.wikimedia.org/wiki/File:Pedra_do_cruzeiro_-_quixada_ce.JPG',
-  },
-  'qx-chale-da-pedra': {
-    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/4/40/Chale_da_pedra_quixada_ce.JPG/500px-Chale_da_pedra_quixada_ce.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
-    credito: 'Foto: domínio público · Wikimedia Commons',
-    fonte: 'https://commons.wikimedia.org/wiki/File:Chale_da_pedra_quixada_ce.JPG',
-  },
-  'qx-museu-jacinto-sousa': {
-    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/6/69/Museu_historico_jacinto_de_sousa.JPG/500px-Museu_historico_jacinto_de_sousa.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
-    credito: 'Foto: Fábio Barros · domínio público · Wikimedia Commons',
-    fonte: 'https://commons.wikimedia.org/wiki/File:Museu_historico_jacinto_de_sousa.JPG',
-  },
-  'qx-memorial-cego-aderaldo': {
-    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/5/51/Monumento_cego_aderaldo_quixada_CE.JPG/500px-Monumento_cego_aderaldo_quixada_CE.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
-    credito: 'Foto: Fábio Barros · CC BY-SA 2.5 · Wikimedia Commons',
-    fonte: 'https://commons.wikimedia.org/wiki/File:Monumento_cego_aderaldo_quixada_CE.JPG',
-  },
-  'qx-catedral': {
-    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/7/79/Catedral_Quixad%C3%A1.jpg/500px-Catedral_Quixad%C3%A1.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
-    credito: 'Foto: GLandovsky · CC BY 4.0 · Wikimedia Commons',
-    fonte: 'https://commons.wikimedia.org/wiki/File:Catedral_Quixad%C3%A1.jpg',
-  },
-  'qx-santuario-rainha-sertao': {
-    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bb/Quixad%C3%A1_CE_Brasil_-_Santu%C3%A1rio_Rainha_do_Sert%C3%A3o_-_panoramio.jpg/500px-Quixad%C3%A1_CE_Brasil_-_Santu%C3%A1rio_Rainha_do_Sert%C3%A3o_-_panoramio.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
-    credito: 'Foto: Jorge Colares · CC BY-SA 3.0 · Wikimedia Commons',
-    fonte:
-      'https://commons.wikimedia.org/wiki/File:Quixad%C3%A1_CE_Brasil_-_Santu%C3%A1rio_Rainha_do_Sert%C3%A3o_-_panoramio.jpg',
-  },
-  'fz-mercado-central': {
-    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/c/cf/Mar2024._Mercado_Central_de_Fortaleza%2C_Cear%C3%A1%2C_Brazil_01.jpg/500px-Mar2024._Mercado_Central_de_Fortaleza%2C_Cear%C3%A1%2C_Brazil_01.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
-    credito: 'Foto: Ridiculopathy · CC0 · Wikimedia Commons',
-    fonte:
-      'https://commons.wikimedia.org/wiki/File:Mar2024._Mercado_Central_de_Fortaleza,_Cear%C3%A1,_Brazil_01.jpg',
-  },
-  'fz-dragao-do-mar': {
-    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0b/Centro_Drag%C3%A3o_do_Mar_de_Arte_e_Cultura_%284%29.jpg/500px-Centro_Drag%C3%A3o_do_Mar_de_Arte_e_Cultura_%284%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
-    credito: 'Foto: Governo Federal Brasileiro · CC BY-SA 3.0 · Wikimedia Commons',
-    fonte:
-      'https://commons.wikimedia.org/wiki/File:Centro_Drag%C3%A3o_do_Mar_de_Arte_e_Cultura_(4).jpg',
-  },
-  'fz-praia-iracema': {
-    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e3/Praia_de_Iracema_em_Fortaleza_02.jpg/500px-Praia_de_Iracema_em_Fortaleza_02.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
-    credito: 'Foto: Keijuu · CC BY-SA 4.0 · Wikimedia Commons',
-    fonte: 'https://commons.wikimedia.org/wiki/File:Praia_de_Iracema_em_Fortaleza_02.jpg',
-  },
-  'fz-catedral': {
-    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7d/Mar2024._Catedral_Metropolitana_de_Fortaleza.jpg/500px-Mar2024._Catedral_Metropolitana_de_Fortaleza.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
-    credito: 'Foto: Ridiculopathy · CC0 · Wikimedia Commons',
-    fonte:
-      'https://commons.wikimedia.org/wiki/File:Mar2024._Catedral_Metropolitana_de_Fortaleza.jpg',
-  },
-  'fz-theatro-jose-alencar': {
-    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/8/86/Theatro_Jos%C3%A9_de_Alencar_em_Fortaleza_03.jpg/500px-Theatro_Jos%C3%A9_de_Alencar_em_Fortaleza_03.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
-    credito: 'Foto: GLandovsky · CC BY-SA 4.0 · Wikimedia Commons',
-    fonte:
-      'https://commons.wikimedia.org/wiki/File:Theatro_Jos%C3%A9_de_Alencar_em_Fortaleza_03.jpg',
-  },
-  'fz-parque-coco': {
-    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1c/Trilha_Principal_Parque_Estadual_do_Coc%C3%B3_1.jpg/500px-Trilha_Principal_Parque_Estadual_do_Coc%C3%B3_1.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
-    credito: 'Foto: Ruan moreira · CC BY-SA 4.0 · Wikimedia Commons',
-    fonte:
-      'https://commons.wikimedia.org/wiki/File:Trilha_Principal_Parque_Estadual_do_Coc%C3%B3_1.jpg',
-  },
-  'fz-feirinha-beira-mar': {
-    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a5/JADEQUEIROZ_FEIRINHA_BEIRA_MAR_FORTALEZA_%2827780922188%29.jpg/500px-JADEQUEIROZ_FEIRINHA_BEIRA_MAR_FORTALEZA_%2827780922188%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
-    credito: 'Foto: MTur Destinos · domínio público · Wikimedia Commons',
-    fonte:
-      'https://commons.wikimedia.org/wiki/File:JADEQUEIROZ_FEIRINHA_BEIRA_MAR_FORTALEZA_(27780922188).jpg',
-  },
-  'fz-mercado-dos-peixes': {
-    url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bb/Mercado_dos_Peixes_de_Fortaleza_03.jpg/500px-Mercado_dos_Peixes_de_Fortaleza_03.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
-    credito: 'Foto: Joelkaula · CC BY-SA 4.0 · Wikimedia Commons',
-    fonte: 'https://commons.wikimedia.org/wiki/File:Mercado_dos_Peixes_de_Fortaleza_03.jpg',
-  },
-};
-
-const foto = (id: string) => ({
-  fotoUrl: FOTOS[id]?.url ?? null,
-  fotoCredito: FOTOS[id]?.credito ?? null,
-  fotoFonte: FOTOS[id]?.fonte ?? null,
-});
-
-export const PONTOS: PontoInteresse[] = [
-  // ---------------------------------------------------------------- Quixada
-  {
-    id: 'qx-acude-cedro',
-    nome: 'Açude do Cedro',
-    categoria: 'natureza',
-    endereco: 'Açude do Cedro, Quixadá - CE',
-    coordenada: { lat: -4.980879, lng: -39.063945 },
-    nota: null,
-    avaliacoes: 0,
-    faixaPreco: null,
-    ...foto('qx-acude-cedro'),
-    tempoVisitaMin: 60,
-    relevancia: 5,
-    arLivre: true,
-    abertoAgora: true,
-    horarioHoje: 'Ao ar livre, sem horário',
-  },
-  {
-    id: 'qx-galinha-choca',
-    nome: 'Pedra da Galinha Choca',
-    categoria: 'natureza',
-    endereco: 'Trilha da Galinha Choca, Açude do Cedro, Quixadá - CE',
-    coordenada: { lat: -4.980313, lng: -39.064697 },
-    nota: null,
-    avaliacoes: 0,
-    faixaPreco: null,
-    ...foto('qx-galinha-choca'),
-    tempoVisitaMin: 60,
-    relevancia: 5,
-    arLivre: true,
-    abertoAgora: true,
-    horarioHoje: 'Ao ar livre, sem horário',
-  },
-  {
-    id: 'qx-pedra-cruzeiro',
-    nome: 'Pedra do Cruzeiro',
-    categoria: 'natureza',
-    endereco: 'Avenida Plácido Castelo, Herval, Quixadá - CE',
-    coordenada: { lat: -4.968082, lng: -39.016203 },
-    nota: null,
-    avaliacoes: 0,
-    faixaPreco: null,
-    ...foto('qx-pedra-cruzeiro'),
-    tempoVisitaMin: 45,
-    relevancia: 4,
-    arLivre: true,
-    abertoAgora: true,
-    horarioHoje: 'Ao ar livre, sem horário',
-  },
-  {
-    id: 'qx-chale-da-pedra',
-    nome: 'Chalé da Pedra',
-    categoria: 'cultura',
-    endereco: 'Rua Oscar Barbosa, Baviera, Quixadá - CE',
-    coordenada: { lat: -4.971541, lng: -39.014195 },
-    nota: null,
-    avaliacoes: 0,
-    faixaPreco: null,
-    ...foto('qx-chale-da-pedra'),
-    tempoVisitaMin: 30,
-    relevancia: 3,
-    arLivre: false,
-    abertoAgora: true,
-    horarioHoje: '08:00 às 17:00',
-  },
-  {
-    id: 'qx-museu-jacinto-sousa',
-    nome: 'Museu Histórico Jacinto de Sousa',
-    categoria: 'cultura',
-    endereco: 'Rua Autran Moreno, Baviera, Quixadá - CE',
-    coordenada: { lat: -4.96944, lng: -39.012282 },
-    nota: null,
-    avaliacoes: 0,
-    faixaPreco: null,
-    ...foto('qx-museu-jacinto-sousa'),
-    tempoVisitaMin: 45,
-    relevancia: 3,
-    arLivre: false,
-    abertoAgora: true,
-    horarioHoje: '08:00 às 17:00',
-  },
-  {
-    id: 'qx-memorial-cego-aderaldo',
-    nome: 'Memorial Cego Aderaldo',
-    categoria: 'cultura',
-    endereco: 'Rua Pascoal Crispino, Sitiá Oeste, Quixadá - CE',
-    coordenada: { lat: -4.970161, lng: -39.015271 },
-    nota: null,
-    avaliacoes: 0,
-    faixaPreco: null,
-    ...foto('qx-memorial-cego-aderaldo'),
-    tempoVisitaMin: 30,
-    relevancia: 3,
-    arLivre: false,
-    abertoAgora: true,
-    horarioHoje: '08:00 às 17:00',
-  },
-  {
-    id: 'qx-catedral',
-    nome: 'Catedral de Quixadá',
-    categoria: 'religioso',
-    endereco: 'Avenida Doutor Arcelino de Queiroz Lima, Herval, Quixadá - CE',
-    coordenada: { lat: -4.967164, lng: -39.016913 },
-    nota: null,
-    avaliacoes: 0,
-    faixaPreco: null,
-    ...foto('qx-catedral'),
-    tempoVisitaMin: 20,
-    relevancia: 3,
-    arLivre: false,
-    abertoAgora: true,
-    horarioHoje: '07:00 às 19:00',
-  },
-  {
-    id: 'qx-santuario-rainha-sertao',
-    nome: 'Santuário Rainha do Sertão',
-    categoria: 'religioso',
-    endereco: 'Serra do Urucum, Quixadá - CE',
-    coordenada: { lat: -5.038487, lng: -39.009256 },
-    nota: null,
-    avaliacoes: 0,
-    faixaPreco: null,
-    ...foto('qx-santuario-rainha-sertao'),
-    tempoVisitaMin: 60,
-    relevancia: 4,
-    arLivre: false,
-    abertoAgora: true,
-    horarioHoje: '07:00 às 17:00',
-  },
-  {
-    id: 'qx-mercado-publico',
-    nome: 'Mercado Público Municipal',
-    categoria: 'compras',
-    endereco: 'Travessa Leovigildo Barreto, Herval, Quixadá - CE',
-    coordenada: { lat: -4.969671, lng: -39.017092 },
-    nota: null,
-    avaliacoes: 0,
-    faixaPreco: 1,
-    ...foto('qx-mercado-publico'),
-    tempoVisitaMin: 30,
-    relevancia: 3,
-    arLivre: false,
-    abertoAgora: true,
-    horarioHoje: '06:00 às 17:00',
-  },
-  {
-    id: 'qx-sabores-do-sertao',
-    nome: 'Sabores do Sertão',
-    categoria: 'gastronomia',
-    endereco: 'Avenida Plácido Castelo, Herval, Quixadá - CE',
-    coordenada: { lat: -4.968914, lng: -39.015988 },
-    nota: null,
-    avaliacoes: 0,
-    faixaPreco: 2,
-    ...foto('qx-sabores-do-sertao'),
-    tempoVisitaMin: 60,
-    relevancia: 2,
-    arLivre: false,
-    abertoAgora: true,
-    horarioHoje: '09:30 às 15:30',
-  },
-  {
-    id: 'qx-maria-pitanga',
-    nome: 'Maria Pitanga Açaiteria',
-    categoria: 'gastronomia',
-    endereco: 'Rua Basilio Emiliano Pinto, 309, Combate, Quixadá - CE',
-    coordenada: { lat: -4.970145, lng: -39.018402 },
-    nota: null,
-    avaliacoes: 0,
-    faixaPreco: 1,
-    ...foto('qx-maria-pitanga'),
-    tempoVisitaMin: 30,
-    relevancia: 2,
-    arLivre: false,
-    abertoAgora: true,
-    horarioHoje: '12:00 às 23:00',
-  },
-  {
-    id: 'qx-peixada-abelardo',
-    nome: 'Peixada O Abelardo',
-    categoria: 'gastronomia',
-    endereco: 'Avenida Plácido Castelo, Triângulo, Quixadá - CE',
-    coordenada: { lat: -4.962965, lng: -39.015442 },
-    nota: null,
-    avaliacoes: 0,
-    faixaPreco: 2,
-    ...foto('qx-peixada-abelardo'),
-    tempoVisitaMin: 60,
-    relevancia: 3,
-    arLivre: false,
-    abertoAgora: true,
-    horarioHoje: '11:00 às 15:00',
-  },
-  {
-    id: 'qx-itajuba',
-    nome: 'Itajubá',
-    categoria: 'gastronomia',
-    endereco: 'Avenida Francisco Pinheiro de Almeida, Planalto Universitário, Quixadá - CE',
-    coordenada: { lat: -4.96289, lng: -39.024273 },
-    nota: null,
-    avaliacoes: 0,
-    faixaPreco: 2,
-    ...foto('qx-itajuba'),
-    tempoVisitaMin: 60,
-    relevancia: 2,
-    arLivre: false,
-    abertoAgora: true,
-    horarioHoje: '11:00 às 15:00',
-  },
-
-  // -------------------------------------------------------------- Fortaleza
-  {
-    id: 'fz-mercado-central',
-    nome: 'Mercado Central',
-    categoria: 'compras',
-    endereco: 'Avenida Alberto Nepomuceno, 199, Centro, Fortaleza - CE',
-    coordenada: { lat: -3.723429, lng: -38.52395 },
-    nota: null,
-    avaliacoes: 0,
-    faixaPreco: 2,
-    ...foto('fz-mercado-central'),
-    tempoVisitaMin: 60,
-    relevancia: 4,
-    arLivre: false,
-    abertoAgora: true,
-    horarioHoje: '08:00 às 18:00',
-  },
-  {
-    id: 'fz-dragao-do-mar',
-    nome: 'Centro Dragão do Mar',
-    categoria: 'cultura',
-    endereco: 'Rua Dragão do Mar, 81, Praia de Iracema, Fortaleza - CE',
-    coordenada: { lat: -3.721668, lng: -38.520174 },
-    nota: null,
-    avaliacoes: 0,
-    faixaPreco: null,
-    ...foto('fz-dragao-do-mar'),
-    tempoVisitaMin: 90,
-    relevancia: 5,
-    arLivre: false,
-    abertoAgora: true,
-    horarioHoje: '09:00 às 21:00',
-  },
-  {
-    id: 'fz-praia-iracema',
-    nome: 'Praia de Iracema',
-    categoria: 'natureza',
-    endereco: 'Aterro da Praia de Iracema, Fortaleza - CE',
-    coordenada: { lat: -3.722111, lng: -38.506656 },
-    nota: null,
-    avaliacoes: 0,
-    faixaPreco: null,
-    ...foto('fz-praia-iracema'),
-    tempoVisitaMin: 60,
-    relevancia: 5,
-    arLivre: true,
-    abertoAgora: true,
-    horarioHoje: 'Ao ar livre, sem horário',
-  },
-  {
-    id: 'fz-catedral',
-    nome: 'Catedral Metropolitana',
-    categoria: 'religioso',
-    endereco: 'Rua Sena Madureira, Centro, Fortaleza - CE',
-    coordenada: { lat: -3.724745, lng: -38.524379 },
-    nota: null,
-    avaliacoes: 0,
-    faixaPreco: null,
-    ...foto('fz-catedral'),
-    tempoVisitaMin: 30,
-    relevancia: 4,
-    arLivre: false,
-    abertoAgora: true,
-    horarioHoje: '07:00 às 18:00',
-  },
-  {
-    id: 'fz-theatro-jose-alencar',
-    nome: 'Theatro José de Alencar',
-    categoria: 'cultura',
-    endereco: 'Rua Liberato Barroso, 525, Centro, Fortaleza - CE',
-    coordenada: { lat: -3.727786, lng: -38.531706 },
-    nota: null,
-    avaliacoes: 0,
-    faixaPreco: null,
-    ...foto('fz-theatro-jose-alencar'),
-    tempoVisitaMin: 60,
-    relevancia: 4,
-    arLivre: false,
-    abertoAgora: true,
-    horarioHoje: '09:00 às 18:00',
-  },
-  {
-    id: 'fz-parque-coco',
-    nome: 'Parque do Cocó',
-    categoria: 'natureza',
-    endereco: 'Entrada do Parque do Cocó, Cocó, Fortaleza - CE',
-    coordenada: { lat: -3.744497, lng: -38.487478 },
-    nota: null,
-    avaliacoes: 0,
-    faixaPreco: null,
-    ...foto('fz-parque-coco'),
-    tempoVisitaMin: 75,
-    relevancia: 3,
-    arLivre: true,
-    abertoAgora: true,
-    horarioHoje: 'Ao ar livre, sem horário',
-  },
-  {
-    id: 'fz-feirinha-beira-mar',
-    nome: 'Feirinha da Beira-Mar',
-    categoria: 'compras',
-    endereco: 'Calçadão da Beira Mar, Meireles, Fortaleza - CE',
-    coordenada: { lat: -3.725264, lng: -38.496478 },
-    nota: null,
-    avaliacoes: 0,
-    faixaPreco: 2,
-    ...foto('fz-feirinha-beira-mar'),
-    tempoVisitaMin: 45,
-    relevancia: 4,
-    arLivre: false,
-    abertoAgora: true,
-    horarioHoje: '16:00 às 22:00',
-  },
-  {
-    id: 'fz-mercado-dos-peixes',
-    nome: 'Mercado dos Peixes',
-    categoria: 'gastronomia',
-    endereco: 'Avenida Beira Mar, 3998, Mucuripe, Fortaleza - CE',
-    coordenada: { lat: -3.721576, lng: -38.479746 },
-    nota: null,
-    avaliacoes: 0,
-    faixaPreco: 2,
-    ...foto('fz-mercado-dos-peixes'),
-    tempoVisitaMin: 60,
-    relevancia: 3,
-    arLivre: false,
-    abertoAgora: true,
-    horarioHoje: '06:00 às 22:00',
-  },
-  {
-    id: 'fz-centro-das-tapioqueiras',
-    nome: 'Centro das Tapioqueiras',
-    categoria: 'gastronomia',
-    endereco: 'Avenida Washington Soares, 10215, Coaçu, Fortaleza - CE',
-    coordenada: { lat: -3.840443, lng: -38.479317 },
-    nota: null,
-    avaliacoes: 0,
-    faixaPreco: 1,
-    ...foto('fz-centro-das-tapioqueiras'),
-    tempoVisitaMin: 45,
-    relevancia: 3,
-    arLivre: false,
-    abertoAgora: true,
-    horarioHoje: '06:30 às 23:00',
-  },
-];
-
 export const pontosPorCidade = (cidadeId: string) =>
-  PONTOS.filter((p) => p.id.startsWith(cidadeId === 'quixada' ? 'qx-' : 'fz-'));
+  PONTOS.filter((ponto) => PONTOS_DADOS.find((p) => p.id === ponto.id)?.cidadeId === cidadeId);

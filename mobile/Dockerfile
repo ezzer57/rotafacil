@@ -14,6 +14,8 @@ COPY . .
 # O motor de roteirização da API, que o modo de demonstração usa (ver
 # metro.config.js). Fica em ../api/src/core, como no repositório.
 COPY --from=motor . /api/src/core
+# Os dados das cidades (pontos, tarifas), também da API.
+COPY --from=dados . /api/prisma/dados
 
 ARG EXPO_PUBLIC_API_URL=
 ENV EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_API_URL}

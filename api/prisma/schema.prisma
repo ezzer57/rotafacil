@@ -108,7 +108,7 @@ model TarifaTaxi {
 }
 
 model PontoInteresse {
-  id            String       @id @db.VarChar(120) // place_id do provedor
+  id            String       @id @db.VarChar(120) // prefixo da cidade e nome, ex.: "qx-acude-cedro"
   cidadeId      String       @db.VarChar(60)
   nome          String       @db.VarChar(200)
   categoria     CategoriaPOI
@@ -127,7 +127,7 @@ model PontoInteresse {
   /// Janela de funcionamento em minutos desde a meia-noite (null = sempre aberto).
   abreMin       Int?
   fechaMin      Int?
-  /// Quando os dados vieram do provedor, para controle de validade do cache.
+  /// Quando a carga (prisma/seed.ts) gravou o ponto pela última vez.
   sincronizadoEm DateTime    @default(now())
   /// Falso quando o ponto saiu da lista: não entra em roteiro novo, mas segue
   /// no banco para os roteiros antigos que passaram por ele.
@@ -147,7 +147,8 @@ model PontoInteresse {
   visitas     Visita[]
   descartados RoteiroDescartado[]
 
-  @@index([cidadeId, categoria])
+  // No formato da busca de candidatos: pontos ativos da cidade, por relevância.
+  @@index([cidadeId, ativo, relevancia])
   @@map("ponto_interesse")
 }
 
@@ -197,7 +198,7 @@ model RoteiroItem {
   chegadaPrevista DateTime
   saidaPrevista   DateTime
   custoNoLocal    Decimal @db.Decimal(10, 2)
-  visitado        Boolean @default(false)
+  // Se a parada foi visitada está na tabela de visitas, e só lá.
 
   // Deslocamento da parada anterior até esta (ausente na primeira).
   modal        Modal?
@@ -218,8 +219,8 @@ model RoteiroItem {
   roteiro Roteiro        @relation(fields: [roteiroId], references: [id], onDelete: Cascade)
   ponto   PontoInteresse @relation(fields: [pontoId], references: [id])
 
+  // O índice único também atende às buscas pelas paradas de um roteiro.
   @@unique([roteiroId, ordem])
-  @@index([roteiroId])
   @@map("roteiro_item")
 }
 
