@@ -20,6 +20,7 @@ Centro Universitário Católica de Quixadá
 | Mapa do percurso | Leaflet + OpenStreetMap, sem chave de API, com o trajeto pelas ruas |
 | Backend e banco | API em Node.js com PostgreSQL, migrações e carga inicial |
 | Rodar sem Expo Go | Um comando com Docker, abrindo no navegador |
+| Testes automáticos | Na API, o motor, o HTTP e a integração com o banco; no aplicativo, os componentes e os fluxos principais (entrar, gerar roteiro e check-in). Rodam no GitHub a cada pull request e a cada atualização da `main` |
 
 Ainda provisório: as tarifas de táxi (a trocar pelos decretos municipais de
 Quixadá e Fortaleza), 10 dos 22 horários de funcionamento (suposições) e a
@@ -46,7 +47,7 @@ reiniciar. Deixe cerca de 3 GB livres em disco para as imagens.
 
 | Programa | Versão | Para quê |
 |---|---|---|
-| **Node.js** com npm | 22 LTS ou mais recente | Rodar a API e o aplicativo |
+| **Node.js** com npm | 22.12 ou mais recente | Rodar a API e o aplicativo |
 | **Docker Desktop** | atual | Banco de dados PostgreSQL |
 | **Expo Go** no celular | a da loja, atualizada (SDK 57) | Abrir o aplicativo no celular |
 | Postman CLI (opcional) | atual | Teste de contrato da API (`npm run contrato`) |
@@ -136,12 +137,17 @@ abrir no navegador do computador em vez do celular, aperte `w` no terminal.
 
 Não rode este modo e o do Docker ao mesmo tempo: os dois usam a porta 3333.
 
-Testes do aplicativo (componentes da tela do roteiro), sem celular nem servidor:
+Testes do aplicativo, sem celular nem servidor:
 
 ```bash
 cd mobile
 npm test
 ```
+
+Além dos componentes e das regras das telas, eles percorrem o app inteiro, com
+as rotas de verdade e o modo de demonstração: entrar (e errar a senha), gerar
+um roteiro a partir do Início e registrar chegadas a pé e de carro até o
+Histórico (`src/__tests__`).
 
 ### 3. Só o aplicativo, sem servidor (modo de demonstração)
 
@@ -169,7 +175,7 @@ são sempre estimadas em linha reta, e nada fica salvo.
 | API | Node.js, Express 5, TypeScript (executado com tsx), Zod, JWT, bcrypt, pino |
 | Banco | PostgreSQL 16 com Prisma 6 (migrações e carga inicial) |
 | Rotas | OSRM com dados do OpenStreetMap (servidores públicos ou próprio, em Docker) |
-| Testes | Vitest na API (motor, cliente de rotas, HTTP e integração com PostgreSQL), Jest com Testing Library no aplicativo (componentes) e Postman CLI (contrato da API) |
+| Testes | Vitest na API (motor, cliente de rotas, HTTP, dados das cidades e integração com PostgreSQL), Jest com Testing Library no aplicativo (componentes e fluxos principais com o Expo Router) e Postman CLI (contrato da API) |
 | Entrega | Docker Compose, nginx (site), GitHub Actions (integração contínua) |
 
 Dados de mapa e de pontos: © colaboradores do OpenStreetMap, licença ODbL.
@@ -180,6 +186,10 @@ roteiro e na tela de perfil.
 
 ```
 api/
+├─ prisma/
+│  ├─ dados/      cidades, tarifas e pontos: a fonte única do banco e do modo de demonstração
+│  ├─ migrations/ estrutura do banco, versão a versão
+│  └─ seed.ts     carga inicial
 └─ src/
    ├─ core/        motor puro: geo, tarifa, roteirização e medidas pelas ruas (com testes)
    ├─ lib/         banco, log, erros e cliente do servidor de rotas (OSRM)
@@ -189,6 +199,7 @@ api/
 
 mobile/
 └─ src/
+   ├─ __tests__/  fluxos principais com o app inteiro (entrar, gerar roteiro, check-in)
    ├─ app/        telas (expo-router)
    ├─ components/ componentes visuais
    │  ├─ ui/      biblioteca (botão, campo, chip, cartão, estados de carregamento e erro), com testes
@@ -223,3 +234,5 @@ git switch main            # volta para a versão atual
 | Versão | Conteúdo |
 |---|---|
 | v0.1.0 | Camada visual completa com dados simulados: login, cadastro, início, nova rota, roteiro com custo por trecho, histórico, perfil e tema claro/escuro |
+| v0.2.0 | Mapa, localização real, API com banco de dados e o aplicativo ligado nela |
+| v0.3.0 | Pontos reais do OpenStreetMap, rotas pelas ruas (OSRM), teto de gasto opcional, check-in e histórico, fotos com crédito, Política de Privacidade com aceite, tudo em um comando com Docker, e a revisão completa do código: motor, segurança e LGPD, acessibilidade, dados num arquivo só, testes dos fluxos principais e dependências atualizadas |

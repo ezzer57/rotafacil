@@ -29,7 +29,7 @@ Verificações:
 
 ```bash
 npm run typecheck          # tipos
-npm test                   # testes de unidade (motor, cliente de rotas, HTTP sem banco)
+npm test                   # testes de unidade (motor, cliente de rotas, HTTP sem banco, dados das cidades)
 npm run test:integracao    # API inteira contra o PostgreSQL (precisa do npm run db:up)
 npm run contrato           # teste de contrato da API com a Postman CLI (servidor no ar)
 ```
@@ -157,7 +157,7 @@ limitação conhecida do protótipo, justificada.
 | Cadastro revela se o e-mail existe | Inevitável num cadastro ("e-mail já cadastrado"); contido pelo limite de tentativas. Aceito |
 | Tráfego sem criptografia | Local, em HTTP. Pendente: exigir HTTPS na hospedagem, quando ela for escolhida |
 | Segredos de demonstração | O `JWT_SECRET` e a senha do banco do `docker-compose.yml` são de demonstração e precisam ser trocados ao publicar |
-| Dependências com falha conhecida | Pendente: `npm audit` e atualização na etapa 9 da revisão |
+| Dependências com falha conhecida | Na API, o `npm audit` não aponta nada: o Prisma 6 usa versões corrigidas de duas bibliotecas internas, fixadas em `overrides` no `package.json`. No aplicativo restam 3 avisos, todos o mesmo caso: o `expo-router` do SDK 57 usa uma versão antiga do `query-string`, com a qual um link malformado, aberto pela própria pessoa, pode deixar o app lento. A versão corrigida muda a forma de importar e quebra a navegação; a correção de verdade vem com o SDK 58, cujo `expo-router` não usa mais essa biblioteca. Aceito até a troca de SDK |
 
 ## Dados dos pontos
 
