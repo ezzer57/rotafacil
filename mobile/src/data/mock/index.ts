@@ -8,21 +8,21 @@
  * erros têm o mesmo status e código.
  */
 
+import { ErroApi } from '@/data/erros';
+import type { ServicosApp } from '@/data/services';
+import { RAIO_COBERTURA_CIDADE_KM, haversine } from '@/domain/geo';
 import type {
   Cidade,
   ID,
   PontoInteresse,
-  PreferenciasRoteiro,
   Reais,
   ResumoRoteiro,
   Roteiro,
   Usuario,
   VisitaRegistrada,
 } from '@/domain/types';
-import { ErroApi } from '@/data/erros';
-import type { ServicosApp } from '@/data/services';
 import { CIDADES, PONTOS, cidadeDoMock, pontosPorCidade } from './dados';
-import { gerarRoteiro } from './motor';
+import { gerarRoteiro, refazerRoteiro } from './motor';
 
 const atraso = (ms = 700) => new Promise((r) => setTimeout(r, ms));
 
@@ -107,26 +107,31 @@ function resumir(roteiro: Roteiro): ResumoRoteiro {
   };
 }
 
+/** Grava o roteiro refeito e o devolve com as visitas, como a API. */
+function guardar(roteiro: Roteiro): Roteiro {
+  historico.set(roteiro.id, roteiro);
+  return comVisitas(roteiro);
+}
+
 /**
- * Recalcula o roteiro com as preferências de quando foi criado, como a API
- * faz num PATCH: os pontos tirados agora se somam aos de antes e ficam fora
- * da escolha do motor, e o teto muda quando `novoOrcamento` vem (null tira).
+ * Ajuste, como a API faz num PATCH: os pontos tirados agora se somam aos de
+ * antes e ficam fora da escolha do motor, e o teto muda quando
+ * `novoOrcamento` vem (null tira). As paradas em que a pessoa já chegou ficam.
  */
-function recalcular(roteiro: Roteiro, tirar: ID[], novoOrcamento?: Reais | null): Roteiro {
-  const preferencias: PreferenciasRoteiro = {
-    ...roteiro.preferencias,
-    orcamento: novoOrcamento === undefined ? roteiro.preferencias.orcamento : novoOrcamento,
-  };
+function ajustar(roteiro: Roteiro, tirar: ID[], novoOrcamento?: Reais | null): Roteiro {
+  const atual = comVisitas(roteiro);
+  if (atual.itens.some((i) => i.visita && tirar.includes(i.ponto.id))) {
+    throw new ErroApi(
+      400,
+      'Você já chegou nesta parada. Desfaça a chegada para tirá-la do roteiro',
+      'REGRA_DE_NEGOCIO',
+    );
+  }
+
   const excluidos = [...new Set([...(excluidosPorRoteiro.get(roteiro.id) ?? []), ...tirar])];
   excluidosPorRoteiro.set(roteiro.id, excluidos);
-
-  const atualizado: Roteiro = {
-    ...gerarRoteiro(preferencias, excluidos),
-    id: roteiro.id,
-    criadoEm: roteiro.criadoEm,
-  };
-  historico.set(atualizado.id, atualizado);
-  return comVisitas(atualizado);
+  const teto = novoOrcamento === undefined ? atual.orcamento : novoOrcamento;
+  return guardar(refazerRoteiro(atual, { excluidos, teto }));
 }
 
 export function createServicosMock(): ServicosApp {
@@ -150,16 +155,41 @@ export function createServicosMock(): ServicosApp {
       },
       async removerPonto(roteiroId, pontoId) {
         await atraso(900);
-        return recalcular(roteiroGuardado(roteiroId), [pontoId]);
+        return ajustar(roteiroGuardado(roteiroId), [pontoId]);
       },
       // Como na API: o ponto sai e o motor escolhe o que entra no lugar.
       async substituirPonto(roteiroId, pontoId) {
         await atraso(900);
-        return recalcular(roteiroGuardado(roteiroId), [pontoId]);
+        return ajustar(roteiroGuardado(roteiroId), [pontoId]);
       },
       async ajustarOrcamento(roteiroId, novoOrcamento) {
         await atraso(450);
-        return recalcular(roteiroGuardado(roteiroId), [], novoOrcamento);
+        return ajustar(roteiroGuardado(roteiroId), [], novoOrcamento);
+      },
+      async recalcularDaqui(roteiroId, pedido) {
+        await atraso(1000);
+        const atual = comVisitas(roteiroGuardado(roteiroId));
+        // As mesmas respostas da API para tempo fora da faixa e posição longe.
+        if (pedido.tempoDisponivelMin < 30 || pedido.tempoDisponivelMin > 1440) {
+          throw new ErroApi(422, 'Dados inválidos', 'VALIDACAO');
+        }
+        const cidade = cidadeDoMock(atual.cidadeId);
+        const distancia = pedido.origem ? haversine(pedido.origem, cidade.centro) : 0;
+        if (distancia > RAIO_COBERTURA_CIDADE_KM) {
+          throw new ErroApi(
+            400,
+            `Você está a ${Math.round(distancia)} km de ${cidade.nome}. ` +
+              'O "Recalcular daqui" só funciona perto da cidade do roteiro.',
+            'REGRA_DE_NEGOCIO',
+          );
+        }
+        return guardar(
+          refazerRoteiro(atual, {
+            excluidos: excluidosPorRoteiro.get(roteiroId) ?? [],
+            teto: atual.orcamento,
+            recalcular: pedido,
+          }),
+        );
       },
       async registrarVisita(roteiroId, pontoId, custoRegistrado) {
         await atraso(300);

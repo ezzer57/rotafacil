@@ -7,6 +7,7 @@ import type { ReactElement } from 'react';
 
 import { ProvedorDeTema } from '@/theme/provider';
 
+/** O tema entra como `wrapper`, para continuar valendo num `rerender`. */
 export function renderizar(componente: ReactElement) {
-  return render(<ProvedorDeTema>{componente}</ProvedorDeTema>);
+  return render(componente, { wrapper: ProvedorDeTema });
 }

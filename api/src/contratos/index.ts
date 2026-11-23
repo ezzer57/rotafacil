@@ -97,6 +97,21 @@ export const ajustarRoteiroSchema = z.discriminatedUnion('operacao', [
   }),
 ]);
 
+/** "Recalcular daqui": refaz o que falta do roteiro a partir de agora. */
+export const recalcularRoteiroSchema = z.object({
+  /**
+   * Posição do aparelho. Ausente quando o GPS foi negado ou não respondeu: o
+   * resto parte da última parada em que a pessoa chegou.
+   */
+  origem: coordenadaSchema.optional(),
+  /** Quanto tempo a pessoa ainda tem, a partir de agora. */
+  tempoDisponivelMin: z
+    .number()
+    .int()
+    .min(30, 'Informe ao menos 30 minutos')
+    .max(1440, 'O roteiro é planejado para um único dia'),
+});
+
 export const visitaSchema = z.object({
   pontoId: z.string().trim().min(1).max(120),
   /** Quanto o usuário pagou na corrida até este ponto, quando informa. */
@@ -124,3 +139,4 @@ export type DadosCadastro = z.infer<typeof cadastroSchema>;
 export type DadosLogin = z.infer<typeof loginSchema>;
 export type DadosGerarRoteiro = z.infer<typeof gerarRoteiroSchema>;
 export type DadosAjustarRoteiro = z.infer<typeof ajustarRoteiroSchema>;
+export type DadosRecalcularRoteiro = z.infer<typeof recalcularRoteiroSchema>;

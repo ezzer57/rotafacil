@@ -43,7 +43,7 @@ de cada teste. Por segurança, só rodam em banco com "test" no nome.
 ```
 src/
 ├─ config/env.ts     configuração validada no boot (falha rápido)
-├─ core/             motor puro: geo, tarifa e roteirização (+ testes)
+├─ core/             motor puro: geo, tarifa, roteirização e recálculo (+ testes)
 ├─ lib/              logger, cliente do banco e erros da aplicação
 ├─ middlewares/      autenticação, validação e tratamento de erros
 ├─ modules/          auth, cidades, pontos, roteiros e saúde
@@ -81,7 +81,9 @@ tipos de `mobile/src/domain/types.ts`, e `npm run typecheck` falha se não coube
 | GET | `/v1/itineraries` | sim | Histórico paginado |
 | GET | `/v1/itineraries/:id` | sim | Roteiro completo |
 | PATCH | `/v1/itineraries/:id` | sim | Remove, troca ponto, muda ou tira o teto de gasto |
+| POST | `/v1/itineraries/:id/recalculate` | sim | "Recalcular daqui": refaz o que falta a partir da posição e da hora de agora |
 | POST | `/v1/itineraries/:id/checkins` | sim | Registra visita |
+| DELETE | `/v1/itineraries/:id/checkins/:pontoId` | sim | Desfaz a visita |
 | DELETE | `/v1/itineraries/:id` | sim | Apaga o roteiro |
 
 Todo erro sai no mesmo formato, com código estável:
@@ -103,6 +105,16 @@ descartado pelo preço, mas o custo continua pesando na escolha, medido por
 uma régua fixa de R$ 80 (`ORCAMENTO_DE_REFERENCIA`). Assim o roteiro segue
 preferindo caminhadas e lugares mais baratos, e o app mostra o custo médio
 previsto em vez do uso do orçamento.
+
+**Roteiro em andamento não perde o que já foi feito.** No "Recalcular daqui"
+e nos ajustes (tirar, trocar, mudar o teto), as paradas em que a pessoa já
+chegou ficam como estão, com horário, trecho e custo, e só o resto é refeito
+(`core/recalculo.ts`). O resto sai da posição informada (ou, sem ela, da
+última parada feita), a partir de agora, com o tempo que a pessoa diz ter e
+o que sobra do teto depois do que já foi gasto (o valor pago, quando
+informado; senão, a estimativa). Lugar visitado não volta, e parada visitada
+não pode ser tirada sem desfazer a chegada. O pedido original continua
+gravado como foi feito; o último recálculo fica em colunas próprias.
 
 **Senha com bcrypt custo 12.** O hash nunca sai do servidor. No login, a
 comparação acontece mesmo quando o e-mail não existe, para o tempo de
@@ -151,7 +163,7 @@ limitação conhecida do protótipo, justificada.
 | Corpo gigante ou JSON malformado | Limite de 100 KB e erro no formato padrão |
 | Erro interno revelando detalhes | Em produção, 500 genérico; o detalhe fica só no log |
 | Injeção de SQL | Prisma com consultas parametrizadas; nenhuma SQL é montada com dado do usuário |
-| Dados enviados a terceiros | O OSRM recebe a partida e as coordenadas dos pontos; o mapa e as fotos recebem o IP. Tudo declarado na Política de Privacidade, com a transferência internacional (art. 33, VIII). Com servidor de rotas próprio, as coordenadas não saem |
+| Dados enviados a terceiros | O OSRM recebe a partida (e a posição do "Recalcular daqui", quando a pessoa pede) e as coordenadas dos pontos; o mapa e as fotos recebem o IP. Tudo declarado na Política de Privacidade, com a transferência internacional (art. 33, VIII). Com servidor de rotas próprio, as coordenadas não saem |
 | Direito de eliminação (art. 18) | `DELETE /v1/me` apaga conta, roteiros, paradas, visitas e aceites, em cascata; um teste de integração confere |
 | Prova do consentimento (art. 8º) | O aceite fica gravado com tipo, versão da política e data |
 | Cadastro revela se o e-mail existe | Inevitável num cadastro ("e-mail já cadastrado"); contido pelo limite de tentativas. Aceito |

@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "RotaFácil API",
-    "description": "Teste de contrato da API do RotaFácil. Roda com a Postman CLI:\n\n    npm run contrato\n\nPercorre o fluxo completo: cadastro, login, listagem de cidades, geração de roteiro, ajuste de orçamento, registro de visita e exclusão. Cada requisição confere o formato da resposta, e não apenas o código HTTP.",
+    "description": "Teste de contrato da API do RotaFácil. Roda com a Postman CLI:\n\n    npm run contrato\n\nPercorre o fluxo completo: cadastro, login, listagem de cidades, geração de roteiro, ajuste de orçamento, registro de visita, recálculo a partir da posição e exclusão. Cada requisição confere o formato da resposta, e não apenas o código HTTP.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -408,6 +408,38 @@
         "method": "GET",
         "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
         "url": "{{baseUrl}}/v1/itineraries/{{roteiroId}}"
+      }
+    },
+    {
+      "name": "Recalcular daqui",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 200', () => pm.response.to.have.status(200));",
+              "const roteiro = pm.response.json();",
+              "const feita = pm.collectionVariables.get('pontoId');",
+              "pm.test('a parada feita fica na frente, com a visita', () => { pm.expect(roteiro.itens[0].ponto.id).to.eql(feita); pm.expect(roteiro.itens[0].visita).to.not.eql(null); });",
+              "pm.test('o resto nao repete a parada feita', () => roteiro.itens.slice(1).forEach(i => pm.expect(i.ponto.id).to.not.eql(feita)));",
+              "pm.test('guarda de onde e com quanto tempo foi refeito', () => { pm.expect(roteiro.recalculo.de).to.eql('posicao'); pm.expect(roteiro.recalculo.tempoDisponivelMin).to.eql(120); });",
+              "pm.test('o pedido original continua o mesmo', () => pm.expect(roteiro.preferencias.tempoDisponivelMin).to.eql(240));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{baseUrl}}/v1/itineraries/{{roteiroId}}/recalculate",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"origem\": { \"lat\": -4.9532, \"lng\": -39.0156 },\n  \"tempoDisponivelMin\": 120\n}"
+        }
       }
     },
     {

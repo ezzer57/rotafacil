@@ -14,7 +14,7 @@ npm install
 npx expo start      # QR code para o Expo Go; aperte "w" para abrir no navegador
 npx tsc --noEmit    # confere os tipos
 npm run lint        # regras de código
-npm test            # componentes, regras e os fluxos principais (entrar, gerar roteiro, check-in)
+npm test            # componentes, regras e os fluxos principais (entrar, gerar roteiro, check-in, recalcular)
 npx expo-doctor     # versões dos pacotes de acordo com o SDK
 ```
 

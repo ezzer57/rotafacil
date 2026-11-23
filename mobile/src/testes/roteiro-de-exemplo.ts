@@ -28,6 +28,7 @@ export function pontoDeExemplo(parcial: Partial<PontoInteresse> = {}): PontoInte
 
 export const trechoAPe: Trecho = {
   origemId: 'origem',
+  partida: null,
   destinoId: 'qx-museu',
   modal: 'pe',
   fonte: 'estimada',
@@ -41,6 +42,7 @@ export const trechoAPe: Trecho = {
 
 export const trechoDeCarro: Trecho = {
   origemId: 'origem',
+  partida: null,
   destinoId: 'qx-museu',
   modal: 'app',
   fonte: 'ruas',
@@ -110,6 +112,7 @@ export function roteiroDeExemplo(parcial: Partial<Roteiro> = {}): Roteiro {
       tempoDisponivelMin: 240,
       inicioPrevisto: '2026-11-25T12:00:00.000Z',
     },
+    recalculo: null,
     ...parcial,
   };
 }

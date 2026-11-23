@@ -17,6 +17,7 @@ import type { ServicosApp } from '@/data/services';
 import type {
   Cidade,
   ID,
+  PedidoDeRecalculo,
   PontoInteresse,
   PreferenciasRoteiro,
   ResumoRoteiro,
@@ -128,6 +129,13 @@ export function createServicosHttp(baseUrl: string): ServicosApp {
         req<Roteiro>(`/v1/itineraries/${roteiroId}`, {
           method: 'PATCH',
           ...json({ operacao: 'orcamento', orcamento }),
+        }),
+
+      // Sem posição, o corpo vai sem `origem`: a API parte da última parada feita.
+      recalcularDaqui: (roteiroId: ID, { origem, tempoDisponivelMin }: PedidoDeRecalculo) =>
+        req<Roteiro>(`/v1/itineraries/${roteiroId}/recalculate`, {
+          method: 'POST',
+          ...json({ origem: origem ?? undefined, tempoDisponivelMin }),
         }),
 
       registrarVisita: (roteiroId: ID, pontoId: ID, custoRegistrado?: number) =>

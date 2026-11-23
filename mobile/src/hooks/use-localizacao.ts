@@ -55,6 +55,44 @@ const PRAZO_GPS_MS = 20_000;
 const prazoEsgotado = () =>
   new Promise<null>((resolver) => setTimeout(() => resolver(null), PRAZO_GPS_MS));
 
+/** No "Recalcular daqui" a pessoa está esperando na tela: o GPS tem menos tempo. */
+const PRAZO_LEITURA_UNICA_MS = 10_000;
+
+/**
+ * Lê a posição uma vez, para o "Recalcular daqui": a do GPS, se vier no
+ * prazo, ou a última conhecida, se for recente. Devolve null quando a
+ * localização está desligada, a permissão é negada ou nada chega a tempo, e
+ * quem chama decide de onde partir. Como a outra leitura, só com o app aberto
+ * e sem guardar nada no aparelho.
+ */
+export async function lerPosicaoAgora(): Promise<Coordenada | null> {
+  let prazo: ReturnType<typeof setTimeout> | undefined;
+  try {
+    if (!(await Location.hasServicesEnabledAsync())) return null;
+    const permissao = await Location.requestForegroundPermissionsAsync();
+    if (!permissao.granted) return null;
+
+    const precisa = await Promise.race([
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
+      new Promise<null>((resolver) => {
+        prazo = setTimeout(() => resolver(null), PRAZO_LEITURA_UNICA_MS);
+      }),
+    ]).catch(() => null);
+    const posicao =
+      precisa ??
+      (await Location.getLastKnownPositionAsync({
+        maxAge: ULTIMA_POSICAO_IDADE_MAX_MS,
+        requiredAccuracy: ULTIMA_POSICAO_PRECISAO_MAX_M,
+      }).catch(() => null));
+
+    return posicao ? { lat: posicao.coords.latitude, lng: posicao.coords.longitude } : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(prazo);
+  }
+}
+
 export function useLocalizacao(automatico = true): Localizacao {
   const [estado, setEstado] = useState<EstadoLocalizacao>(automatico ? 'solicitando' : 'inicial');
   const [coordenada, setCoordenada] = useState<Coordenada | null>(null);

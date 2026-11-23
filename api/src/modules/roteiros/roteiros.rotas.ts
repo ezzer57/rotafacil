@@ -6,6 +6,7 @@ import {
   gerarRoteiroSchema,
   idParamSchema,
   paginacaoSchema,
+  recalcularRoteiroSchema,
   visitaParamSchema,
   visitaSchema,
 } from '@/contratos/index.js';
@@ -43,6 +44,15 @@ rotasRoteiros.patch(
         : ({ tipo: corpo.operacao, pontoId: corpo.pontoId } as const);
 
     res.json(await servico.ajustar(req.usuarioId!, parametro(req, 'id'), operacao));
+  },
+);
+
+// "Recalcular daqui": refaz o que falta a partir da posição e da hora de agora.
+rotasRoteiros.post(
+  '/:id/recalculate',
+  validar({ params: idParamSchema, body: recalcularRoteiroSchema }),
+  async (req, res) => {
+    res.json(await servico.recalcularDaqui(req.usuarioId!, parametro(req, 'id'), req.body));
   },
 );
 

@@ -100,7 +100,13 @@ export interface DetalheCalculoTarifa {
 export type FonteDaMedida = 'ruas' | 'estimada';
 
 export interface Trecho {
+  /** A parada anterior, "origem" (a partida do roteiro) ou "posicao" (ver `partida`). */
   origemId: ID;
+  /**
+   * De onde o trecho saiu quando não foi da parada anterior: no "Recalcular
+   * daqui", a posição da pessoa naquela hora. Null no caso comum.
+   */
+  partida: Coordenada | null;
   destinoId: ID;
   modal: Modal;
   fonte: FonteDaMedida;
@@ -190,6 +196,21 @@ export interface PreferenciasRoteiro {
   inicioPrevisto: DataISO;
 }
 
+/** De onde o "Recalcular daqui" partiu: da posição, da última parada feita ou da partida. */
+export type OrigemDoRecalculo = 'posicao' | 'ultima-parada' | 'partida';
+
+/**
+ * O último "Recalcular daqui": o resto do roteiro foi refeito a partir de
+ * `origem`, na hora `em`, com `tempoDisponivelMin` livres. As paradas em que
+ * a pessoa já tinha chegado ficaram como estavam.
+ */
+export interface RecalculoRoteiro {
+  em: DataISO;
+  origem: Coordenada;
+  tempoDisponivelMin: number;
+  de: OrigemDoRecalculo;
+}
+
 export interface Roteiro {
   id: ID;
   cidadeId: ID;
@@ -206,6 +227,16 @@ export interface Roteiro {
   diagnostico: DiagnosticoRoteiro;
   /** Entradas que originaram este roteiro, para permitir o recálculo. */
   preferencias: PreferenciasRoteiro;
+  /** Null enquanto o roteiro não foi recalculado "daqui". */
+  recalculo: RecalculoRoteiro | null;
+}
+
+/** O pedido do "Recalcular daqui". */
+export interface PedidoDeRecalculo {
+  /** Posição do aparelho; null quando o GPS foi negado ou não respondeu. */
+  origem: Coordenada | null;
+  /** Quanto tempo a pessoa ainda tem, a partir de agora. */
+  tempoDisponivelMin: number;
 }
 
 /** Versão resumida usada nas listagens de histórico. */
