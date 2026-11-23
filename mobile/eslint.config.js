@@ -9,6 +9,12 @@ module.exports = defineConfig([
   expoConfig,
   eslintPluginPrettierRecommended,
   {
-    ignores: ['dist/*', 'dist-web/*', '.expo/*', 'scripts/*'],
+    ignores: [
+      'dist/*',
+      'dist-web/*',
+      '.expo/*',
+      'scripts/*',
+      'src/components/mapa/leaflet-embutido.ts',
+    ],
   },
 ]);

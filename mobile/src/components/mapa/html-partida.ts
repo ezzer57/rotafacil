@@ -1,13 +1,15 @@
 /**
- * Monta a página do mapa do ponto de partida.
+ * Página do mapa do ponto de partida.
  *
  * Mostra onde o GPS diz que o usuário está, com o círculo da margem de erro,
  * e o ponto de onde o roteiro vai partir. Um toque no mapa move o ponto de
  * partida e avisa o aplicativo.
  *
  * Como no mapa do roteiro, o mesmo HTML serve ao WebView do celular e ao
- * iframe do navegador.
+ * iframe do navegador, sobre a base de pagina.ts.
  */
+
+import { corSegura, paginaDoMapa } from './pagina';
 
 interface OpcoesMapaPartida {
   posicao: { lat: number; lng: number } | null;
@@ -28,48 +30,25 @@ export function construirHtmlMapaPartida({
   corFundo,
   escuro,
 }: OpcoesMapaPartida): string {
-  const dados = JSON.stringify({ posicao, precisaoM, partida });
+  const primaria = corSegura(corPrimaria);
+  const sucesso = corSegura(corSucesso);
 
-  return `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<style>
-  html, body, #mapa { height: 100%; margin: 0; padding: 0; background: ${corFundo}; }
-  .leaflet-container { background: ${corFundo}; font-family: -apple-system, system-ui, sans-serif; }
-  .escuro .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.92); }
+  return paginaDoMapa({
+    corFundo,
+    escuro,
+    dados: { posicao, precisaoM, partida, cores: { primaria } },
+    estilos: `
   .voce {
     width: 14px; height: 14px; border-radius: 999px;
-    background: ${corPrimaria}; border: 3px solid #fff;
-    box-shadow: 0 0 0 2px ${corPrimaria}55, 0 2px 6px rgba(0,0,0,.35);
+    background: ${primaria}; border: 3px solid #fff;
+    box-shadow: 0 0 0 2px ${primaria}55, 0 2px 6px rgba(0,0,0,.35);
   }
   .partida {
     width: 18px; height: 18px; border-radius: 999px;
-    background: #fff; border: 5px solid ${corSucesso};
+    background: #fff; border: 5px solid ${sucesso};
     box-shadow: 0 2px 6px rgba(0,0,0,.4);
-  }
-  .leaflet-control-attribution { font-size: 9px; opacity: .8; }
-</style>
-</head>
-<body class="${escuro ? 'escuro' : ''}">
-<div id="mapa"></div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-  var dados = ${dados};
-
-  var mapa = L.map('mapa', { zoomControl: false, attributionControl: false });
-  L.control.zoom({ position: 'bottomright' }).addTo(mapa);
-  // Crédito em texto, sem link: dentro do WebView um link trocaria o mapa
-  // pela página de destino, sem botão de voltar.
-  L.control.attribution({ prefix: false }).addTo(mapa);
-
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(mapa);
-
+  }`,
+    script: `
   var icone = function (classe, lado) {
     return L.divIcon({ className: '', html: '<div class="' + classe + '"></div>', iconSize: [lado, lado], iconAnchor: [lado / 2, lado / 2] });
   };
@@ -77,7 +56,7 @@ export function construirHtmlMapaPartida({
   if (dados.posicao) {
     var aqui = [dados.posicao.lat, dados.posicao.lng];
     if (dados.precisaoM) {
-      L.circle(aqui, { radius: dados.precisaoM, color: '${corPrimaria}', weight: 1, fillOpacity: 0.12 }).addTo(mapa);
+      L.circle(aqui, { radius: dados.precisaoM, color: dados.cores.primaria, weight: 1, fillOpacity: 0.12 }).addTo(mapa);
     }
     // Fica por cima do ponto de partida: quando os dois coincidem, aparece
     // o ponto azul dentro do anel verde.
@@ -98,12 +77,10 @@ export function construirHtmlMapaPartida({
     marcador.setLatLng(evento.latlng);
     var ponto = { lat: evento.latlng.lat, lng: evento.latlng.lng };
     if (window.ReactNativeWebView) {
-      window.ReactNativeWebView.postMessage(JSON.stringify(ponto));              // celular
+      window.ReactNativeWebView.postMessage(JSON.stringify(ponto));                         // celular
     } else if (window.parent) {
       window.parent.postMessage({ tipo: 'partida', lat: ponto.lat, lng: ponto.lng }, '*'); // navegador
     }
+  });`,
   });
-</script>
-</body>
-</html>`;
 }

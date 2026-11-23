@@ -2,10 +2,12 @@
  * Mapa do roteiro - versão para navegador.
  *
  * Usa o mesmo HTML da versão do celular, só que dentro de um iframe, o que
- * mantém o desenho idêntico nas duas plataformas.
+ * mantém o desenho idêntico nas duas plataformas. O iframe é isolado
+ * (sandbox): o mapa roda sem acesso ao armazenamento do app, onde fica o
+ * token da sessão. Só valem as mensagens que vêm desse iframe.
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { View } from 'react-native';
 
 import { useTema } from '@/theme/provider';
@@ -20,6 +22,7 @@ export default function MapaRoteiro({
   onSelecionarParada,
 }: MapaRoteiroProps) {
   const { cores, escuro } = useTema();
+  const quadro = useRef<HTMLIFrameElement>(null);
 
   const html = useMemo(
     () =>
@@ -38,6 +41,7 @@ export default function MapaRoteiro({
   useEffect(() => {
     if (!onSelecionarParada) return;
     function aoReceber(evento: MessageEvent) {
+      if (evento.source !== quadro.current?.contentWindow) return;
       if (evento.data?.tipo === 'parada') onSelecionarParada?.(String(evento.data.id));
     }
     window.addEventListener('message', aoReceber);
@@ -55,7 +59,9 @@ export default function MapaRoteiro({
         backgroundColor: cores.fundoAlt,
       }}>
       <iframe
+        ref={quadro}
         title="Mapa do roteiro"
+        sandbox="allow-scripts"
         srcDoc={html}
         style={{ width: '100%', height: '100%', border: 'none' }}
       />

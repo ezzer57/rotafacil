@@ -165,7 +165,7 @@ são sempre estimadas em linha reta, e nada fica salvo.
 | Parte | Tecnologias |
 |---|---|
 | Aplicativo | React Native 0.86 com Expo SDK 57, TypeScript, Expo Router, TanStack Query, Zod, expo-location |
-| Mapas | Leaflet 1.9 com mapas do OpenStreetMap (WebView no celular, iframe no navegador) |
+| Mapas | Leaflet 1.9 embutido no app, com mapas do OpenStreetMap (WebView no celular, iframe isolado no navegador) |
 | API | Node.js, Express 5, TypeScript (executado com tsx), Zod, JWT, bcrypt, pino |
 | Banco | PostgreSQL 16 com Prisma 6 (migrações e carga inicial) |
 | Rotas | OSRM com dados do OpenStreetMap (servidores públicos ou próprio, em Docker) |

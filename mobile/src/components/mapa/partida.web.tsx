@@ -1,10 +1,12 @@
 /**
  * Mapa do ponto de partida - versão para navegador.
  *
- * Usa o mesmo HTML da versão do celular, dentro de um iframe.
+ * Usa o mesmo HTML da versão do celular, dentro de um iframe isolado
+ * (sandbox): o mapa roda sem acesso ao armazenamento do app, onde fica o
+ * token da sessão. Só valem as mensagens que vêm desse iframe.
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { View } from 'react-native';
 
 import { useTema } from '@/theme/provider';
@@ -22,6 +24,7 @@ export default function MapaPartida({
 }: MapaPartidaProps) {
   const { cores, escuro } = useTema();
   const { base, aoTocar } = useBaseDoMapa(partida, onEscolher);
+  const quadro = useRef<HTMLIFrameElement>(null);
 
   const html = useMemo(
     () =>
@@ -40,6 +43,7 @@ export default function MapaPartida({
   // O toque no mapa chega como mensagem vinda do iframe.
   useEffect(() => {
     function aoReceber(evento: MessageEvent) {
+      if (evento.source !== quadro.current?.contentWindow) return;
       const dado = evento.data;
       if (
         dado?.tipo === 'partida' &&
@@ -64,7 +68,9 @@ export default function MapaPartida({
         backgroundColor: cores.fundoAlt,
       }}>
       <iframe
+        ref={quadro}
         title="Mapa do ponto de partida"
+        sandbox="allow-scripts"
         srcDoc={html}
         style={{ width: '100%', height: '100%', border: 'none' }}
       />
