@@ -46,7 +46,7 @@ export interface TarifaDados {
   kmBandeira1: number;
   kmBandeira2: number;
   horaParada: number;
-  /** Fator de calibração para transporte por aplicativo (equação 10). */
+  /** Fator de calibração para transporte por aplicativo (equação 4). */
   alfa: number;
   alfaP10: number;
   alfaP90: number;

@@ -1,5 +1,5 @@
 /**
- * Estimativa de custo de deslocamento (seção 3.7 do TCC).
+ * Estimativa de custo de deslocamento (seção 4.3 do TCC).
  *
  * O modelo parte da metodologia tarifária do táxi, que é pública e fixada
  * por norma municipal, e aplica um fator de calibração obtido empiricamente
@@ -57,7 +57,7 @@ export function bandeiraDe(momento: Date): Bandeira {
 }
 
 /**
- * Equação (8): tarifa do táxi para um trecho.
+ * Equação (3): tarifa do táxi para um trecho.
  *
  *   C = bandeirada + (R$/km × distância) + (R$/hora parada ÷ 60 × minutos lentos)
  */
@@ -77,7 +77,7 @@ export function custoTaxi(
 }
 
 /**
- * Equação (10): converte a tarifa de táxi na faixa de preço do aplicativo.
+ * Equação (4): converte a tarifa de táxi na faixa de preço do aplicativo.
  * O resultado é uma faixa, e não um número único, porque a tarifação
  * dinâmica das plataformas varia ao longo do dia.
  */

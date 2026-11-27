@@ -25,7 +25,7 @@ export type CategoriaPOI =
 /** Modal de deslocamento escolhido pelo algoritmo para um trecho. */
 export type Modal = 'pe' | 'app';
 
-/** Bandeira tarifária do táxi aplicada ao trecho (ver seção 3.7 do TCC). */
+/** Bandeira tarifária do táxi aplicada ao trecho (ver seção 4.3 do TCC). */
 export type Bandeira = 1 | 2;
 
 export interface Coordenada {
@@ -89,9 +89,9 @@ export interface DetalheCalculoTarifa {
   distanciaKm: number;
   minutosLentos: number;
   valorHoraParada: Reais;
-  /** Resultado da equação (8): a tarifa de táxi antes da calibração. */
+  /** Resultado da equação (3): a tarifa de táxi antes da calibração. */
   subtotalTaxi: Reais;
-  /** Fator alfa da equação (10), que aproxima o preço do aplicativo. */
+  /** Fator alfa da equação (4), que aproxima o preço do aplicativo. */
   fatorAplicativo: number;
   norma: string;
 }

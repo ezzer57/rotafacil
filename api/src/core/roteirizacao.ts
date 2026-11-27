@@ -1,5 +1,5 @@
 /**
- * Motor de roteirização (seção 3.5 do TCC).
+ * Motor de roteirização (seção 4.2 do TCC).
  *
  * O problema é uma variação do Orienteering Problem com janelas de tempo e
  * restrição de orçamento: há mais atrativos do que cabe no dia, então é
@@ -296,7 +296,7 @@ function notaBayesiana(candidato: Candidato, estatisticas: EstatisticasDasNotas 
 }
 
 /**
- * Pontuação do ponto (equação 6): média bayesiana ponderada pela preferência.
+ * Pontuação do ponto: média bayesiana ponderada pela preferência.
  * Usar a nota crua favoreceria um lugar com nota 5 e três avaliações; a média
  * bayesiana puxa quem tem poucas avaliações na direção da média geral.
  *
