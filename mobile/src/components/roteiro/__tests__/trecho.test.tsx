@@ -21,7 +21,7 @@ describe('TrechoAteAqui', () => {
 
     expect(corrida).toBeExpanded();
     expect(screen.getByText('Como calculamos')).toBeOnTheScreen();
-    expect(screen.getByText('Tarifa de táxi (equação 8)')).toBeOnTheScreen();
+    expect(screen.getByText('Tarifa de táxi (equação 3)')).toBeOnTheScreen();
     expect(screen.getByText('Fonte da tarifa: Tarifa de teste')).toBeOnTheScreen();
   });
 

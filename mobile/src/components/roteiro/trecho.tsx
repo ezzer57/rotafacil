@@ -81,7 +81,7 @@ export function TrechoAteAqui({ trecho }: { trecho: Trecho }) {
   );
 }
 
-/** Memória de cálculo: tarifa do táxi (equação 8) e fator de aplicativo (equação 10). */
+/** Memória de cálculo: tarifa do táxi (equação 3) e fator de aplicativo (equação 4). */
 function ComoCalculamos({ calculo: c, trecho }: { calculo: DetalheCalculoTarifa; trecho: Trecho }) {
   const cores = useCores();
 
@@ -103,7 +103,7 @@ function ComoCalculamos({ calculo: c, trecho }: { calculo: DetalheCalculoTarifa;
         />
         <View style={{ height: 1, backgroundColor: cores.borda, marginVertical: espaco.xs }} />
         <LinhaCalculo
-          rotulo="Tarifa de táxi (equação 8)"
+          rotulo="Tarifa de táxi (equação 3)"
           valor={formatarReais(c.subtotalTaxi)}
           destaque
         />
