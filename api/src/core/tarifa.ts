@@ -2,9 +2,10 @@
  * Estimativa de custo de deslocamento (seção 4.3 do TCC).
  *
  * O modelo parte da metodologia tarifária do táxi, que é pública e fixada
- * por norma municipal, e aplica um fator de calibração obtido empiricamente
- * para aproximar o preço praticado pelos aplicativos de transporte, cujas
- * tabelas não são publicadas.
+ * por norma municipal, e aplica um fator de calibração α para aproximar o
+ * preço praticado pelos aplicativos de transporte, cujas tabelas não são
+ * publicadas. Na versão do TCC, α e a faixa foram arbitrados pelo autor,
+ * sem corridas reais para calibrar (Quadro 5).
  *
  * Todo o cálculo mora aqui, em funções puras, para poder ser testado valor a
  * valor e auditado por quem avaliar o trabalho.
@@ -20,7 +21,10 @@ export interface ParametrosTarifa {
   horaParada: number;
   /** Fator médio de conversão para o preço de aplicativo. */
   alfa: number;
-  /** Percentis 10 e 90 das razões observadas, que formam a faixa exibida. */
+  /**
+   * Limites da faixa exibida (α10 e α90). Hoje são arbitrados; com corridas
+   * reais, seriam os percentis 10 e 90 das razões observadas.
+   */
   alfaP10: number;
   alfaP90: number;
   norma: string;
@@ -117,7 +121,8 @@ export function estimarTrechoPorAplicativo(
 
 /**
  * Erro percentual absoluto médio entre preços observados e estimados.
- * É a métrica usada para avaliar a hipótese de previsibilidade orçamentária.
+ * É a métrica prevista para medir a precisão da estimativa quando houver
+ * corridas reais; a avaliação do TCC não mediu essa precisão.
  */
 export function mape(pares: { observado: number; estimado: number }[]): number {
   if (pares.length === 0) throw new Error('É preciso ao menos uma observação');
